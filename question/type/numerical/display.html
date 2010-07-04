@@ -1,0 +1,254 @@
+<div class="qtext">
+  <?php echo $questiontext; ?>
+</div>
+
+<?php if ($image) { ?>
+  <img class="qimage" src="<?php echo $image; ?>" alt="" />
+<?php } ?>
+
+<div class="ablock clearfix">
+  <div class="prompt">
+    <?php echo get_string("answer", "quiz").': '; ?>
+  </div>
+<div  class="que numerical clearfix">
+<?php
+        $textlength = 20 ;
+?>
+
+<?php
+ if ( $question->options->unitsleft == 0 ){ ?>
+
+  <div class="answer">
+    <fieldset class="answer"  id="generalheader">
+         <legend class="ftoggler">
+            <?php echo get_string('datasetnumber', 'quiz') ; ?>
+         </legend>
+    <input type="text" class="<?php echo $class; ?>" <?php echo "$readonly  $nameanswer $valueanswer"; //
+    ?> size="<?php echo $textlength;?>" />
+    <?php echo $feedbackimg; ?>
+</fieldset>
+  </div>
+
+
+<?php }// display unit
+        
+        if ($question->options->showunits == NUMERICALQUESTIONUNITNODISPLAY || (isset($question->options->units) && count($question->options->units) == 0 )) {// no unit display or tested
+
+?>
+  <div class="answer">
+    <input type="hidden"
+    <?php
+    echo $nameunit;
+    ?>
+   value ="" />
+  </div>
+<?php
+  } else if ($question->options->showunits == NUMERICALQUESTIONUNITTEXTINPUTDISPLAY  ) {// display unit text input
+?>
+<div class="answer numerical ">
+    <fieldset class="clearfix"  id="generalheader">
+         <legend class="ftoggler">
+            <?php echo get_string('unit', 'quiz'); ?>
+         </legend>
+    <input type="text" class="<?php echo $classunit; ?>" <?php echo "$readonly  $nameunit $valueunit"; //
+    ?> size="<?php echo $textlength;?>"/>
+    <?php echo $feedbackimgunit; 
+    if ($options->feedback &&  $classunitvalue == 0 && ! $answerasterisk ){
+        if(isset($question->options->units) && count($question->options->units) > 0){
+            $found = 0 ;
+            foreach($question->options->units as $key => $unit){
+                if($state->responses['unit'] == $unit->unit){
+                    print_string('unitnotvalid', 'qtype_numerical'); 
+                    $found = 1 ;
+                    break;
+                }
+            }
+            if ($found == 0) {
+                print_string('unitunknown', 'qtype_numerical'); 
+            }
+        }
+    }
+    
+    ?>
+</fieldset>
+  </div>
+<?php
+
+  } else if ($question->options->showunits == NUMERICALQUESTIONUNITTEXTDISPLAY ) {// display text
+
+?>
+  <div class="answer">
+    <fieldset class="clearfix"  id="generalheader">
+         <legend class="ftoggler">
+            <?php echo get_string('unit', 'quiz');
+             ?>
+         </legend>
+    <input type="hidden"
+    <?php
+    echo $nameunit; echo $valueunit ;
+
+    ?>
+   />
+ <?php   echo $question->options->units[0]->unit  ;
+
+         echo '&nbsp; ' ;
+     ?>
+    </fieldset>
+  </div>
+
+  <?php
+
+    //display the units as choice
+
+    } else if ($question->options->showunits == NUMERICALQUESTIONUNITMULTICHOICEDISPLAY){?>
+
+
+
+<?php
+    //display the units as choice 
+    if ( isset($question->options->units)){?>
+    <div class="answer">
+    <fieldset class="clearfix"  id="generalheader">
+         <legend class="ftoggler">
+            <?php echo get_string('unit', 'quiz');
+             ?>
+         </legend>
+      <!--  <div class="que multichoice clearfix">
+            <div class="content"> class="answer"
+                <div class="ablock clearfix"> -->
+                    <table >
+
+<?php       
+            // the order is not shuffled
+            //however the unitvalue is related to the number value
+            // if the response/unit->multiplier is true then
+            // the  
+            
+            foreach ($question->options->units as $key => $unit) {
+            $checked = '';
+            $chosen = false;
+            $classunitvalue = 0 ;
+                $type = 'type="radio"';
+             //   $nameunit   = "name=\"".$question->name_prefix;//."unit\"";
+                if ($response != '' && isset($state->responses['unit']) && $state->responses['unit'] != '' ){
+                    // we have a unit response
+                    // this unit is the one chosen
+                    // test if the unit give a valid response 
+                            $testresponse = $response /$unit->multiplier ;                        
+                            if($answerasterisk || ($answer->min <= $testresponse && $testresponse <= $answer->max)) {
+                              $classunitvalue = $answer->fraction ;
+                            }
+                     //       echo "<p> dans display classunitvalue $classunitvalue  response $response $unit->multiplier  $unit->unit state  <pre>";print_r($answer);echo "</pre></p>";                                       
+                        if ($state->responses['unit'] == $unit->unit) {
+                        $checked = 'checked="checked"';
+                        $chosen = true;
+                        
+                    }
+                }else if ($key == 0) {
+                    $checked = 'checked="checked"';
+                    $chosen = true;
+                }
+
+            $aid = $question->id ;
+            $a = new stdClass;
+            $a->id   = $question->name_prefix."unit" ;//. "2"
+            $a->class =  '' ;
+            $a->feedbackimg = '';
+
+            $a->control = "<input $readonly  $nameunit $checked $type  value=\"$key\" />";
+
+            if ($options->correct_responses && $classunitvalue > 0 ) { //$answer->fraction 
+                $a->class = question_get_feedback_class($classunitvalue);
+            }
+            if (($options->feedback && $chosen) || $options->correct_responses) {
+                    $a->feedbackimg = question_get_feedback_image($classunitvalue, $chosen && $options->feedback);
+            }
+
+            // Print the control
+            // Print the answer text
+            $a->text = format_text($unit->unit, FORMAT_MOODLE, $formatoptions, $cmoptions->course);
+            $row = 0 ;
+
+?>
+                        <tr class="<?php echo 'r'.$row = $row ? 0 : 1; ?>">
+                            <td class="c0 control " style=" ">
+                      <?php echo $a->control.'&nbsp;&nbsp;&nbsp;'; ?>
+                            </td>
+                            <td style=" " class="c1 text <?php echo $a->class ?>">
+                                <label for="<?php echo $a->id ?>">
+                        <?php echo $a->text.'<br />'; ?>
+                        <?php echo $a->feedbackimg; 
+                        if ($options->feedback &&  $classunitvalue == 0  && $chosen && !$answerasterisk){
+                            print_string('unitnotvalid', 'qtype_numerical');
+                        }
+?>
+                                </label>
+                            </td>
+                        </tr>
+                <?php } ?>
+
+                    </table>
+           <!--     </div> 
+            </div> 
+        </div> -->
+         </fieldset>
+    
+
+    </div>
+            <?php } // end unit choices
+            // display intructions
+            // general message first
+        }
+
+ if ($question->options->unitsleft == 1 ){?>
+
+ <div class="answer">
+    <fieldset class="clearfix"  id="generalheader">
+         <legend class="ftoggler">
+            <?php echo get_string('datasetnumber', 'quiz'); ?>
+         </legend>
+    <input type="text" class="<?php echo $class; ?>" <?php echo "$readonly  $nameanswer $valueanswer"; //
+    ?> size="<?php echo $textlength;?>"/>
+    <?php echo $feedbackimg; ?>
+   </fieldset>
+  </div>
+<?php }
+
+        //</div> put a div to enclose the answer and unit elements
+?>
+</div>
+
+
+       <div class="feedback">
+        <fieldset class="clearfix"  id="generalheader">
+         <legend class="ftoggler">
+            <?php echo get_string('instructions', 'auth'); ?>
+         </legend>
+       <div class="feedback">
+        <fieldset class="clearfix"  id="generalheader">
+         <legend class="ftoggler">
+     <?php echo get_string('validnumberformats', 'qtype_numerical');?>
+         </legend>
+     <?php echo get_string('validnumbers', 'qtype_numerical');
+   
+     ?>
+     
+     </fieldset>
+       </div>
+     <?php if (!empty($question->options->instructions)){?>
+        <div>
+     <?php   echo  format_text($question->options->instructions, true, $formatoptions, $cmoptions->course);?>
+        </div>
+     <?php }?>
+     </fieldset>
+     </div>
+
+  <?php if ($feedback) { ?>
+    <div class="feedback">
+      <?php echo $feedback ?>
+    </div>
+  <?php } ?>
+  <?php $this->print_question_submit_buttons($question, $state, $cmoptions, $options); ?>
+</div>
+
+
