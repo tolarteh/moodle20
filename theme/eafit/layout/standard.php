@@ -24,8 +24,8 @@ echo $OUTPUT->doctype(); ?>
         </div>
 
         <div id="header">
-          <img src="<?php echo $OUTPUT->pix_url('logosimbolo_eafit', 'theme') ?>" />
-          <img src="<?php echo $OUTPUT->pix_url('logo', 'theme') ?>" />
+          <img class="logo" src="<?php echo $OUTPUT->pix_url('logosimbolo_eafit', 'theme') ?>" />
+          <img style="vertical-align: top;" src="<?php echo $OUTPUT->pix_url('logo', 'theme') ?>" />
         </div>
       </div>
     <div class="nav">
@@ -39,46 +39,21 @@ echo $OUTPUT->doctype(); ?>
     </div>
 
 
-      <div id="page-content">
-        <div id="region-main-box">
-          <div id="region-post-box">
-            <div id="region-main-wrap">
-              <div id="region-main">
-                <div class="region-content">
-                  <?php echo core_renderer::MAIN_CONTENT_TOKEN ?>
-                </div>
-              </div>
-            </div>
-            <?php if ($hassidepre) { ?>
-            <div id="region-pre">
-              <div class="region-content">
-                <?php echo $OUTPUT->blocks_for_region('side-pre') ?>
-              </div>
-            </div>
-            <?php } ?>
+    <div id="cuerpo">
+      <div class="contenido">
+        <?php echo core_renderer::MAIN_CONTENT_TOKEN ?>
+      </div>
 
-            <?php if ($hassidepost) { ?>
-            <div id="region-post">
-              <div class="region-content">
-                <?php echo $OUTPUT->blocks_for_region('side-post') ?>
-              </div>
-            </div>
-            <?php } ?>
-          </div>
-        </div>
+      <div class="sidebar">
+        <?php if ($hassidepre) { ?>
+        <?php echo $OUTPUT->blocks_for_region('side-pre') ?>
+        <?php } ?>
+
+        <?php if ($hassidepost) { ?>
+        <?php echo $OUTPUT->blocks_for_region('side-post') ?>
+        <?php } ?>
       </div>
-      <?php if (empty($PAGE->layout_options['nofooter'])) { ?>
-      <div id="page-footer" class="clearfix">
-        <p class="helplink"><?php echo page_doc_link(get_string('moodledocslink')) ?></p>
-        <?php
-          echo $OUTPUT->login_info();
-          echo $OUTPUT->home_link();
-          echo $OUTPUT->standard_footer_html();
-        ?>
-      </div>
-      <?php } ?>
     </div>
-
     <div id="footer_bg">
       <div id="footer">
         <div id="info-contacto">

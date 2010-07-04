@@ -8,49 +8,51 @@ b, u, i, center,
 dl, dt, dd, ol, ul, li,
 fieldset, form, label, legend,
 table, caption, tbody, tfoot, thead, tr, th, td {
-	margin: 0;
-	padding: 0;
-	border: 0;
-	outline: 0;
-	font-size: 100%;
-	vertical-align: baseline;
-	background: transparent;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  font-size: 100%;
+  vertical-align: baseline;
+  background: transparent;
 }
 body {
-	line-height: 1;
+  line-height: 1;
 }
-ol, ul {
-	list-style: none;
+ol, ul, li {
+  list-style: none;
 }
+
+ul li { list-style: none;}
 
 .botones-subportales li { list-style: none;}
 blockquote, q {
-	quotes: none;
+  quotes: none;
 }
 blockquote:before, blockquote:after,
 q:before, q:after {
-	content: '';
-	content: none;
+  content: '';
+  content: none;
 }
 
 /* remember to define focus styles! */
 :focus {
-	outline: 0;
+  outline: 0;
 }
 
 /* remember to highlight inserts somehow! */
 ins {
-	text-decoration: none;
+  text-decoration: none;
 }
 del {
-	text-decoration: line-through;
+  text-decoration: line-through;
 }
 
 table { border-collapse: collapse; }
 
 body {
   font-family: Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 
@@ -60,7 +62,6 @@ body {
   width:100%;
   background: url([[pix:theme|fondo_top]]) top repeat-x;
   height: 115px;
-
 }
 
 #menu-subportales {
@@ -98,12 +99,12 @@ body {
 
 #header {
   width: 100%;
-  height:90px;
+  height: 90px;
   margin: 0px auto;
 }
 
 #header { float: left; }
-#header img.logo { margin-left: 60px; }
+#header img.logo { margin-left: 18%; }
 
 
 /*CUERPO*/
@@ -119,7 +120,6 @@ body {
   padding: 15px 25px;
 }
 
-div#cuerpo div { margin-bottom: 1.5em; }
 
 /*FOOTER*/
 
@@ -141,6 +141,7 @@ div#cuerpo div { margin-bottom: 1.5em; }
 }
 
 .botones-footer ul, .botones-footer li {
+  list-type: none;
   text-align:right;
 }
 
@@ -178,15 +179,15 @@ a, a:visited { color: #006fbf; }
 li a { font-family: Helvetica, Arial, sans-serif; }
 p { line-height: 1.5em; }
 p + p { margin-top: 1em;}
-h1 { color: #006fbf; font-size: 1.5em; margin-bottom: 0.5em; font-weight: normal; }
-h2 { color: #002846;}
-div.content { float: left; width: 65%; }
+h2 { color: #006fbf; font-size: 1.5em; margin: 1em 0px; font-weight: normal; }
+
+div.contenido { float: left; width: 65%; }
 div.sidebar { float: right; width: 30%; }
 
 /* Navigation */
 
 div.nav { width: 100%; background-color: #004B85; height: 30px; }
-div.nav ul { margin: 0px auto; width: 990px; -webkit-box-shadow: 0px 1px 2px gray; }
+div.nav ul { margin-left: 18%; width: 990px; -webkit-box-shadow: 0px 1px 2px gray; }
 div.nav ul li { float: left; line-height: 30px; }
 div.nav ul li a:hover { background-color: #003565; color: white; text-shadow: 1px 1px 1px black; }
 div.nav ul li a {
@@ -202,7 +203,7 @@ div.nav ul li a {
 /* Main Page Labs */
 
 div.lab-preview { width: 180px; float: left; padding-right: 20px; }
-div.lab-preview p { margin-top: -1em; font-size: 0.8em;}
+div.lab-preview p { margin-top: 1em; font-size: 0.8em;}
 div.lab-preview div.image-block { position: relative; }
 div.lab-preview div.image-block img { max-width: 180px;  }
 div.lab-preview div.image-block a { text-decoration: none; }
@@ -226,27 +227,36 @@ div.bottom-content div { float: left;  }
 
 
 /* Sidebar */
-div.sidebox {
-  padding: 0px 1em;
-  margin-top: -1px;
-  float: right;
-  width: 90%;
+div.block {
+  padding: 0px;
+  border: 0px;
+  margin-bottom: 1em;
 }
 
-div.sidebox label { width: 4em; margin-right: 1.5em; display: block; float: left; }
-div.sidebox div { width: 220px; margin: 0 auto; }
+div.block .header { width: 100%; display: block;}
+div.block .content {
+  margin-left: 1em;
+  width: 220px;
+}
+
+div.block label { width: 4em; margin-right: 1.5em; display: block; float: left; }
+
+div.generalbox { border: 0px solid white; }
+
+div.block_action { display: none; }
 
 /* Calendar CSS */
-table.calendar {
+table.calendartable {
   width: 220px;
   height: 210px;
   background-color: white;
   margin: 0 auto;
+font-size: 1.1em;
 }
 
-table.calendar tr { border-right: 1px solid #e6e6e6; }
+table.calendartable tr { border-right: 1px solid #e6e6e6; }
 
-table.calendar td {
+table.calendartable td {
   font-family: "Trebuchet MS", Tahoma, Helvetica, sans;
   vertical-align: middle;
   text-align: center;
@@ -255,30 +265,30 @@ table.calendar td {
   height: 32px;
 }
 
-/* Calendar Header */
-table.calendar th {
+/* Calendartable Header */
+div.calendar-controls > *  {
   background-color: #004b85;
-  height: 35px;
+  padding: 0.5em 0px;
   color: white;
+font-size: 1.2em;
   vertical-align: middle;
-  font-family: "Baskerville", Georgia, Times, serif;
+  font-family: "Trebuchet MS", Tahoma, Helvetica, sans;
+
 }
+div.calendar-controls a { text-decoration: none; color: white; height: 17px; font-family: Helvetica; }
 
-table.calendar th.month { text-shadow: black 0px -1px 1px; border-left: 1px solid white; border-right: 1px solid white; }
-table.calendar th.left:hover  { background-color: #003565; -webkit-box-shadow: gray -1px 0px 1px}
-table.calendar th.right:hover  { background-color: #003565; -webkit-box-shadow: gray 1px 0px 1px }
-table.calendar th span { font-family: "Helvetica"; display: block; }
+table.calendartable th span { font-family: "Helvetica"; display: block; }
 
-/* Calendar Day Names */
-table.calendar td.day-name {
+/* Calendartable Day Names */
+table.calendartable td.day-name {
   color: #9E9E9E;
   font-size: 0.7em;
   font-weight: bold;
 
 }
 
-/* Calendar Days */
-table.calendar td.day {
+/* Calendartable Days */
+table.calendartable td.day {
   border: 1px solid #E6E6E6;
   text-align: center;
   vertical-align: middle;
@@ -286,7 +296,7 @@ table.calendar td.day {
   font-size: 0.8em;
 }
 
-table.calendar td.reserved { background-color: #004b85; color: white; }
+table.calendartable td.reserved { background-color: #004b85; color: white; }
 
 /* Equipos */
 div.equipo { margin-top: 2em; }
@@ -298,29 +308,4 @@ ul.content-list { margin-top: 30px; }
 ul.content-list li { margin: 0.5em auto; list-style-type: disc; margin-left: 20px; color: #004B85; }
 ul.content-list li a { font-family: Georgia, Times, serif; }
 
-.addcoursebutton .singlebutton {text-align: center;}
-
-h1.headermain {color: #fff;}
-h2.main {border-bottom: 3px solid #013D6A;color: #013D6A;text-align: center;}
-h2.headingblock {font-size: 18pt;margin-top: 0;background-color: #013D6A;color: #FFF;text-align: center;}
-#page-header {background-color: #013D6A;}
-#page-header .headermenu  {color: #FFF;}
-#page-header .headermenu a {color: #FDFF2A;}
-
-
-.block {background-color: #013D6A;}
-.block .header .title {color: #FFF;}
-.block .header .title .block_action input {background-color: #FFF;}
-.block .content {border: 1px solid #000;padding: 5px;background-color: #FFF;}
-.block .content .block_tree p {font-size: 80%;}
-
-.block_settings_navigation_tree .content .footer {text-align: center;}
-.block_settings_navigation_tree .content .footer .adminsearchform {margin-left: 5%;width: 90%;font-size: 9pt;}
-.block_settings_navigation_tree .content .footer .adminsearchform #adminsearchquery {width: 95%;}
-
-.block_calendar_month .content .calendar-controls a {color: #013D6A;font-weight: bold;}
-.block_calendar_month .content .minicalendar td {border-color: #FFF;}
-.block_calendar_month .content .minicalendar .day {color: #FFF;background-color: #013D6A;}
-.block_calendar_month .content .minicalendar .day a {color: #FFF000;}
-.block_calendar_month .content .minicalendar .weekdays th {border-width: 0;font-weight: bold;color: #013D6A;}
-.block_calendar_month .content .minicalendar .weekdays abbr {border-width: 0;text-decoration: none;}
+span.clearer { display: none; }
