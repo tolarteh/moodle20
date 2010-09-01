@@ -1,40 +1,69 @@
 <?php
 
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
-
-
-/**
- * Internal library of functions for module reservations
- *
- * All the reservations specific functions, needed to implement the module
- * logic, should go here. Never include this file from your lib.php!
- *
- * @package   mod_reservations
- * @copyright 2010 Federico Builes
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
 
 defined('MOODLE_INTERNAL') || die();
+global $DB;
 
-/**
- * Does something really useful with the passed things
- *
- * @param array $things
- * @return object
- */
-//function reservations_do_something_useful(array $things) {
-//    return new stdClass();
-//}
+function link_to($text, $link) {
+  echo "<a href='" . $link . "'>" . $text . "</a>";
+}
+
+
+function select_for_days() {
+     echo "<select name='day' value=''>Dia</option>";
+   for ($i=1; $i <=31; $i++) {
+     echo "<option value='" . $i . "'>" . $i . "</option>";
+   }
+     echo "</select>";
+}
+
+function select_for_months() {
+  echo "<select name='month' value=''>Mes</option>";
+  echo "<option value='1'>Enero</option>";
+  echo "<option value='2'>Febrero</option>";
+  echo "<option value='3'>Marzo</option>";
+  echo "<option value='4'>Abril</option>";
+  echo "<option value='5'>Mayo</option>";
+  echo "<option value='6'>Junio</option>";
+  echo "<option value='7'>Julio</option>";
+  echo "<option value='8'>Agosto</option>";
+  echo "<option value='9'>Septiembre</option>";
+  echo "<option value='10'>Octubre</option>";
+  echo "<option value='11'>Noviembre</option>";
+  echo "<option value='12'>Diciembre</option>";
+  echo "</select>";
+}
+
+function select_for_years() {
+  echo "<select name='year' value=''>Año</option>";
+  echo date("Y");
+  for ($i = date("Y"); $i <= date("Y") + 5; $i++) {
+    echo "<option value='" . $i . "'>" . $i . "</option>";
+  }
+
+  echo "</select>";
+}
+
+function select_for_hours() {
+  echo "<select name='hour' value=''>Hora</option>";
+  for ($i = 0; $i <= 23; $i++) {
+    echo "<option value='" . $i . ":00'>" . $i . ":00</option>";
+  }
+
+  echo "</select>";
+}
+
+function print_equipment() {
+  global $DB;
+
+  if ($equipment = $DB->get_records("equipment")) {
+    echo "<select name='equipment' value=''>Equipos</option>";
+    foreach ($equipment as $e) {
+      echo "<option value='" . $e->id . "'>" . $e->name . "</option>";
+    }
+    echo "</select>";
+  } else {
+    die("No se encontraron equipos para reservar.");
+  }
+}
+
