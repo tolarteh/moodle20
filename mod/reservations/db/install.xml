@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/assignment/db" VERSION="20090420" COMMENT="XMLDB file for Moodle mod/assignment"
+<XMLDB PATH="mod/assignment/db" VERSION="20100101" COMMENT="XMLDB file for Moodle mod/assignment"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -10,9 +10,9 @@
         <FIELD NAME="equipment_id" TYPE="int" NOTNULL="true" NEXT="date" PREVIOUS="id" SEQUENCE="false"/>
         <FIELD NAME="date" TYPE="int" NOTNULL="true" NEXT="duration" PREVIOUS="equipment_id" SEQUENCE="false"/>
         <FIELD NAME="duration" TYPE="int" NOTNULL="true" NEXT="owner_id" PREVIOUS="date" SEQUENCE="false"/>
-        <FIELD NAME="owner_id" TYPE="int" NOTNULL="true" NEXT="course_id" PREVIOUS="duration" SEQUENCE="false"/>
-        <FIELD NAME="course_id" TYPE="int" NOTNULL="false" NEXT="created_at" PREVIOUS="owner_id" SEQUENCE="false"/>
-        <FIELD NAME="created_at" TYPE="int" NOTNULL="false" PREVIOUS="course_id" SEQUENCE="false"/>
+        <FIELD NAME="owner_id" TYPE="int" NOTNULL="true" NEXT="course" PREVIOUS="duration" SEQUENCE="false"/>
+        <FIELD NAME="course" TYPE="int" NOTNULL="false" NEXT="created_at" PREVIOUS="owner_id" SEQUENCE="false"/>
+        <FIELD NAME="created_at" TYPE="int" NOTNULL="false" PREVIOUS="course" SEQUENCE="false"/>
       </FIELDS>
         <KEYS>
           <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -21,9 +21,10 @@
 
     <TABLE NAME="equipment" COMMENT="Information for pieces of equipment" PREVIOUS="reservations">
       <FIELDS>
-        <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="false"/>
+        <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="true"/>
         <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="description" SEQUENCE="false" />
-        <FIELD NAME="description" LENGTH="300" TYPE="char" NOTNULL="true" PREVIOUS="name" SEQUENCE="false" />
+        <FIELD NAME="description" LENGTH="300" TYPE="char" NOTNULL="true" PREVIOUS="name" NEXT="code" SEQUENCE="false" />
+        <FIELD NAME="code" LENGTH="1200" TYPE="char" NOTNULL="true" PREVIOUS="description" SEQUENCE="false" />
       </FIELDS>
         <KEYS>
           <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

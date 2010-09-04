@@ -12,7 +12,9 @@
  /// Content
 
  link_to("Reservar Laboratorio", "new.php");
-
+ echo "<br/>";
+ link_to("Crear Nuevo Equipo", "equipment/new.php");
+ echo "<br/>";
  $reservations = find_reservations_for(current_user_id());
 
  print_reservations($reservations);

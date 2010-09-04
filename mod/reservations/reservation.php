@@ -15,10 +15,12 @@ $equipment = $_POST["equipment"];
 
 if (find_reservation_by_date($year, $month, $day, $hour)) {
   echo "Ya existe una reserva en esta hora";
+  echo "<br/><a href='index.php'>Volver</a>";
 }
 else {
   if (create_reservation($equipment, $date, $duration, 1, 1)) {
     echo "Se creo";
+  echo "<br/><a href='index.php'>Volver</a>";
   } else {
     echo "la cagamos";
   }

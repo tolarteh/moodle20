@@ -62,7 +62,7 @@ function print_reservations($res) {
     echo "<tr>";
     echo "<td>" . equipment_name($r->equipment_id) . "</td>";
     echo "<td>" . humanize_date($r->date) . "</td>";
-    echo "<td>" . $r->duration . "hora(s)</td>";
+    echo "<td>" . $r->duration . "hora</td>";
     echo "</tr>";
   }
   echo "</table>";
@@ -71,7 +71,7 @@ function print_reservations($res) {
 function print_equipment_list() {
   global $DB;
 
-  if ($equipment = $DB->get_records("equipment")) {
+  if ($equipment = find_all_equipment()) {
     echo "<select name='equipment' value=''>Equipos</option>";
     foreach ($equipment as $e) {
       echo "<option value='" . $e->id . "'>" . $e->name . "</option>";
@@ -80,6 +80,27 @@ function print_equipment_list() {
   } else {
     die("No se encontraron equipos para reservar.");
   }
+}
+
+function print_equipment($eq) {
+  echo "<table>";
+  echo "<tr>";
+  echo "<th>Nombre</th>";
+  echo "<th>Descripción</th>";
+  echo "</tr>";
+  foreach ($eq as $e) {
+    echo "<tr>";
+    echo "<td>" . $e->name . "</td>";
+    echo "<td>" . $e->description . "</td>";
+    echo "</tr>";
+  }
+  echo "</table>";
+}
+
+function find_all_equipment() {
+  global $DB;
+
+  return $DB->get_records("equipment");
 }
 
 function find_reservation_by_date($year, $month, $day, $hour) {
@@ -105,9 +126,20 @@ function create_reservation($equipment, $date, $duration, $user, $course) {
   $reservation->date = $date;
   $reservation->duration = $duration;
   $reservation->owner_id = current_user_id();
-  $reservation->course_id = current_course_id();
+  $reservation->course = current_course_id();
   $reservation->created_at = mktime();
   return $DB->insert_record('reservations', $reservation);
+}
+
+function create_equipment($name, $description, $code) {
+  global $DB;
+
+  $equipment = new object();
+  $equipment->name = $name;
+  $equipment->description = $description;
+  $equipment->code = $code;
+
+  return $DB->insert_record('equipment', $equipment);
 }
 
 function current_user_id() {

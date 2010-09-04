@@ -46,40 +46,21 @@ function xmldb_reservations_upgrade($oldversion=0) {
 
     $result = true;
 
-    if ($result && $oldversion < 20100720) {
+    if ($result && $oldversion < 20100901) {
 
-        $table = new xmldb_table('reservations');
+    /// Define field code to be added to equipment
+        $table = new xmldb_table('equipment');
+        $field = new xmldb_field('code', XMLDB_TYPE_CHAR, '1200', null, XMLDB_NOTNULL, null, null, 'description');
 
-    /// Adding fields to table reservations
-        $table->add_field('id', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
-        $table->add_field('equipment_id', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, null, null);
-        $table->add_field('date', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, null, null);
-        $table->add_field('duration', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, null, null);
-        $table->add_field('owner_id', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, null, null);
-        $table->add_field('course_id', XMLDB_TYPE_INTEGER, null, null, null, null, null);
-        $table->add_field('created_at', XMLDB_TYPE_INTEGER, null, null, null, null, null);
-
-    /// Adding keys to table reservations
-        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
-
-    /// Conditionally launch create table for reservations
-        if (!$dbman->table_exists($table)) {
-            $dbman->create_table($table);
+    /// Conditionally launch add field code
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
         }
 
     /// assignment savepoint reached
-        upgrade_mod_savepoint($result, XXXXXXXXXX, 'assignment');
+        upgrade_mod_savepoint($result, 20100901, 'assignment');
+    }
 
-/// And that's all. Please, examine and understand the 3 example blocks above. Also
-/// it's interesting to look how other modules are using this script. Remember that
-/// the basic idea is to have "blocks" of code (each one being executed only once,
-/// when the module version (version.php) is updated.
-
-/// Lines above (this included) MUST BE DELETED once you get the first version of
-/// yout module working. Each time you need to modify something in the module (DB
-/// related, you'll raise the version and add one upgrade block here.
-
-/// Final return of upgrade result (true/false) to Moodle. Must be
-/// always the last line in the script
     return $result;
+}
 }
