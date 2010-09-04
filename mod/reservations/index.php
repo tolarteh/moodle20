@@ -13,6 +13,9 @@
 
  link_to("Reservar Laboratorio", "new.php");
 
+ $reservations = find_reservations_for(current_user_id());
+
+ print_reservations($reservations);
 
  /// Finish the page
 

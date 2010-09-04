@@ -1,18 +1,16 @@
 <?php
    require_once(dirname(dirname(dirname(__FILE__))).'/config.php');
    require_once(dirname(__FILE__).'/locallib.php');
-   require_once(dirname(__FILE__).'/lib.php');
-
 
    $PAGE->set_url('/mod/reservations/new.php');
-$PAGE->set_title(get_string("pagetitle", "reservations"));
+   $PAGE->set_title(get_string("pagetitle", "reservations"));
 // echo $OUTPUT->header();
 ?>
 
 <h2>Reservar Laboratorio</h2>
 
 <h3>Horario</h3>
-<form action="/reservation.php" method="POST">
+<form action="reservation.php" method="POST">
 
 <p>
   <em>Fecha:</em>
@@ -29,7 +27,7 @@ $PAGE->set_title(get_string("pagetitle", "reservations"));
 </p>
 
 <h3>Equipos</h3>
-<?php print_equipment(); ?>
+<?php print_equipment_list(); ?>
 
 <p>
 <input type="submit" value="Reservar" />
