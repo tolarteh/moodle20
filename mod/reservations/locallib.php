@@ -2,6 +2,11 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+function require_logged_user() {
+  if (current_user_id() == 0)
+    die("Debe estar loggeado para hacer una reserva");
+}
+
 function link_to($text, $link) {
   echo "<a href='" . $link . "'>" . $text . "</a>";
 }
@@ -62,7 +67,7 @@ function print_reservations($res) {
     echo "<tr>";
     echo "<td>" . equipment_name($r->equipment_id) . "</td>";
     echo "<td>" . humanize_date($r->date) . "</td>";
-    echo "<td>" . $r->duration . "hora</td>";
+    echo "<td>" . $r->duration . " hora</td>";
     echo "</tr>";
   }
   echo "</table>";
@@ -103,6 +108,16 @@ function find_all_equipment() {
   return $DB->get_records("equipment");
 }
 
+function find_active_reservations() {
+  global $DB;
+
+  $user = current_user_id();
+  $cur = mktime();
+  $sql = "SELECT * FROM  `mdl_reservations` WHERE `date` <=" . $cur . " AND  `end_date` >=" . $cur . " AND `owner_id`=" . $user;
+
+  return $DB->get_records_sql($sql);
+}
+
 function find_reservation_by_date($year, $month, $day, $hour) {
   global $DB;
 
@@ -118,12 +133,13 @@ function find_reservations_for($id) {
   return $DB->get_records("reservations", array("owner_id" => $id));
 }
 
-function create_reservation($equipment, $date, $duration, $user, $course) {
+function create_reservation($equipment, $date, $end_date, $duration, $user, $course) {
   global $DB;
 
   $reservation = new object();
   $reservation->equipment_id = $equipment;
   $reservation->date = $date;
+  $reservation->end_date = $end_date;
   $reservation->duration = $duration;
   $reservation->owner_id = current_user_id();
   $reservation->course = current_course_id();
@@ -158,7 +174,7 @@ function equipment_name($id) {
   global $DB;
 
   $e = $DB->get_record("equipment", array("id" => $id));
-  return ($e->name || "");
+  return $e->name;
 }
 
 function humanize_date($date) {

@@ -61,6 +61,34 @@ function xmldb_reservations_upgrade($oldversion=0) {
         upgrade_mod_savepoint($result, 20100901, 'assignment');
     }
 
+    if ($result && $oldversion < 20100905) {
+
+    /// Define table reservations to be created
+        $table = new xmldb_table('reservations');
+
+    /// Adding fields to table reservations
+        $table->add_field('id', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('equipment_id', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('date', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('end_date', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('duration', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('owner_id', XMLDB_TYPE_INTEGER, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('course', XMLDB_TYPE_INTEGER, null, null, null, null, null);
+        $table->add_field('created_at', XMLDB_TYPE_INTEGER, null, null, null, null, null);
+
+    /// Adding keys to table reservations
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+
+    /// Conditionally launch create table for reservations
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+    /// assignment savepoint reached
+        upgrade_mod_savepoint($result, 20100905, 'assignment');
+    }
+
+
     return $result;
 }
 }
