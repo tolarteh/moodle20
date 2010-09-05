@@ -127,10 +127,22 @@ function find_reservation_by_date($year, $month, $day, $hour) {
   return ($record != false);
 }
 
-function find_reservations_for($id) {
+function find_reservations_for($user_id) {
   global $DB;
 
-  return $DB->get_records("reservations", array("owner_id" => $id));
+  return $DB->get_records("reservations", array("owner_id" => $user_id));
+}
+
+function find_reservation($id) {
+  global $DB;
+
+  return $DB->get_record("reservations", array("id" => $id));
+}
+
+function find_equipment($id) {
+  global $DB;
+
+  return $DB->get_record("equipment", array("id" => $id));
 }
 
 function create_reservation($equipment, $date, $end_date, $duration, $user, $course) {
