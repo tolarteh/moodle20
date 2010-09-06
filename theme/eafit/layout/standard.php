@@ -1,4 +1,6 @@
 <?php
+require_once(dirname(__FILE__).'/../../../mod/reservations/locallib.php');
+
 $hassidepre = $PAGE->blocks->region_has_content('side-pre', $OUTPUT);
 $hassidepost = $PAGE->blocks->region_has_content('side-post', $OUTPUT);
 echo $OUTPUT->doctype(); ?>
@@ -30,11 +32,12 @@ echo $OUTPUT->doctype(); ?>
       </div>
     <div class="nav">
       <ul>
-        <li><a href="#">Inicio</a></li>
-        <li><a href="#">Información</a></li>
-        <li><a href="#">Equipos</a></li>
-        <li><a href="mod/reservations">Reservas</a></li>
-        <li><a href="#">Cursos</a></li>
+        <li><?php link_to("Inicio", "");?></li>
+        <li><?php link_to("Información", "");?></li>
+        <li><?php link_to("Equipos", "mod/reservations/equipment");?></li>
+        <li><?php link_to("Reservas", "mod/reservations");?></li>
+        <li><?php link_to("Cursos", "course");?></li>
+
       </ul>
     </div>
 
@@ -46,7 +49,9 @@ echo $OUTPUT->doctype(); ?>
 
       <div class="sidebar">
         <p>
-          <a href="login">Login</a>
+          <?php if (current_user_id() == 0) {
+            link_to("Login", "login");
+            }?>
         </p>
         <?php if ($hassidepre) { ?>
         <?php echo $OUTPUT->blocks_for_region('side-pre') ?>

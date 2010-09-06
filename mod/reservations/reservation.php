@@ -10,7 +10,7 @@ $day = $_POST["day"];
 $month = $_POST["month"];
 $year = $_POST["year"];
 $date = mktime($_POST["hour"], 0, 0, $_POST["month"], $_POST["day"], $_POST["year"]);
-$duration = 1;
+$duration = $_POST["duration"];
 // TODO Revisar que la hora + duracion no supere el día
 $end_date = mktime($_POST["hour"] + $duration , 0, 0, $_POST["month"], $_POST["day"], $_POST["year"]);
 

@@ -35,18 +35,6 @@ q:before, q:after {
   content: none;
 }
 
-/* remember to define focus styles! */
-:focus {
-  outline: 0;
-}
-
-/* remember to highlight inserts somehow! */
-ins {
-  text-decoration: none;
-}
-del {
-  text-decoration: line-through;
-}
 
 table { border-collapse: collapse; }
 
@@ -180,6 +168,7 @@ li a { font-family: Helvetica, Arial, sans-serif; }
 p { line-height: 1.5em; }
 p + p { margin-top: 1em;}
 h2 { color: #006fbf; font-size: 1.5em; margin: 1em 0px; font-weight: normal; }
+h3 { padding-bottom: 5px; font-size: 0.85em; }
 
 div.contenido { float: left; width: 65%; min-height: 300px;}
 div.sidebar { float: right; width: 30%; }
@@ -309,3 +298,29 @@ ul.content-list li { margin: 0.5em auto; list-style-type: disc; margin-left: 20p
 ul.content-list li a { font-family: Georgia, Times, serif; }
 
 span.clearer { display: none; }
+
+div.print table {
+  width: 500px;
+  margin-bottom: 30px;
+  border-bottom:   1px solid #FFB921;
+}
+
+div.print table th {
+  text-align: left;
+  height: 30px;
+  border-bottom: 1px solid #FFB921;
+  color: #004b85;
+}
+div.print table td {
+  font-size: 0.95em;
+  font-family: Georgia, Times, serif;
+  padding: 10px 0px;p
+  height: 15px;
+}
+
+form.reservation div {
+  padding: 10px 0px;
+}
+
+
+

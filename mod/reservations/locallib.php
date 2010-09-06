@@ -8,7 +8,8 @@ function require_logged_user() {
 }
 
 function link_to($text, $link) {
-  echo "<a href='" . $link . "'>" . $text . "</a>";
+  $root_url = "/moodle20/";
+  echo "<a href='" . $root_url . $link . "'>" . $text . "</a>";
 }
 
 
@@ -56,22 +57,14 @@ function select_for_hours() {
   echo "</select>";
 }
 
-function print_reservations($res) {
-  echo "<table>";
-  echo "<tr>";
-  echo "<th>Equipo</th>";
-  echo "<th>Fecha</th>";
-  echo "<th>Duración</th>";
-  echo "</tr>";
-  foreach ($res as $r) {
-    echo "<tr>";
-    echo "<td>" . equipment_name($r->equipment_id) . "</td>";
-    echo "<td>" . humanize_date($r->date) . "</td>";
-    echo "<td>" . $r->duration . " hora</td>";
-    echo "</tr>";
+function select_for_duration() {
+  echo "<select name='duration'>Duración</option>";
+  for ($i = 1; $i <= 8; $i++) {
+    echo "<option value='" . $i . "'>" . $i . "</option>";
   }
-  echo "</table>";
+  echo "</select>";
 }
+
 
 function print_equipment_list() {
   global $DB;
@@ -85,21 +78,6 @@ function print_equipment_list() {
   } else {
     die("No se encontraron equipos para reservar.");
   }
-}
-
-function print_equipment($eq) {
-  echo "<table>";
-  echo "<tr>";
-  echo "<th>Nombre</th>";
-  echo "<th>Descripción</th>";
-  echo "</tr>";
-  foreach ($eq as $e) {
-    echo "<tr>";
-    echo "<td>" . $e->name . "</td>";
-    echo "<td>" . $e->description . "</td>";
-    echo "</tr>";
-  }
-  echo "</table>";
 }
 
 function find_all_equipment() {
@@ -130,7 +108,7 @@ function find_reservation_by_date($year, $month, $day, $hour) {
 function find_reservations_for($user_id) {
   global $DB;
 
-  return $DB->get_records("reservations", array("owner_id" => $user_id));
+  return $DB->get_records("reservations", array("owner_id" => $user_id), "date");
 }
 
 function find_reservation($id) {
@@ -190,5 +168,13 @@ function equipment_name($id) {
 }
 
 function humanize_date($date) {
-  return date("d-m-y", $date);
+  return date("d-m-Y", $date);
+}
+
+function reservation_remaining_time($reservation) {
+  $current_date = mktime();
+  $end_date = $reservation->end_date;
+
+  $result = ceil(($end_date - $current_date) / 60); /* rounded minutes */
+  return $result;
 }

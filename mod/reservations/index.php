@@ -1,37 +1,70 @@
 <?php
 
- require_once(dirname(dirname(dirname(__FILE__))).'/config.php');
- require_once(dirname(__FILE__).'/locallib.php');
- require_once(dirname(__FILE__).'/lib.php');
+require_once(dirname(dirname(dirname(__FILE__))).'/config.php');
+require_once(dirname(__FILE__).'/locallib.php');
+require_once(dirname(__FILE__).'/lib.php');
 
 
- $PAGE->set_url('/mod/reservations');
- $PAGE->set_title(get_string("pagetitle", "reservations"));
- echo $OUTPUT->header();
-
- require_logged_user();
-
+$PAGE->set_url('/mod/reservations');
+$PAGE->set_title(get_string("pagetitle", "reservations"));
+echo $OUTPUT->header();
+require_logged_user();
 ?>
-<p>
-<a href="new.php">Reservar Laboratorio</a>
-</p>
+<h2>Reservas</h2>
 
-<p>
-<a href="equipment/new.php">Crear Nuevo Equipo</a>
-</p>
+<div class="print">
+  <table>
+    <tr>
+      <th>Equipo</th>
+      <th>Fecha</th>
+      <th>Duración</th>
+      <th>&nbsp;</th>
+    </tr>
+    <?php
+      $reservations = find_reservations_for(current_user_id());
+      foreach ($reservations as $r) {
+        echo "<tr>";
+        echo "<td>" . equipment_name($r->equipment_id) . "</td>";
+        echo "<td>" . humanize_date($r->date) . "</td>";
+        echo "<td>" . $r->duration . " hora(s)</td>";
+        echo "<td><a href=''>Cancelar</a></td>";
+        echo "</tr>";
+      }
+    ?>
+  </table>
+</div>
+
 
 <?php
+$active_reservations = find_active_reservations();
+if ($active_reservations) { ?>
+<h3>Reservas Activas</h3>
+<div class="print">
+<table>
+  <tr>
+    <th>Número</th>
+    <th>Equipo</th>
+    <th>Tiempo Restante (approx.)</th>
+  </tr>
+  <?
 
- $reservations = find_reservations_for(current_user_id());
- print_reservations($reservations);
- echo "<h3>Reservas Activas</h3>";
- $active_reservations = find_active_reservations();
-   foreach ($active_reservations as $res) {
-     echo "#" . $res->id . " ";
-     echo link_to(equipment_name($res->equipment_id), "show.php ?id=" . $res->id);
-   }
+foreach ($active_reservations as $res) {
+  echo "<tr>";
+    echo "<td>#" . $res->id . "</td>";
+    echo "<td><a href='" . "show.php?id=" . $res->id . "'>" . equipment_name($res->equipment_id) . "</a></td>";
+    echo "<td>" . reservation_remaining_time($res) . " minutos</td>";
+    echo "</tr>";
+}
+?>
+  </table>
+  </div>
+    <?php } ?>
+<p>
+  Puede <?php link_to("reservar un laboratorio", "mod/reservations/new.php") ?> o puede <?php link_to("ver los equipos disponibles", "mod/reservations/equipment") ?>.
+</p>
 
- echo $OUTPUT->footer();
+<?
+echo $OUTPUT->footer();
 ?>
 
 
