@@ -46,7 +46,7 @@ if ($active_reservations) { ?>
     <th>Equipo</th>
     <th>Tiempo Restante (approx.)</th>
   </tr>
-  <?
+  <?php
 
 foreach ($active_reservations as $res) {
   echo "<tr>";
@@ -63,7 +63,7 @@ foreach ($active_reservations as $res) {
   Puede <?php link_to("reservar un laboratorio", "mod/reservations/new.php") ?> o puede <?php link_to("ver los equipos disponibles", "mod/reservations/equipment") ?>.
 </p>
 
-<?
+<?php
 echo $OUTPUT->footer();
 ?>
 
