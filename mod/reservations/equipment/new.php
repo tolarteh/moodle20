@@ -3,12 +3,12 @@ require_once(dirname(dirname(dirname(__FILE__))).'/../config.php');
 require_once(dirname(__FILE__).'/../locallib.php');
 
 $PAGE->set_url('/mod/reservations/equipment/new.php');
-$PAGE->set_title("Crear Nuevo Equipo");
+$PAGE->set_title("Crear Nuevo Laboratorio");
 echo $OUTPUT->header();
 require_logged_user();
 ?>
 
-<h2>Crear Nuevo Equipo</h2>
+<h2>Crear Nuevo Laboratorio</h2>
 
 <form action="equipment.php" method="POST">
 
@@ -30,7 +30,7 @@ require_logged_user();
   </p>
 
   <p>
-  <input type="submit" value="Crear" /> o <?php link_to("volver a equipos", "mod/reservations/equipment"); ?>.
+  <input type="submit" value="Crear" /> o <?php link_to("volver a laboratorios", "mod/reservations/equipment"); ?>.
   </p>
 
 </form>

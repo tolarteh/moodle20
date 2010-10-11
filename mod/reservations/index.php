@@ -15,7 +15,7 @@ require_logged_user();
 <div class="print">
   <table>
     <tr>
-      <th>Equipo</th>
+      <th>Laboratorio</th>
       <th>Fecha</th>
       <th>Duración</th>
       <th>&nbsp;</th>
@@ -43,7 +43,7 @@ if ($active_reservations) { ?>
 <table>
   <tr>
     <th>Número</th>
-    <th>Equipo</th>
+    <th>Laboratorio</th>
     <th>Tiempo Restante (approx.)</th>
   </tr>
   <?php
@@ -60,12 +60,11 @@ foreach ($active_reservations as $res) {
   </div>
     <?php } ?>
 <p>
-  Puede <?php link_to("reservar un laboratorio", "mod/reservations/new.php") ?> o puede <?php link_to("ver los equipos disponibles", "mod/reservations/equipment") ?>.
+  Puede <?php link_to("reservar un laboratorio", "mod/reservations/new.php") ?> o puede <?php link_to("ver los laboratorios disponibles", "mod/reservations/equipment") ?>.
 </p>
 
 <?php
 echo $OUTPUT->footer();
 ?>
-
 
 

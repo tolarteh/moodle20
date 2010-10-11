@@ -70,13 +70,13 @@ function print_equipment_list() {
   global $DB;
 
   if ($equipment = find_all_equipment()) {
-    echo "<select name='equipment' value=''>Equipos</option>";
+    echo "<select name='equipment' value=''>Laboratorios</option>";
     foreach ($equipment as $e) {
       echo "<option value='" . $e->id . "'>" . $e->name . "</option>";
     }
     echo "</select>";
   } else {
-    die("No se encontraron equipos para reservar.");
+    die("No se encontraron laboratorios para reservar.");
   }
 }
 
@@ -107,8 +107,11 @@ function find_reservation_by_date($year, $month, $day, $hour) {
 
 function find_reservations_for($user_id) {
   global $DB;
+  $cur = mktime();
+  $sql = "SELECT * FROM  `mdl_reservations` WHERE `owner_id`=" . $user_id . " AND `date` >=" . $cur . " ORDER BY `date`";
 
-  return $DB->get_records("reservations", array("owner_id" => $user_id), "date");
+  return $DB->get_records_sql($sql);
+
 }
 
 function find_reservation($id) {

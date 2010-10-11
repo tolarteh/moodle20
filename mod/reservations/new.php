@@ -9,7 +9,7 @@ require_logged_user();
 ?>
 
 <h2>Reservar Laboratorio</h2>
-
+<?php echo time(); ?>
 <h3>Seleccione un horario:</h3>
 <form action="reservation.php" method="POST" class="reservation">
   <div>
@@ -39,7 +39,7 @@ require_logged_user();
 
   </div>
   <div>
-    <h3>¿Qué equipo desea usar?</h3>
+    <h3>¿Qué laboratorio desea usar?</h3>
     <p>
       <?php print_equipment_list(); ?>
     </p>

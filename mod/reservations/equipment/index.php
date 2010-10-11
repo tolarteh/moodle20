@@ -5,12 +5,12 @@ require_once(dirname(__FILE__).'/../locallib.php');
 require_once(dirname(__FILE__).'/../lib.php');
 
 $PAGE->set_url('/mod/reservations/equipment/');
-$PAGE->set_title("Equipos");
+$PAGE->set_title("Laboratorios");
 echo $OUTPUT->header();
 require_logged_user();
 ?>
 
-<h2>Equipos</h2>
+<h2>Laboratorios</h2>
 
 <div class="print">
   <table>
@@ -36,7 +36,7 @@ require_logged_user();
 </div>
 
 <p>
-  Puede <?php link_to("crear un nuevo equipo", "mod/reservations/equipment/new.php"); ?> o <?php link_to("volver a reservas", "mod/reservations"); ?>.
+  Puede <?php link_to("crear un nuevo laboratorio", "mod/reservations/equipment/new.php"); ?> o <?php link_to("volver a reservas", "mod/reservations"); ?>.
 </p>
 
 

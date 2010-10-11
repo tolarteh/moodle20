@@ -9,10 +9,10 @@ $description = $_POST["description"];
 $code = $_POST["code"];
 
 if (create_equipment($name, $description, $code)) {
-  echo "El equipo se ha creado exitosamente";
+  echo "El laboratorio se ha creado exitosamente";
   echo "<br/><a href='index.php'>Volver</a>";
 } else {
-  die("Error creando el equipo");
+  die("Error creando el laboratorio");
 }
 
 ?>
