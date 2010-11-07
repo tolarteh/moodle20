@@ -156,7 +156,7 @@ abstract class grade_export {
      */
     public function format_column_name($grade_item, $feedback=false) {
         if ($grade_item->itemtype == 'mod') {
-            $name = get_string('modulename', $grade_item->itemmodule).': '.$grade_item->get_name();
+            $name = get_string('modulename', $grade_item->itemmodule).get_string('labelsep', 'langconfig').$grade_item->get_name();
         } else {
             $name = $grade_item->get_name();
         }
@@ -305,7 +305,7 @@ abstract class grade_export {
                 $sep = '&';
             }
 
-            $link = $CFG->wwwroot.'/grade/export/'.$this->plugin.'/dump.php'.$paraM.str.'&key='.$this->userkey;
+            $link = $CFG->wwwroot.'/grade/export/'.$this->plugin.'/dump.php'.$paramstr.'&key='.$this->userkey;
 
             echo get_string('download', 'admin').': ' . html_writer::link($link, $link);
         }

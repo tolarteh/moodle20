@@ -72,6 +72,16 @@ $temp->add(new admin_setting_configtext('supportpage', get_string('supportpage',
 $ADMIN->add('server', $temp);
 
 
+// Jabber settingpage
+$temp = new admin_settingpage('jabber', get_string('jabber', 'admin'));
+$temp->add(new admin_setting_configtext('jabberhost', get_string('jabberhost', 'admin'), get_string('configjabberhost', 'admin'), '', PARAM_RAW));
+$temp->add(new admin_setting_configtext('jabberserver', get_string('jabberserver', 'admin'), get_string('configjabberserver', 'admin'), '', PARAM_RAW));
+$temp->add(new admin_setting_configtext('jabberusername', get_string('jabberusername', 'admin'), get_string('configjabberusername', 'admin'), '', PARAM_RAW));
+$temp->add(new admin_setting_configpasswordunmask('jabberpassword', get_string('jabberpassword', 'admin'), get_string('configjabberpassword', 'admin'), ''));
+$temp->add(new admin_setting_configtext('jabberport', get_string('jabberport', 'admin'), get_string('configjabberport', 'admin'), 5222, PARAM_INT));
+$ADMIN->add('server', $temp);
+
+
 
 // "sessionhandling" settingpage
 $temp = new admin_settingpage('sessionhandling', get_string('sessionhandling', 'admin'));
@@ -118,9 +128,6 @@ $temp->add(new admin_setting_configselect('statsmaxruntime', get_string('statsma
 $temp->add(new admin_setting_configtext('statsruntimedays', get_string('statsruntimedays', 'admin'), get_string('configstatsruntimedays', 'admin'), 31, PARAM_INT));
 $temp->add(new admin_setting_configtime('statsruntimestarthour', 'statsruntimestartminute', get_string('statsruntimestart', 'admin'), get_string('configstatsruntimestart', 'admin'), array('h' => 0, 'm' => 0)));
 $temp->add(new admin_setting_configtext('statsuserthreshold', get_string('statsuserthreshold', 'admin'), get_string('configstatsuserthreshold', 'admin'), 0, PARAM_INT));
-
-$options = array(0=>0, 1=>1, 2=>2, 3=>3, 4=>4, 5=>5, 6=>6);
-$temp->add(new admin_setting_configselect('statscatdepth', get_string('statscatdepth', 'admin'), get_string('configstatscatdepth', 'admin'), 1, $options));
 $ADMIN->add('server', $temp);
 
 
@@ -157,18 +164,6 @@ $temp->add(new admin_setting_confightmleditor('maintenance_message', get_string(
 $ADMIN->add('server', $temp);
 
 $temp = new admin_settingpage('cleanup', get_string('cleanup', 'admin'));
-$temp->add(new admin_setting_configselect('longtimenosee', get_string('longtimenosee', 'admin'), get_string('configlongtimenosee', 'admin'), 120, array(0 => get_string('never'),
-                                                                                                                                                        1000 => get_string('numdays', '', 1000),
-                                                                                                                                                        365 => get_string('numdays', '', 365),
-                                                                                                                                                        180 => get_string('numdays', '', 180),
-                                                                                                                                                        150 => get_string('numdays', '', 150),
-                                                                                                                                                        120 => get_string('numdays', '', 120),
-                                                                                                                                                        90 => get_string('numdays', '', 90),
-                                                                                                                                                        60 => get_string('numdays', '', 60),
-                                                                                                                                                        30 => get_string('numdays', '', 30),
-                                                                                                                                                        21 => get_string('numdays', '', 21),
-                                                                                                                                                        14 => get_string('numdays', '', 14),
-                                                                                                                                                        7 => get_string('numdays', '', 7) )));
 $temp->add(new admin_setting_configselect('deleteunconfirmed', get_string('deleteunconfirmed', 'admin'), get_string('configdeleteunconfirmed', 'admin'), 168, array(0 => get_string('never'),
                                                                                                                                                                     168 => get_string('numdays', '', 7),
                                                                                                                                                                     144 => get_string('numdays', '', 6),
@@ -205,10 +200,10 @@ $temp->add(new admin_setting_configselect('loglifetime', get_string('loglifetime
 
 
 $temp->add(new admin_setting_configcheckbox('disablegradehistory', get_string('disablegradehistory', 'grades'),
-                                            get_string('configdisablegradehistory', 'grades'), 0, PARAM_INT));
+                                            get_string('disablegradehistory_help', 'grades'), 0, PARAM_INT));
 
 $temp->add(new admin_setting_configselect('gradehistorylifetime', get_string('gradehistorylifetime', 'grades'),
-                                          get_string('configgradehistorylifetime', 'grades'), 0, array(0 => get_string('neverdeletehistory', 'grades'),
+                                          get_string('gradehistorylifetime_help', 'grades'), 0, array(0 => get_string('neverdeletehistory', 'grades'),
                                                                                                    1000 => get_string('numdays', '', 1000),
                                                                                                     365 => get_string('numdays', '', 365),
                                                                                                     180 => get_string('numdays', '', 180),
@@ -230,7 +225,7 @@ $ADMIN->add('server', new admin_externalpage('phpinfo', get_string('phpinfo'), "
 $temp = new admin_settingpage('performance', get_string('performance', 'admin'));
 
 $temp->add(new admin_setting_configselect('extramemorylimit', get_string('extramemorylimit', 'admin'),
-                                          get_string('configextramemorylimit', 'admin'), '128M',
+                                          get_string('configextramemorylimit', 'admin'), '512M',
                                           // if this option is set to 0, default 128M will be used
                                           array( '64M' => '64M',
                                                  '128M' => '128M',
@@ -238,6 +233,10 @@ $temp->add(new admin_setting_configselect('extramemorylimit', get_string('extram
                                                  '512M' => '512M',
                                                  '1024M' => '1024M'
                                              )));
+$temp->add(new admin_setting_configtext('curlcache', get_string('curlcache', 'admin'),
+                                        get_string('configcurlcache', 'admin'), 120, PARAM_INT));
+
+/* //TODO: we need to fix code instead of relying on slow rcache, enable this once we have some code that is actually using it
 $temp->add(new admin_setting_special_selectsetup('cachetype', get_string('cachetype', 'admin'),
                                           get_string('configcachetype', 'admin'), '',
                                           array( '' => get_string('none'),
@@ -253,28 +252,16 @@ $temp->add(new admin_setting_configtext('rcachettl', get_string('rcachettl', 'ad
                                         get_string('configrcachettl', 'admin'), 10));
 $temp->add(new admin_setting_configtext('intcachemax', get_string('intcachemax', 'admin'),
                                         get_string('configintcachemax', 'admin'), 10));
-$temp->add(new admin_setting_configtext('curlcache', get_string('curlcache', 'admin'),
-                                        get_string('configcurlcache', 'admin'), 120, PARAM_INT));
 $temp->add(new admin_setting_configtext('memcachedhosts', get_string('memcachedhosts', 'admin'),
                                         get_string('configmemcachedhosts', 'admin'), ''));
 $temp->add(new admin_setting_configselect('memcachedpconn', get_string('memcachedpconn', 'admin'),
                                           get_string('configmemcachedpconn', 'admin'), 0,
                                           array( '0' => get_string('no'),
                                                  '1' => get_string('yes'))));
-$ADMIN->add('server', new admin_externalpage('adminregistration', get_string('registration','admin'), "$CFG->wwwroot/$CFG->admin/registration/index.php"));
-
+*/
 $ADMIN->add('server', $temp);
 
-$dbfamily = $DB->get_dbfamily();
 
-if ($dbfamily === 'mysql') {
-    if (file_exists("$CFG->dirroot/$CFG->admin/mysql/frame.php")) {
-        $ADMIN->add('server', new admin_externalpage('database', get_string('managedatabase'), "$CFG->wwwroot/$CFG->admin/mysql/frame.php"));
-    }
-} else if ($dbfamily === 'postgres') {
-    if (file_exists("$CFG->dirroot/$CFG->admin/pgsql/frame.php")) {
-        $ADMIN->add('server', new admin_externalpage('database', get_string('managedatabase'), "$CFG->wwwroot/$CFG->admin/pgsql/frame.php"));
-    }
-}
+$ADMIN->add('server', new admin_externalpage('adminregistration', get_string('registration','admin'), "$CFG->wwwroot/$CFG->admin/registration/index.php"));
 
 } // end of speedup

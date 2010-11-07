@@ -24,4 +24,5 @@
  */
 
 $string['googledocs:view'] = 'View google docs repository';
-$string['repositoryname'] = 'Google Docs';
+$string['pluginname'] = 'Google Docs';
+$string['configplugin'] = 'Configurate Google Docs plugin';

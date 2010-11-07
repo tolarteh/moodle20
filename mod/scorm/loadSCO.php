@@ -55,7 +55,7 @@
         if ($sco = scorm_get_sco($scoid)) {
             if ($sco->launch == '') {
                 // Search for the next launchable sco
-                if ($scoes = $DB->get_records_select('scorm_scoes',"scorm = ? AND launch <> ? AND id > ?",array($scorm->id, $DB->sql_empty(), $sco->id), 'id ASC')) {
+                if ($scoes = $DB->get_records_select('scorm_scoes',"scorm = ? AND '.$DB->sql_isnotempty('scorm_scoes', 'launch', false, true).' AND id > ?",array($scorm->id,$sco->id), 'id ASC')) {
                     $sco = current($scoes);
                 }
             }
@@ -65,7 +65,7 @@
     // If no sco was found get the first of SCORM package
     //
     if (!isset($sco)) {
-        $scoes = $DB->get_records_select('scorm_scoes',"scorm = ? AND launch <> ?", array($scorm->id, $DB->sql_empty()),'id ASC');
+        $scoes = $DB->get_records_select('scorm_scoes',"scorm = ? AND ".$DB->sql_isnotempty('scorm_scoes', 'launch', false, true), array($scorm->id),'id ASC');
         $sco = current($scoes);
     }
 
@@ -119,10 +119,9 @@
         $result = $CFG->repositorywebroot.substr($scorm->reference, 1).'/'.$sco->launch;
 
     } else if ($scorm->scormtype === SCORM_TYPE_LOCAL or $scorm->scormtype === SCORM_TYPE_LOCALSYNC) {
-        //note: do not convert this to use get_file_url()!
-        //      SCORM does not work without slasharguments anyway and there might be some extra ?xx=yy params
-        //      see MDL-16060
-        $result = "$CFG->wwwroot/pluginfile.php/$context->id/scorm_content/$scorm->revision/$launcher";
+        //note: do not convert this to use get_file_url() or moodle_url()
+        //SCORM does not work without slasharguments and moodle_url() encodes querystring vars
+        $result = "$CFG->wwwroot/pluginfile.php/$context->id/mod_scorm/content/$scorm->revision/$launcher";
     }
 
     // which API are we looking for
@@ -185,18 +184,6 @@
                                                     location = "<?php echo $result ?>";
                                                 }
                                             }, 1000);
-            }
-            removelink();
-        }
-        function removelink() {
-            try {
-                if (window.opener.document.getElementById('altpopuplink')) {
-                    window.opener.document.getElementById('altpopuplink').style.display='none';
-                } else {
-                    window.opener.document.all['altpopuplink'].style.display='none';
-                }
-            } catch(error) {
-                // nothing to be done
             }
         }
         //]]>

@@ -32,7 +32,7 @@
  * @copyright 2010 Sam Hemelryk
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class backup_ui {
+class backup_ui extends base_ui {
     /**
      * The stages of the backup user interface.
      */
@@ -41,45 +41,13 @@ class backup_ui {
     const STAGE_CONFIRMATION = 4;
     const STAGE_FINAL = 8;
     const STAGE_COMPLETE = 16;
-    /**
-     * The progress of this instance of the backup ui class
-     */
-    const PROGRESS_INTIAL = 0;
-    const PROGRESS_PROCESSED = 1;
-    const PROGRESS_SAVED = 2;
-    const PROGRESS_EXECUTED = 3;
-    /**
-     * The backup controller
-     * @var backup_controller
-     */
-    protected $controller;
-    /**
-     * The current stage
-     * @var backup_ui_stage
-     */
-    protected $stage;
-    /**
-     * The current progress of the UI
-     * @var int One of self::PROGRESS_*
-     */
-    protected $progress;
-    /**
-     * The number of changes made by dependency enforcement
-     * @var int
-     */
-    protected $dependencychanges = 0;
 
     /**
-     * Yay for constructors
-     * @param backup_controller $controller
+     * If set to true the current stage is skipped.
+     * @var bool
      */
-    public function __construct(backup_controller $controller, array $params=null) {
-        $this->controller = $controller;
-        $this->progress = self::PROGRESS_INTIAL;
-        $this->stage = $this->initialise_stage(null, $params);
-        // Process UI event before to be safe
-        $this->controller->process_ui_event();
-    }
+    protected static $skipcurrentstage = false;
+
     /**
      * Intialises what ever stage is requested. If none are requested we check
      * params for 'stage' and default to initial
@@ -90,6 +58,9 @@ class backup_ui {
     protected function initialise_stage($stage = null, array $params=null) {
         if ($stage == null) {
             $stage = optional_param('stage', self::STAGE_INITIAL, PARAM_INT);
+        }
+        if (self::$skipcurrentstage) {
+            $stage *= 2;
         }
         switch ($stage) {
             case backup_ui::STAGE_INITIAL:
@@ -111,87 +82,11 @@ class backup_ui {
         return $stage;
     }
     /**
-     * This processes the current stage of the backup
-     * @return bool
-     */
-    public function process() {
-        if ($this->progress >= self::PROGRESS_PROCESSED) {
-            throw new backup_ui_exception('backupuialreadyprocessed');
-        }
-        $this->progress = self::PROGRESS_PROCESSED;
-
-        if (optional_param('previous', false, PARAM_BOOL) && $this->stage->get_stage() > self::STAGE_INITIAL) {
-            $this->stage = $this->initialise_stage($this->stage->get_prev_stage(), $this->stage->get_params());
-            return false;
-        }
-
-        // Process the stage
-        $processoutcome = $this->stage->process();
-
-        if ($processoutcome !== false) {
-            $this->stage = $this->initialise_stage($this->stage->get_next_stage(), $this->stage->get_params());
-        }
-
-        // Process UI event after to check changes are valid
-        $this->controller->process_ui_event();
-        return $processoutcome;
-    }
-    /**
-     * Saves the backup controller.
-     *
-     * Once this has been called nothing else can be changed in the controller.
-     *
-     * @return bool
-     */
-    public function save_controller() {
-        if ($this->progress >= self::PROGRESS_SAVED) {
-            throw new backup_ui_exception('backupuialreadysaved');
-        }
-        $this->progress = self::PROGRESS_SAVED;
-        // First enforce dependencies
-        $this->enforce_dependencies();
-        // Process UI event after to check any changes are valid
-        $this->controller->process_ui_event();
-        // Save the controller
-        $this->controller->save_controller();
-        return true;
-    }
-    /**
-     * Displays the UI for the backup!
-     *
-     * Note: The UI makes use of mforms (ewww!) thus it will automatically print
-     * out the result rather than returning a string of HTML like other parts of Moodle
-     *
-     * @return bool
-     */
-    public function display() {
-        if ($this->progress < self::PROGRESS_SAVED) {
-            throw new backup_ui_exception('backupsavebeforedisplay');
-        }
-        $this->stage->display();
-    }
-    /**
-     * Gets all backup tasks from the controller
-     * @return array Array of backup_task
-     */
-    public function get_backup_tasks() {
-        $plan = $this->controller->get_plan();
-        $tasks = $plan->get_tasks();
-        return $tasks;
-    }
-    /**
-     * Gets the stage we are on
-     * @return backup_ui_stage
-     */
-    public function get_stage() {
-        return $this->stage->get_stage();
-    }
-    /**
-     * Gets the name of the stage we are on
+     * Returns the backup id
      * @return string
      */
-    public function get_stage_name() {
-        return $this->stage->get_name();
+    public function get_uniqueid() {
+        return $this->get_backupid();
     }
     /**
      * Gets the backup id from the controller
@@ -216,41 +111,6 @@ class backup_ui {
         $this->controller->execute_plan();
         $this->stage = new backup_ui_stage_complete($this, $this->stage->get_params(), $this->controller->get_results());
         return true;
-    }
-    /**
-     * Enforces dependencies on all settings. Call before save
-     * @return bool True if dependencies were enforced and changes were made
-     */
-    protected function enforce_dependencies() {
-        // Get the plan
-        $plan = $this->controller->get_plan();
-        // Get the tasks as a var so we can iterate by reference
-        $tasks = $plan->get_tasks();
-        $changes = 0;
-        foreach ($tasks as &$task) {
-            // Store as a var so we can iterate by reference
-            $settings = $task->get_settings();
-            foreach ($settings as &$setting) {
-                // Get all dependencies for iteration by reference
-                $dependencies = $setting->get_dependencies();
-                foreach ($dependencies as &$dependency) {
-                    // Enforce each dependency
-                    if ($dependency->enforce()) {
-                        $changes++;
-                    }
-                }
-            }
-        }
-        // Store the number of settings that changed through enforcement
-        $this->dependencychanges = $changes;
-        return ($changes>0);
-    }
-    /**
-     * Returns true if enforce_dependencies changed any settings
-     * @return bool
-     */
-    public function enforce_changed_dependencies() {
-        return ($this->dependencychanges > 0);
     }
     /**
      * Loads the backup controller if we are tracking one
@@ -303,8 +163,13 @@ class backup_ui {
                 $classes[] = 'backup_stage_complete';
             }
             $item = array('text' => strlen(decbin($stage)).'. '.get_string('currentstage'.$stage, 'backup'),'class' => join(' ', $classes));
-            if ($stage < $currentstage && $currentstage < self::STAGE_COMPLETE) {
-                $item['link'] = new moodle_url($PAGE->url, array('backup'=>$this->get_backupid(), 'stage'=>$stage));
+            if ($stage < $currentstage && $currentstage < self::STAGE_COMPLETE && (!self::$skipcurrentstage || ($stage*2) != $currentstage)) {
+                $params = $this->stage->get_params();
+                if (empty($params)) {
+                    $params = array();
+                }
+                $params = array_merge($params, array('backup'=>$this->get_backupid(), 'stage'=>$stage));
+                $item['link'] = new moodle_url($PAGE->url, $params);
             }
             array_unshift($items, $item);
             $stage = floor($stage/2);
@@ -312,56 +177,29 @@ class backup_ui {
         return $items;
     }
     /**
-     * Gets the format for the backup
+     * Gets the name related to the operation of this UI
+     * @return string
+     */
+    public function get_name() {
+        return 'backup';
+    }
+    /**
+     * Gets the id of the first stage this UI is reponsible for
      * @return int
      */
-    public function get_backup_format() {
-        return $this->controller->get_format();
+    public function get_first_stage_id() {
+        return self::STAGE_INITIAL;
     }
     /**
-     * Gets the type of the backup
-     * @return int
+     * If called with default arg the current stage gets skipped.
+     * @static
      */
-    public function get_backup_type() {
-        return $this->controller->get_type();
-    }
-    /**
-     * Gets the ID used in creating the controller. Relates to course/section/cm
-     * @return int
-     */
-    public function get_controller_id() {
-        return $this->controller->get_id();
-    }
-    /**
-     * Gets the requested setting
-     * @param string $name
-     * @return mixed
-     */
-    public function get_setting($name, $default = false) {
-        try {
-            return $this->controller->get_plan()->get_setting($name);
-        } catch (Exception $e) {
-            debugging('Failed to find the setting: '.$name, DEBUG_DEVELOPER);
-            return $default;
-        }
-    }
-    /**
-     * Gets the value for the requested setting
-     *
-     * @param string $name
-     * @return mixed
-     */
-    public function get_setting_value($name, $default = false) {
-        try {
-            return $this->controller->get_plan()->get_setting($name)->get_value();
-        } catch (Exception $e) {
-            debugging('Failed to find the setting: '.$name, DEBUG_DEVELOPER);
-            return $default;
-        }
+    public static function skip_current_stage($setting=true) {
+        self::$skipcurrentstage = $setting;
     }
 }
 
 /**
  * Backup user interface exception. Modelled off the backup_exception class
  */
-class backup_ui_exception extends backup_exception {}
+class backup_ui_exception extends base_ui_exception {}

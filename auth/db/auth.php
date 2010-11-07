@@ -61,7 +61,7 @@ class auth_plugin_db extends auth_plugin_base {
                                      WHERE {$this->config->fielduser} = '".$this->ext_addslashes($extusername)."' ");
             if (!$rs) {
                 $authdb->Close();
-                print_error('auth_dbcantconnect','auth_db');
+                debugging(get_string('auth_dbcantconnect','auth_db'));
                 return false;
             }
 
@@ -94,7 +94,7 @@ class auth_plugin_db extends auth_plugin_base {
                                   AND {$this->config->fieldpass} = '".$this->ext_addslashes($extpassword)."' ");
             if (!$rs) {
                 $authdb->Close();
-                print_error('auth_dbcantconnect','auth_db');
+                debugging(get_string('auth_dbcantconnect','auth_db'));
                 return false;
             }
 
@@ -231,23 +231,25 @@ class auth_plugin_db extends auth_plugin_base {
 
 /// list external users
         $userlist = $this->get_userlist();
-        $quoteduserlist = implode("', '", $userlist);
-        $quoteduserlist = "'$quoteduserlist'";
 
 /// delete obsolete internal users
         if (!empty($this->config->removeuser)) {
 
             // find obsolete users
             if (count($userlist)) {
-                $sql = "SELECT u.id, u.username, u.email, u.auth
-                        FROM {user} u
-                        WHERE u.auth='{$this->authtype}' AND u.deleted=0 AND u.username NOT IN ($quoteduserlist)";
+        		list($notin_sql, $params) = $DB->get_in_or_equal($userlist, SQL_PARAMS_NAMED, 'u0000', false);
+        		$params['authtype'] = $this->authtype;
+            	$sql = "SELECT u.id, u.username, u.email, u.auth
+                          FROM {user} u
+                         WHERE u.auth=:authtype AND u.deleted=0 AND u.username $notin_sql";
             } else {
                 $sql = "SELECT u.id, u.username, u.email, u.auth
-                        FROM {user} u
-                        WHERE u.auth='{$this->authtype}' AND u.deleted=0";
+                          FROM {user} u
+                         WHERE u.auth=:authtype AND u.deleted=0";
+                $params = array();
+        		$params['authtype'] = $this->authtype;
             }
-            $remove_users = $DB->get_records_sql($sql);
+            $remove_users = $DB->get_records_sql($sql, $params);
 
             if (!empty($remove_users)) {
                 print_string('auth_dbuserstoremove','auth_db', count($remove_users)); echo "\n";
@@ -260,14 +262,11 @@ class auth_plugin_db extends auth_plugin_base {
                             echo "\t"; print_string('auth_dbdeleteusererror', 'auth_db', $user->username); echo "\n";
                         }
                     } else if ($this->config->removeuser == AUTH_REMOVEUSER_SUSPEND) {
-                        $updateuser = new object();
+                        $updateuser = new stdClass();
                         $updateuser->id   = $user->id;
                         $updateuser->auth = 'nologin';
-                        if ($DB->update_record('user', $updateuser)) {
-                            echo "\t"; print_string('auth_dbsuspenduser', 'auth_db', array('name'=>$user->username, 'id'=>$user->id)); echo "\n";
-                        } else {
-                            echo "\t"; print_string('auth_dbsuspendusererror', 'auth_db', $user->username); echo "\n";
-                        }
+                        $DB->update_record('user', $updateuser);
+                        echo "\t"; print_string('auth_dbsuspenduser', 'auth_db', array('name'=>$user->username, 'id'=>$user->id)); echo "\n";
                     }
                 }
             }
@@ -300,10 +299,12 @@ class auth_plugin_db extends auth_plugin_base {
             // only go ahead if we actually
             // have fields to update locally
             if (!empty($updatekeys)) {
-                $sql = 'SELECT u.id, u.username
-                        FROM {user} u
-                        WHERE u.auth=\'' . $this->authtype . '\' AND u.deleted=\'0\' AND u.username IN (' . $quoteduserlist . ')';
-                if ($update_users = $DB->get_records_sql($sql)) {
+            	list($in_sql, $params) = $DB->get_in_or_equal($userlist, SQL_PARAMS_NAMED, 'u0000', true);
+                $params['authtype'] = $this->authtype;
+                $sql = "SELECT u.id, u.username
+                          FROM {user} u
+                         WHERE u.auth=:authtype AND u.deleted=0 AND u.username {$in_sql}";
+                if ($update_users = $DB->get_records_sql($sql, $params)) {
                     print "User entries to update: ". count($update_users). "\n";
 
                     foreach ($update_users as $user) {
@@ -365,15 +366,14 @@ class auth_plugin_db extends auth_plugin_base {
                     $DB->set_field('user', 'deleted', 0, array('username'=>$user->username));
                     echo "\t"; print_string('auth_dbreviveduser', 'auth_db', array('name'=>$user->username, 'id'=>$user->id)); echo "\n";
 
-                } elseif ($id = $DB->insert_record ('user',$user)) { // it is truly a new user
+                } else {
+                    $id = $DB->insert_record ('user',$user); // it is truly a new user
                     echo "\t"; print_string('auth_dbinsertuser','auth_db',array('name'=>$user->username, 'id'=>$id)); echo "\n";
                     // if relevant, tag for password generation
                     if ($this->config->passtype === 'internal') {
                         set_user_preference('auth_forcepasswordchange', 1, $id);
                         set_user_preference('create_password',          1, $id);
                     }
-                } else {
-                    echo "\t"; print_string('auth_dbinsertusererror', 'auth_db', $user->username); echo "\n";
                 }
             }
             $transaction->allow_commit();
@@ -439,7 +439,7 @@ class auth_plugin_db extends auth_plugin_base {
      */
     function get_userinfo_asobj($username) {
         $user_array = truncate_userinfo($this->get_userinfo($username));
-        $user = new object();
+        $user = new stdClass();
         foreach($user_array as $key=>$value) {
             $user->{$key} = $value;
         }
@@ -488,7 +488,7 @@ class auth_plugin_db extends auth_plugin_base {
                 }
 
                 if (!empty($this->config->{'field_updatelocal_' . $key})) {
-                    if ($user->{$key} != $value) { // only update if it's changed
+                    if (isset($user->{$key}) and $user->{$key} != $value) { // only update if it's changed
                         $DB->set_field('user', $key, $value, array('id'=>$userid));
                     }
                 }
@@ -597,15 +597,15 @@ class auth_plugin_db extends auth_plugin_base {
      * Returns the URL for changing the user's pw, or empty if the default can
      * be used.
      *
-     * @return string
+     * @return moodle_url
      */
     function change_password_url() {
         if ($this->config->passtype == 'internal') {
             // standard form
-            return '';
+            return null;
         } else {
             // use custom url
-            return $this->config->changepasswordurl;
+            return new moodle_url($this->config->changepasswordurl);
         }
     }
 

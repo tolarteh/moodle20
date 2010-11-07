@@ -27,6 +27,7 @@ class qformat_default {
     var $translator = null;
     var $canaccessbackupdata = true;
 
+    protected $importcontext = null;
 
 // functions to indicate import/export functionality
 // override to return true if implemented
@@ -225,13 +226,17 @@ class qformat_default {
     /**
      * Process the file
      * This method should not normally be overidden
+     * @param object $context
      * @return boolean success
      */
-    function importprocess() {
-        global $USER, $DB, $OUTPUT;
+    function importprocess($category) {
+        global $USER, $DB, $OUTPUT, $QTYPES;
+
+        $context = $category->context;
+        $this->importcontext = $context;
 
        // reset the timer in case file upload was slow
-       @set_time_limit();
+       set_time_limit(0);
 
        // STAGE 1: Parse the file
        echo $OUTPUT->notification( get_string('parsingquestions','quiz') );
@@ -241,7 +246,7 @@ class qformat_default {
             return false;
         }
 
-        if (! $questions = $this->readquestions($lines)) {   // Extract all the questions
+        if (!$questions = $this->readquestions($lines)) {   // Extract all the questions
             echo $OUTPUT->notification( get_string('noquestionsinfile','quiz') );
             return false;
         }
@@ -264,6 +269,7 @@ class qformat_default {
         $gradeerrors = 0;
         $goodquestions = array();
         foreach ($questions as $question) {
+
             if (!empty($question->fraction) and (is_array($question->fraction))) {
                 $fractions = $question->fraction;
                 $answersvalid = true; // in case they are!
@@ -300,40 +306,49 @@ class qformat_default {
         foreach ($questions as $question) {   // Process and store each question
 
             // reset the php timeout
-            @set_time_limit();
+            @set_time_limit(0);
 
             // check for category modifiers
             if ($question->qtype=='category') {
                 if ($this->catfromfile) {
                     // find/create category object
                     $catpath = $question->category;
-                    $newcategory = $this->create_category_path( $catpath, '/');
+                    $newcategory = $this->create_category_path($catpath);
                     if (!empty($newcategory)) {
                         $this->category = $newcategory;
                     }
                 }
                 continue;
             }
+            $question->context = $context;
 
             $count++;
 
             echo "<hr /><p><b>$count</b>. ".$this->format_question_text($question)."</p>";
 
-            $question->category = $this->category->id;
+            $question->category = $category->id;
             $question->stamp = make_unique_id_code();  // Set the unique code (not to be changed)
 
             $question->createdby = $USER->id;
             $question->timecreated = time();
 
-            $question->id = $DB->insert_record("question", $question);
+            $question->id = $DB->insert_record('question', $question);
+            if (isset($question->questiontextfiles)) {
+                foreach ($question->questiontextfiles as $file) {
+                    $QTYPES[$question->qtype]->import_file($context, 'question', 'questiontext', $question->id, $file);
+                }
+            }
+            if (isset($question->generalfeedbackfiles)) {
+                foreach ($question->generalfeedbackfiles as $file) {
+                    $QTYPES[$question->qtype]->import_file($context, 'question', 'generalfeedback', $question->id, $file);
+                }
+            }
 
             $this->questionids[] = $question->id;
 
             // Now to save all the answers and type-specific options
 
-            global $QTYPES;
-            $result = $QTYPES[$question->qtype]
-                    ->save_question_options($question);
+            $result = $QTYPES[$question->qtype]->save_question_options($question);
 
             if (!empty($result->error)) {
                 echo $OUTPUT->notification($result->error);
@@ -379,14 +394,12 @@ class qformat_default {
      * but if $getcontext is set then ignore the context and use selected category context.
      *
      * @param string catpath delimited category path
-     * @param string delimiter path delimiting character
      * @param int courseid course to search for categories
      * @return mixed category object or null if fails
      */
-    function create_category_path($catpath, $delimiter='/') {
+    function create_category_path($catpath) {
         global $DB;
-        $catpath = clean_param($catpath, PARAM_PATH);
-        $catnames = explode($delimiter, $catpath);
+        $catnames = $this->split_category_path($catpath);
         $parent = 0;
         $category = null;
 
@@ -396,21 +409,24 @@ class qformat_default {
             $contextid = $this->translator->string_to_context($matches[1]);
             array_shift($catnames);
         } else {
-            $contextid = FALSE;
+            $contextid = false;
         }
-        if ($this->contextfromfile && ($contextid !== FALSE)){
+
+        if ($this->contextfromfile && $contextid !== false) {
             $context = get_context_instance_by_id($contextid);
             require_capability('moodle/question:add', $context);
         } else {
             $context = get_context_instance_by_id($this->category->contextid);
         }
+
+        // Now create any categories that need to be created.
         foreach ($catnames as $catname) {
             if ($category = $DB->get_record( 'question_categories', array('name' => $catname, 'contextid' => $context->id, 'parent' => $parent))) {
                 $parent = $category->id;
             } else {
                 require_capability('moodle/question:managecategory', $context);
                 // create the new category
-                $category = new object;
+                $category = new stdClass();
                 $category->contextid = $context->id;
                 $category->name = $catname;
                 $category->info = '';
@@ -454,9 +470,10 @@ class qformat_default {
      * then you will need to override this method. Even then
      * try to use readquestion for each question
      * @param array lines array of lines from readdata
+     * @param object $context
      * @return array array of question objects
      */
-    function readquestions($lines) {
+    function readquestions($lines, $context) {
 
         $questions = array();
         $currentquestion = array();
@@ -476,7 +493,7 @@ class qformat_default {
         }
 
         if (!empty($currentquestion)) {  // There may be a final question
-            if ($question = $this->readquestion($currentquestion)) {
+            if ($question = $this->readquestion($currentquestion, $context)) {
                 $questions[] = $question;
             }
         }
@@ -547,47 +564,6 @@ class qformat_default {
         return true;
     }
 
-    /**
-     * Import an image file encoded in base64 format
-     * @param string path path (in course data) to store picture
-     * @param string base64 encoded picture
-     * @return string filename (nb. collisions are handled)
-     */
-    function importimagefile( $path, $base64 ) {
-        global $CFG;
-
-        // all this to get the destination directory
-        // and filename!
-        $fullpath = "{$CFG->dataroot}/{$this->course->id}/$path";
-        $path_parts = pathinfo( $fullpath );
-        $destination = $path_parts['dirname'];
-        $file = clean_filename( $path_parts['basename'] );
-
-        // check if path exists
-        check_dir_exists($destination, true, true );
-
-        // detect and fix any filename collision - get unique filename
-        $newfiles = resolve_filename_collisions( $destination, array($file) );
-        $newfile = $newfiles[0];
-
-        // convert and save file contents
-        if (!$content = base64_decode( $base64 )) {
-            return '';
-        }
-        $newfullpath = "$destination/$newfile";
-        if (!$fh = fopen( $newfullpath, 'w' )) {
-            return '';
-        }
-        if (!fwrite( $fh, $content )) {
-            return '';
-        }
-        fclose( $fh );
-
-        // return the (possibly) new filename
-        $newfile = preg_replace("~{$CFG->dataroot}/{$this->course->id}/~", '',$newfullpath);
-        return $newfile;
-    }
-
 
 /*******************
  * EXPORT FUNCTIONS
@@ -650,26 +626,20 @@ class qformat_default {
     /**
      * Do the export
      * For most types this should not need to be overrided
-     * @return boolean success
+     * @return stored_file
      */
     function exportprocess() {
-        global $CFG, $OUTPUT;
-
-        // create a directory for the exports (if not already existing)
-        if (! $export_dir = make_upload_directory($this->question_get_export_dir())) {
-              print_error('cannotcreatepath', 'quiz', $export_dir);
-        }
-        $path = $CFG->dataroot.'/'.$this->question_get_export_dir();
+        global $CFG, $OUTPUT, $DB, $USER;
 
         // get the questions (from database) in this category
         // only get q's with no parents (no cloze subquestions specifically)
-        if ($this->category){
+        if ($this->category) {
             $questions = get_questions_category( $this->category, true );
         } else {
             $questions = $this->questions;
         }
 
-        echo $OUTPUT->notification( get_string('exportingquestions','quiz') );
+        //echo $OUTPUT->notification( get_string('exportingquestions','quiz') );
         $count = 0;
 
         // results are first written into string (and then to a file)
@@ -681,8 +651,13 @@ class qformat_default {
         // file if selected. 0 means that it will get printed before the 1st question
         $trackcategory = 0;
 
+        $fs = get_file_storage();
+
         // iterate through questions
         foreach($questions as $question) {
+            // used by file api
+            $contextid = $DB->get_field('question_categories', 'contextid', array('id'=>$question->category));
+            $question->contextid = $contextid;
 
             // do not export hidden questions
             if (!empty($question->hidden)) {
@@ -698,24 +673,44 @@ class qformat_default {
             if ($this->cattofile) {
                 if ($question->category != $trackcategory) {
                     $trackcategory = $question->category;
-                    $categoryname = $this->get_category_path($trackcategory, '/', $this->contexttofile);
+                    $categoryname = $this->get_category_path($trackcategory, $this->contexttofile);
 
                     // create 'dummy' question for category export
-                    $dummyquestion = new object;
+                    $dummyquestion = new stdClass();
                     $dummyquestion->qtype = 'category';
                     $dummyquestion->category = $categoryname;
-                    $dummyquestion->name = "switch category to $categoryname";
+                    $dummyquestion->name = 'Switch category to ' . $categoryname;
                     $dummyquestion->id = 0;
                     $dummyquestion->questiontextformat = '';
-                    $expout .= $this->writequestion( $dummyquestion ) . "\n";
+                    $dummyquestion->contextid = 0;
+                    $expout .= $this->writequestion($dummyquestion) . "\n";
                 }
             }
 
             // export the question displaying message
             $count++;
-            echo "<hr /><p><b>$count</b>. ".$this->format_question_text($question)."</p>";
-            if (question_has_capability_on($question, 'view', $question->category)){
-                $expout .= $this->writequestion( $question ) . "\n";
+
+            //echo '<hr />';
+            //echo $OUTPUT->container_start();
+            //echo '<strong>' . $count . '.</strong>&nbsp;';
+            //echo $this->format_question_text($question);
+            //echo $OUTPUT->container_end();
+
+            if (question_has_capability_on($question, 'view', $question->category)) {
+                // files used by questiontext
+                $files = $fs->get_area_files($contextid, 'question', 'questiontext', $question->id);
+                $question->questiontextfiles = $files;
+                // files used by generalfeedback
+                $files = $fs->get_area_files($contextid, 'question', 'generalfeedback', $question->id);
+                $question->generalfeedbackfiles = $files;
+                if (!empty($question->options->answers)) {
+                    foreach ($question->options->answers as $answer) {
+                        $files = $fs->get_area_files($contextid, 'question', 'answerfeedback', $answer->id);
+                        $answer->feedbackfiles = $files;
+                    }
+                }
+
+                $expout .= $this->writequestion($question, $contextid) . "\n";
             }
         }
 
@@ -729,49 +724,83 @@ class qformat_default {
         }
 
         // final pre-process on exported data
-        $expout = $this->presave_process( $expout );
-
-        // write file
-        $filepath = $path."/".$this->filename . $this->export_file_extension();
-        if (!$fh=fopen($filepath,"w")) {
-            print_error( 'cannotopen','quiz',$continuepath,$filepath );
-        }
-        if (!fwrite($fh, $expout, strlen($expout) )) {
-            print_error( 'cannotwrite','quiz',$continuepath,$filepath );
-        }
-        fclose($fh);
-        return true;
+        $expout = $this->presave_process($expout);
+        return $expout;
     }
 
     /**
      * get the category as a path (e.g., tom/dick/harry)
      * @param int id the id of the most nested catgory
-     * @param string delimiter the delimiter you want
      * @return string the path
      */
-    function get_category_path($id, $delimiter='/', $includecontext = true) {
+    function get_category_path($id, $includecontext = true) {
         global $DB;
-        $path = '';
-        if (!$firstcategory = $DB->get_record('question_categories',array('id' =>$id))) {
+
+        if (!$category = $DB->get_record('question_categories',array('id' =>$id))) {
             print_error('cannotfindcategory', 'error', '', $id);
         }
-        $category = $firstcategory;
         $contextstring = $this->translator->context_to_string($category->contextid);
+
+        $pathsections = array();
         do {
-            $name = $category->name;
+            $pathsections[] = $category->name;
             $id = $category->parent;
-            if (!empty($path)) {
-                $path = "{$name}{$delimiter}{$path}";
-            }
-            else {
-                $path = $name;
-            }
-        } while ($category = $DB->get_record( 'question_categories',array('id' =>$id )));
+        } while ($category = $DB->get_record( 'question_categories', array('id' => $id )));
 
         if ($includecontext){
-            $path = '$'.$contextstring.'$'."{$delimiter}{$path}";
+            $pathsections[] = '$' . $contextstring . '$';
         }
+
+        $path = $this->assemble_category_path(array_reverse($pathsections));
+
         return $path;
+    }
+
+    /**
+     * Convert a list of category names, possibly preceeded by one of the
+     * context tokens like $course$, into a string representation of the
+     * category path.
+     *
+     * Names are separated by / delimiters. And /s in the name are replaced by //.
+     *
+     * To reverse the process and split the paths into names, use
+     * {@link split_category_path()}.
+     *
+     * @param array $names
+     * @return string
+     */
+    protected function assemble_category_path($names) {
+        $escapednames = array();
+        foreach ($names as $name) {
+            $escapedname = str_replace('/', '//', $name);
+            if (substr($escapedname, 0, 1) == '/') {
+                $escapedname = ' ' . $escapedname;
+            }
+            if (substr($escapedname, -1) == '/') {
+                $escapedname = $escapedname . ' ';
+            }
+            $escapednames[] = $escapedname;
+        }
+        return implode('/', $escapednames);
+    }
+
+    /**
+     * Convert a string, as returned by {@link assemble_category_path()},
+     * back into an array of category names.
+     *
+     * Each category name is cleaned by a call to clean_param(, PARAM_MULTILANG),
+     * which matches the cleaning in question/category_form.php.
+     *
+     * @param string $path
+     * @return array of category names.
+     */
+    protected function split_category_path($path) {
+        $rawnames = preg_split('~(?<!/)/(?!/)~', $path);
+        $names = array();
+        foreach ($rawnames as $rawname) {
+            $names[] = clean_param(trim(str_replace('//', '/', $rawname)), PARAM_MULTILANG);
+        }
+        return $names;
     }
 
     /**
@@ -816,6 +845,7 @@ class qformat_default {
      * performs the conversion.
      */
     function format_question_text($question) {
+        global $DB;
         $formatoptions = new stdClass;
         $formatoptions->noclean = true;
         $formatoptions->para = false;
@@ -824,10 +854,33 @@ class qformat_default {
         } else {
             $format = $question->questiontextformat;
         }
-        return format_text($question->questiontext, $format, $formatoptions);
+        $text = $question->questiontext;
+        return format_text(html_to_text($text), $format, $formatoptions);
     }
 
-
+    /**
+     * convert files into text output in the given format.
+     * @param array
+     * @param string encoding method
+     * @return string $string
+     */
+    function writefiles($files, $encoding='base64') {
+        if (empty($files)) {
+            return '';
+        }
+        $string = '';
+        foreach ($files as $file) {
+            if ($file->is_directory()) {
+                continue;
+            }
+            $string .= '<file ';
+            $string .= ('name="' . $file->get_filename() . '"');
+            $string .= (' encoding="' . $encoding . '"');
+            $string .= '>';
+            $string .= base64_encode($file->get_content());
+            //$string .= 'base64';
+            $string .= '</file>';
+        }
+        return $string;
+    }
 }
-
-

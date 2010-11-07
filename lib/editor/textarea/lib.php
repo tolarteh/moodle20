@@ -16,13 +16,15 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Failsafe textare editor support.
+ * Failsafe textarea editor support.
  *
- * @package    moodlecore
- * @subpackage editor
+ * @package    editor
+ * @subpackage textarea
  * @copyright  2009 Petr Skoda (http://skodak.org)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 class textarea_texteditor extends texteditor {
     public function supported_by_browser() {

@@ -8,14 +8,15 @@ require_once($CFG->dirroot . '/mod/assignment/lib.php');
  */
 class assignment_online extends assignment_base {
 
+    var $filearea = 'submission';
+
     function assignment_online($cmid='staticonly', $assignment=NULL, $cm=NULL, $course=NULL) {
         parent::assignment_base($cmid, $assignment, $cm, $course);
         $this->type = 'online';
     }
 
     function view() {
-
-        global $OUTPUT, $CFG;
+        global $OUTPUT, $CFG, $USER, $PAGE;
 
         $edit  = optional_param('edit', 0, PARAM_BOOL);
         $saved = optional_param('saved', 0, PARAM_BOOL);
@@ -23,67 +24,58 @@ class assignment_online extends assignment_base {
         $context = get_context_instance(CONTEXT_MODULE, $this->cm->id);
         require_capability('mod/assignment:view', $context);
 
-        $submission = $this->get_submission();
+        $submission = $this->get_submission($USER->id, false);
 
         //Guest can not submit nor edit an assignment (bug: 4604)
-        if (!has_capability('mod/assignment:submit', $context)) {
-            $editable = null;
+        if (!is_enrolled($this->context, $USER, 'mod/assignment:submit')) {
+            $editable = false;
         } else {
             $editable = $this->isopen() && (!$submission || $this->assignment->resubmit || !$submission->timemarked);
         }
         $editmode = ($editable and $edit);
 
         if ($editmode) {
-            //guest can not edit or submit assignment
-            if (!has_capability('mod/assignment:submit', $context)) {
-                print_error('guestnosubmit', 'assignment');
+            // prepare form and process submitted data
+            $editoroptions = array('noclean'=>false, 'maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$this->course->maxbytes);
+
+            $data = new stdClass();
+            $data->id         = $this->cm->id;
+            $data->edit       = 1;
+            if ($submission) {
+                $data->sid        = $submission->id;
+                $data->text       = $submission->data1;
+                $data->textformat = $submission->data2;
+            } else {
+                $data->sid        = NULL;
+                $data->text       = '';
+                $data->textformat = NULL;
+            }
+
+            $data = file_prepare_standard_editor($data, 'text', $editoroptions, $this->context, 'mod_assignment', $this->filearea, $data->sid);
+
+            $mform = new mod_assignment_online_edit_form(null, array($data, $editoroptions));
+
+            if ($mform->is_cancelled()) {
+                redirect($PAGE->url);
+            }
+
+            if ($data = $mform->get_data()) {
+                $submission = $this->get_submission($USER->id, true); //create the submission if needed & its id
+
+                $data = file_postupdate_standard_editor($data, 'text', $editoroptions, $this->context, 'mod_assignment', $this->filearea, $submission->id);
+
+                $submission = $this->update_submission($data);
+
+                //TODO fix log actions - needs db upgrade
+                add_to_log($this->course->id, 'assignment', 'upload', 'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
+                $this->email_teachers($submission);
+
+                //redirect to get updated submission date and word count
+                redirect(new moodle_url($PAGE->url, array('saved'=>1)));
             }
         }
 
         add_to_log($this->course->id, "assignment", "view", "view.php?id={$this->cm->id}", $this->assignment->id, $this->cm->id);
-
-/// prepare form and process submitted data
-        $mformdata = new stdClass;
-        $mformdata->context = $this->context;
-        $mformdata->maxbytes = $this->course->maxbytes;
-        $mformdata->submission = $submission;
-        $mform = new mod_assignment_online_edit_form(null, $mformdata);
-
-        $defaults = new object();
-        $defaults->id = $this->cm->id;
-        if (!empty($submission)) {
-            if ($this->usehtmleditor) {
-                $options = new object();
-                $options->smiley = false;
-                $options->filter = false;
-
-                $defaults->text   = format_text($submission->data1, $submission->data2, $options);
-                $defaults->format = FORMAT_HTML;
-            } else {
-                $defaults->text   = clean_text($submission->data1, $submission->data2);
-                $defaults->format = $submission->data2;
-            }
-        }
-        $mform->set_data($defaults);
-
-        if ($mform->is_cancelled()) {
-            redirect('view.php?id='.$this->cm->id);
-        }
-
-        if ($data = $mform->get_data()) {      // No incoming data?
-            if ($editable && $this->update_submission($data)) {
-                //TODO fix log actions - needs db upgrade
-                $submission = $this->get_submission();
-                add_to_log($this->course->id, 'assignment', 'upload',
-                        'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
-                $this->email_teachers($submission);
-                //redirect to get updated submission date and word count
-                redirect('view.php?id='.$this->cm->id.'&saved=1');
-            } else {
-                // TODO: add better error message
-                echo $OUTPUT->notification(get_string("error")); //submitting not allowed!
-            }
-        }
 
 /// print header, etc. and display form if needed
         if ($editmode) {
@@ -100,29 +92,27 @@ class assignment_online extends assignment_base {
             echo $OUTPUT->notification(get_string('submissionsaved', 'assignment'), 'notifysuccess');
         }
 
-        if (has_capability('mod/assignment:submit', $context)) {
+        if (is_enrolled($this->context, $USER)) {
             if ($editmode) {
                 echo $OUTPUT->box_start('generalbox', 'onlineenter');
                 $mform->display();
             } else {
                 echo $OUTPUT->box_start('generalbox boxwidthwide boxaligncenter', 'online');
                 if ($submission && has_capability('mod/assignment:exportownsubmission', $this->context)) {
-                    $text = file_rewrite_pluginfile_urls($submission->data1, 'pluginfile.php', $this->context->id, 'assignment_online_submission', $submission->id);
-                    echo format_text($text, $submission->data2);
+                    $text = file_rewrite_pluginfile_urls($submission->data1, 'pluginfile.php', $this->context->id, 'mod_assignment', $this->filearea, $submission->id);
+                    echo format_text($text, $submission->data2, array('overflowdiv'=>true));
                     if ($CFG->enableportfolios) {
                         require_once($CFG->libdir . '/portfoliolib.php');
                         $button = new portfolio_add_button();
                         $button->set_callback_options('assignment_portfolio_caller', array('id' => $this->cm->id), '/mod/assignment/locallib.php');
                         $fs = get_file_storage();
-                        if ($files = $fs->get_area_files($this->context->id, 'assignment_online_submission', $submission->id, "timemodified", false)) {
+                        if ($files = $fs->get_area_files($this->context->id, 'mod_assignment', $this->filearea, $submission->id, "timemodified", false)) {
                             $button->set_formats(PORTFOLIO_FORMAT_RICHHTML);
                         } else {
                             $button->set_formats(PORTFOLIO_FORMAT_PLAINHTML);
                         }
                         $button->render();
                     }
-                } else if (!has_capability('mod/assignment:submit', $context)) { //fix for #4604
-                    echo '<div style="text-align:center">'. get_string('guestnosubmit', 'assignment').'</div>';
                 } else if ($this->isopen()){    //fix for #4206
                     echo '<div style="text-align:center">'.get_string('emptysubmission', 'assignment').'</div>';
                 }
@@ -186,17 +176,17 @@ class assignment_online extends assignment_base {
 
         $submission = $this->get_submission($USER->id, true);
 
-        $update = new object();
+        $update = new stdClass();
         $update->id           = $submission->id;
         $update->data1        = $data->text;
-        $update->data2        = $data->format;
+        $update->data2        = $data->textformat;
         $update->timemodified = time();
 
         $DB->update_record('assignment_submissions', $update);
 
         $submission = $this->get_submission($USER->id);
         $this->update_grade($submission);
-        return true;
+        return $submission;
     }
 
 
@@ -226,32 +216,27 @@ class assignment_online extends assignment_base {
 
         $link = new moodle_url("/mod/assignment/type/online/file.php?id={$this->cm->id}&userid={$submission->userid}");
         $action = new popup_action('click', $link, 'file'.$userid, array('height' => 450, 'width' => 580));
-        $popup = $OUTPUT->action_link($link, shorten_text(trim(strip_tags(format_text($submission->data1,$submission->data2))), 15), $action, array('title'=>get_string('submission', 'assignment')));
+        $popup = $OUTPUT->action_link($link, get_string('popupinnewwindow','assignment'), $action, array('title'=>get_string('submission', 'assignment')));
 
         $output = '<div class="files">'.
                   '<img align="middle" src="'.$OUTPUT->pix_url('f/html') . '" height="16" width="16" alt="html" />'.
                   $popup .
                   '</div>';
 
-        ///Stolen code from file.php
-
-        echo $OUTPUT->box_start('generalbox boxaligncenter', 'wordcount');
+        $wordcount = '<p id="wordcount">'. $popup . '&nbsp;';
     /// Decide what to count
         if ($CFG->assignment_itemstocount == ASSIGNMENT_COUNT_WORDS) {
-            echo ' ('.get_string('numwords', '', count_words(format_text($submission->data1, $submission->data2))).')';
+            $wordcount .= '('.get_string('numwords', '', count_words(format_text($submission->data1, $submission->data2))).')';
         } else if ($CFG->assignment_itemstocount == ASSIGNMENT_COUNT_LETTERS) {
-            echo ' ('.get_string('numletters', '', count_letters(format_text($submission->data1, $submission->data2))).')';
+            $wordcount .= '('.get_string('numletters', '', count_letters(format_text($submission->data1, $submission->data2))).')';
         }
-        echo $OUTPUT->box_end();
-        echo $OUTPUT->box(format_text($submission->data1, $submission->data2), 'generalbox boxaligncenter boxwidthwide');
+        $wordcount .= '</p>';
 
-        ///End of stolen code from file.php
+        $text = file_rewrite_pluginfile_urls($submission->data1, 'pluginfile.php', $this->context->id, 'mod_assignment', $this->filearea, $submission->id);
+        return $wordcount . format_text($text, $submission->data2, array('overflowdiv'=>true));
 
-        if ($return) {
-            //return $output;
+
         }
-        //echo $output;
-    }
 
     function preprocess_submission(&$submission) {
         if ($this->assignment->var1 && empty($submission->submissioncomment)) {  // comment inline
@@ -287,13 +272,13 @@ class assignment_online extends assignment_base {
     }
 
     function portfolio_exportable() {
-        return true;
+        return false; // not until MDL-22001 is fixed :(
     }
 
     function portfolio_load_data($caller) {
         $submission = $this->get_submission();
         $fs = get_file_storage();
-        if ($files = $fs->get_area_files($this->context->id, 'assignment_online_submission', $submission->id, "timemodified", false)) {
+        if ($files = $fs->get_area_files($this->context->id, 'mod_assignment', $this->filearea, $submission->id, "timemodified", false)) {
             $caller->set('multifiles', $files);
         }
     }
@@ -311,11 +296,11 @@ class assignment_online extends assignment_base {
     function portfolio_prepare_package($exporter, $user) {
         $submission = $this->get_submission($user->id);
         $html = format_text($submission->data1, $submission->data2);
-        $html = portfolio_rewrite_pluginfile_urls($html, $this->context->id, 'assignment_online_submission', $submission->id, $exporter->get('format'));
+        $html = portfolio_rewrite_pluginfile_urls($html, $this->context->id, 'mod_assignment', $this->filearea, $submission->id, $exporter->get('format'));
         if (in_array($exporter->get('formatclass'), array(PORTFOLIO_FORMAT_PLAINHTML, PORTFOLIO_FORMAT_RICHHTML))) {
             if ($files = $exporter->get('caller')->get('multifiles')) {
                 foreach ($files as $f) {
-                    $exporter->copy_existing_file($file);
+                    $exporter->copy_existing_file($f);
                 }
             }
             return $exporter->write_new_file($html, 'assignment.html', !empty($files));
@@ -328,9 +313,9 @@ class assignment_online extends assignment_base {
             $entry->author = $user;
             $leapwriter->add_entry($entry);
             if ($files = $exporter->get('caller')->get('multifiles')) {
+                $leapwriter->link_files($entry, $files, 'assignmentonline' . $this->assignment->id . 'file');
                 foreach ($files as $f) {
                     $exporter->copy_existing_file($f);
-                    $entry->add_attachment($f);
                 }
             }
             $exporter->write_new_file($leapwriter->to_xml(), $exporter->get('format')->manifest_name(), true);
@@ -344,7 +329,7 @@ class assignment_online extends assignment_base {
 
         // get users submission if there is one
         $submission = $this->get_submission();
-        if (has_capability('mod/assignment:submit', $PAGE->cm->context)) {
+        if (is_enrolled($PAGE->cm->context, $USER, 'mod/assignment:submit')) {
             $editable = $this->isopen() && (!$submission || $this->assignment->resubmit || !$submission->timemarked);
         } else {
             $editable = false;
@@ -379,7 +364,7 @@ class assignment_online extends assignment_base {
         global $USER;
         require_capability('mod/assignment:view', $this->context);
 
-        $fullpath = $this->context->id.$filearea.implode('/', $args);
+        $fullpath = "/{$this->context->id}/mod_assignment/$filearea/".implode('/', $args);
 
         $fs = get_file_storage();
         if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
@@ -399,24 +384,26 @@ class assignment_online extends assignment_base {
      */
     public function download_submissions() {
         global $CFG, $DB;
-        require_once($CFG->libdir.'/filelib.php');
-        
+
+        raise_memory_limit(MEMORY_EXTRA);
+
         $submissions = $this->get_submissions('','');
         if (empty($submissions)) {
-            error("there are no submissions to download");
+            print_error('errornosubmissions', 'assignment');
         }
         $filesforzipping = array();
-        $tempdir = assignment_create_temp_dir($CFG->dataroot."/temp/", "assignment".$this->assignment->id); //location for temp files.
+
+        //NOTE: do not create any stuff in temp directories, we now support unicode file names and that would not work, sorry
+
         //online assignment can use html
         $filextn=".html";
 
-        $groupmode = groupmode($this->course,$this->cm);
+        $groupmode = groups_get_activity_groupmode($this->cm);
         $groupid = 0;   // All users
         $groupname = '';
-        if($groupmode) {
-            $group = get_current_group($this->course->id, true);
-            $groupid = $group->id;
-            $groupname = $group->name.'-';
+        if ($groupmode) {
+            $groupid = groups_get_activity_group($this->cm, true);
+            $groupname = groups_get_group_name($groupid).'-';
         }
         $filename = str_replace(' ', '_', clean_filename($this->course->shortname.'-'.$this->assignment->name.'-'.$groupname.$this->assignment->id.".zip")); //name of new zip file.
         foreach ($submissions as $submission) {
@@ -424,85 +411,41 @@ class assignment_online extends assignment_base {
             if ((groups_is_member($groupid,$a_userid)or !$groupmode or !$groupid)) {
                 $a_assignid = $submission->assignment; //get name of this assignment for use in the file names.
                 $a_user = $DB->get_record("user", array("id"=>$a_userid),'id,username,firstname,lastname'); //get user firstname/lastname
-                $submissioncontent = "<html><body>". $submission->data1. "</body></html>";      //fetched from database
+                $submissioncontent = "<html><body>". format_text($submission->data1, $submission->data2). "</body></html>";      //fetched from database
                 //get file name.html
-                $fileforzipname =  $a_user->username . "_" . clean_filename($this->assignment->name) . $filextn;
-                $fd = fopen($tempdir . $fileforzipname,'wb');   //create if not exist, write binary
-                fwrite( $fd, $submissioncontent);
-                fclose( $fd );
-                $filesforzipping[$fileforzipname] = $tempdir.$fileforzipname;
-            }    
+                $fileforzipname =  clean_filename(fullname($a_user) . "_" .$a_userid.$filextn);
+                $filesforzipping[$fileforzipname] = array($submissioncontent);
+            }
         }      //end of foreach
+
         if ($zipfile = assignment_pack_files($filesforzipping)) {
-            remove_dir($tempdir); //remove old tempdir with individual files.
             send_temp_file($zipfile, $filename); //send file and delete after sending.
         }
     }
 }
 
 class mod_assignment_online_edit_form extends moodleform {
-
-    public function set_data($data) {
-        $editoroptions = $this->get_editor_options();
-        if (!isset($data->text)) {
-            $data->text = '';
-        }
-        if (!isset($data->format)) {
-            $data->textformat = FORMAT_HTML;
-        } else {
-            $data->textformat = $data->format;
-        }
-
-        if (!empty($this->_customdata->submission->id)) {
-            $itemid = $this->_customdata->submission->id;
-        } else {
-            $itemid = null;
-        }
-
-        $data = file_prepare_standard_editor($data, 'text', $editoroptions, $this->_customdata->context, $editoroptions['filearea'], $itemid);
-        return parent::set_data($data);
-    }
-
-    public function get_data() {
-        $data = parent::get_data();
-
-        if (!empty($this->_customdata->submission->id)) {
-            $itemid = $this->_customdata->submission->id;
-        } else {
-            $itemid = null;
-        }
-
-        if ($data) {
-            $editoroptions = $this->get_editor_options();
-            $data = file_postupdate_standard_editor($data, 'text', $editoroptions, $this->_customdata->context, $editoroptions['filearea'], $itemid);
-            $data->format = $data->textformat;
-        }
-        return $data;
-    }
-
     function definition() {
-        $mform =& $this->_form;
+        $mform = $this->_form;
+
+        list($data, $editoroptions) = $this->_customdata;
 
         // visible elements
-        $mform->addElement('editor', 'text_editor', get_string('submission', 'assignment'), null, $this->get_editor_options());
+        $mform->addElement('editor', 'text_editor', get_string('submission', 'assignment'), null, $editoroptions);
         $mform->setType('text_editor', PARAM_RAW); // to be cleaned before display
         $mform->addRule('text_editor', get_string('required'), 'required', null, 'client');
 
         // hidden params
-        $mform->addElement('hidden', 'id', 0);
+        $mform->addElement('hidden', 'id');
         $mform->setType('id', PARAM_INT);
+
+        $mform->addElement('hidden', 'edit');
+        $mform->setType('edit', PARAM_INT);
 
         // buttons
         $this->add_action_buttons();
-    }
 
-    protected function get_editor_options() {
-        $editoroptions = array();
-        $editoroptions['filearea'] = 'assignment_online_submission';
-        $editoroptions['noclean'] = false;
-        $editoroptions['maxfiles'] = EDITOR_UNLIMITED_FILES;
-        $editoroptions['maxbytes'] = $this->_customdata->maxbytes;
-        return $editoroptions;
+        $this->set_data($data);
     }
 }
 

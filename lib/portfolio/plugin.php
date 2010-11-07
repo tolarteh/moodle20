@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @package    moodle
+ * @package    core
  * @subpackage portfolio
  * @author     Penny Leach <penny@catalyst.net.nz>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL
@@ -28,6 +28,8 @@
  * which both in turn inherit from portfolio_plugin_base.
  * See http://docs.moodle.org/en/Development:Writing_a_Portfolio_Plugin
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
 * the base class for portfolio plugins
@@ -114,7 +116,7 @@ abstract class portfolio_plugin_base {
 
     /**
     * override this if you are supporting the 'file' type (or a subformat)
-    * but have restrictions on mimetypes 
+    * but have restrictions on mimetypes
     *
     * @return boolean
     */
@@ -151,7 +153,9 @@ abstract class portfolio_plugin_base {
      *
      * @return string
      */
-    public static abstract function get_name();
+    public static function get_name() {
+        throw new coding_exception('get_name() method needs to be overridden in each subclass of portfolio_plugin_base');
+    }
 
     /**
     * check sanity of plugin
@@ -466,6 +470,7 @@ abstract class portfolio_plugin_base {
         $classname = 'portfolio_plugin_'  . $plugin;
         $obj = new $classname($newid);
         $obj->set_config($config);
+        $obj->save();
         return $obj;
     }
 

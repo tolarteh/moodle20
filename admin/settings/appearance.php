@@ -17,7 +17,6 @@ if ($hassiteconfig) { // speedup for non-admins, add all caps used on this page
     $temp->add(new admin_setting_configcheckbox('allowthemechangeonurl',  get_string('allowthemechangeonurl', 'admin'), get_string('configallowthemechangeonurl', 'admin'), 0));
     $temp->add(new admin_setting_configcheckbox('allowuserblockhiding', get_string('allowuserblockhiding', 'admin'), get_string('configallowuserblockhiding', 'admin'), 1));
     $temp->add(new admin_setting_configcheckbox('allowblockstodock', get_string('allowblockstodock', 'admin'), get_string('configallowblockstodock', 'admin'), 1));
-    $temp->add(new admin_setting_configcheckbox('showblocksonmodpages', get_string('showblocksonmodpages', 'admin'), get_string('configshowblocksonmodpages', 'admin'), 0));
     $temp->add(new admin_setting_configtextarea('custommenuitems', get_string('custommenuitems', 'admin'), get_string('configcustommenuitems', 'admin'), '', PARAM_TEXT, '50', '10'));
     $ADMIN->add('themes', $temp);
     $ADMIN->add('themes', new admin_externalpage('themeselector', get_string('themeselector','admin'), $CFG->wwwroot . '/theme/index.php'));
@@ -26,7 +25,11 @@ if ($hassiteconfig) { // speedup for non-admins, add all caps used on this page
     foreach (get_plugin_list('theme') as $theme => $themedir) {
         $settings_path = "$themedir/settings.php";
         if (file_exists($settings_path)) {
+            $settings = new admin_settingpage('themesetting'.$theme, get_string('pluginname', 'theme_'.$theme));
             include($settings_path);
+            if ($settings) {
+                $ADMIN->add('themes', $settings);
+            }
         }
     }
 
@@ -89,39 +92,13 @@ if ($hassiteconfig) { // speedup for non-admins, add all caps used on this page
 
     $ADMIN->add('appearance', $temp);
 
-/* TODO: reimplement editor settings and preferences, editors are now full plugins ;-)
-    // "htmleditor" settingpage
-    $ADMIN->add('appearance', new admin_category('htmleditor', get_string('htmleditor', 'admin')));
-
-    $temp = new admin_settingpage('htmleditorsettings', get_string('htmleditorsettings', 'admin'));
-
-    $htmleditors = get_available_editors();
-
-    $temp->add(new admin_setting_configselect('defaulthtmleditor', get_string('defaulthtmleditor', 'admin'), null, 'tinymce', $htmleditors));
-    $temp->add(new admin_setting_configcheckbox('htmleditor', get_string('usehtmleditor', 'admin'), get_string('confightmleditor','admin'), 1));
-    $temp->add(new admin_setting_emoticons());
-    $ADMIN->add('htmleditor', $temp);
-
-
- TODO: before deleting these settings migrate or drop config values!
-    $temp = new admin_settingpage('htmlarea', get_string('htmlarea', 'admin'));
-    $temp->add(new admin_setting_configtext('editorbackgroundcolor', get_string('editorbackgroundcolor', 'admin'), get_string('edhelpbgcolor'), '#ffffff', PARAM_NOTAGS));
-    $temp->add(new admin_setting_configtext('editorfontfamily', get_string('editorfontfamily', 'admin'), get_string('edhelpfontfamily'), 'Trebuchet MS,Verdana,Arial,Helvetica,sans-serif', PARAM_NOTAGS));
-    $temp->add(new admin_setting_configtext('editorfontsize', get_string('editorfontsize', 'admin'), get_string('edhelpfontsize'), '', PARAM_NOTAGS));
-    $temp->add(new admin_setting_special_editorfontlist());
-    $temp->add(new admin_setting_configcheckbox('editorkillword', get_string('editorkillword', 'admin'), get_string('edhelpcleanword'), 1));
-    $temp->add(new admin_setting_special_editorhidebuttons());
-    $ADMIN->add('htmleditor', $temp);
-
-    $temp = new admin_settingpage('tinymce', 'TinyMCE');
-    // add tinymce configuration options here
-    $ADMIN->add('htmleditor', $temp);
-*/
-
     // "htmlsettings" settingpage
     $temp = new admin_settingpage('htmlsettings', get_string('htmlsettings', 'admin'));
     $temp->add(new admin_setting_configcheckbox('formatstringstriptags', get_string('stripalltitletags', 'admin'), get_string('configstripalltitletags', 'admin'), 1));
+    $temp->add(new admin_setting_emoticons());
     $ADMIN->add('appearance', $temp);
+    $ADMIN->add('appearance', new admin_externalpage('resetemoticons', get_string('emoticonsreset', 'admin'),
+        new moodle_url('/admin/resetemoticons.php'), 'moodle/site:config', true));
 
     // "documentation" settingpage
     $temp = new admin_settingpage('documentation', get_string('moodledocs'));
@@ -144,8 +121,11 @@ if ($hassiteconfig) { // speedup for non-admins, add all caps used on this page
     $temp->add(new admin_setting_configcheckbox('enableajax', get_string('enableajax', 'admin'), get_string('configenableajax', 'admin'), 1));
     $temp->add(new admin_setting_configcheckbox('useexternalyui', get_string('useexternalyui', 'admin'), get_string('configuseexternalyui', 'admin'), 0));
     $temp->add(new admin_setting_configcheckbox('yuicomboloading', get_string('yuicomboloading', 'admin'), get_string('configyuicomboloading', 'admin'), 1));
+    $setting = new admin_setting_configcheckbox('cachejs', get_string('cachejs', 'admin'), get_string('cachejs_help', 'admin'), 1);
+    $setting->set_updatedcallback('js_reset_all_caches');
+    $temp->add($setting);
     $temp->add(new admin_setting_configcheckbox('disablecourseajax', get_string('disablecourseajax', 'admin'), get_string('configdisablecourseajax', 'admin'),
-                                                isset($CFG->disablecourseajax) ? 1 : empty($CFG->enableajax)));
+                                                0));
     $ADMIN->add('appearance', $temp);
 
     // link to tag management interface

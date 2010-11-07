@@ -26,7 +26,7 @@
 
 require('../../config.php');
 
-require_once($CFG->dirroot.'/admin/registration/lib.php');
+require_once($CFG->dirroot.'/' . $CFG->admin . '/registration/lib.php');
 require_once($CFG->dirroot.'/course/publish/forms.php');
 
 $id = optional_param('id', 0, PARAM_INT);
@@ -55,7 +55,7 @@ $hubselectorform = new hub_publish_selector_form('',
         array('id' => $id, 'share' => $share, 'advertise' => $advertise));
 $fromform = $hubselectorform->get_data();
 
-//// Redirect to the registration form if an URL has been choosen ////
+//// Redirect to the registration form if an URL has been chosen ////
 $huburl = optional_param('huburl', false, PARAM_URL);
 
 //redirect

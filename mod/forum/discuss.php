@@ -83,7 +83,7 @@
         require_once("$CFG->libdir/rsslib.php");
 
         $rsstitle = format_string($course->shortname) . ': %fullname%';
-        rss_add_http_header($modcontext, 'forum', $forum, $rsstitle);
+        rss_add_http_header($modcontext, 'mod_forum', $forum, $rsstitle);
     }
 
     if ($forum->type == 'news') {
@@ -129,12 +129,9 @@
         require_once($CFG->libdir.'/rsslib.php');
         require_once('rsslib.php');
 
-        // Delete the RSS files for the 2 forums because we want to force
-        // the regeneration of the feeds since the discussions have been
-        // moved.
-        if (!forum_rss_delete_file($forum) || !forum_rss_delete_file($forumto)) {
-            print_error('cannotpurgecachedrss', 'forum', $return);
-        }
+        // Delete the RSS files for the 2 forums to force regeneration of the feeds
+        forum_rss_delete_file($forum);
+        forum_rss_delete_file($forumto);
 
         redirect($return.'&moved=-1&sesskey='.sesskey());
     }
@@ -184,7 +181,7 @@
     }
 
     $searchform = forum_search_form($course);
-    
+
     if ($parent != $discussion->firstpost) {
         $PAGE->navbar->add(format_string($post->subject));
     }
@@ -207,26 +204,26 @@
     }
 
 /// Print the controls across the top
-
-    echo '<table width="100%" class="discussioncontrols"><tr><td>';
+    echo '<div class="discussioncontrols clearfix">';
 
     // groups selector not needed here
-
-    echo "</td><td>";
+    echo '<div class="displaymode">';
     forum_print_mode_form($discussion->id, $displaymode);
-    echo "</td><td>";
+    echo "</div>";
 
-    if (has_capability('mod/forum:exportdiscussion', $modcontext)) {
+    if (has_capability('mod/forum:exportdiscussion', $modcontext) && (!empty($CFG->enableportfolios))) {
+        echo '<div class="exporttoportfolio">';
         require_once($CFG->libdir.'/portfoliolib.php');
         $button = new portfolio_add_button();
         $button->set_callback_options('forum_portfolio_caller', array('discussionid' => $discussion->id), '/mod/forum/locallib.php');
         $button->render();
-        echo '</td><td>';
+        echo '</div>';
     }
 
     if ($forum->type != 'single'
                 && has_capability('mod/forum:movediscussions', $modcontext)) {
 
+        echo '<div class="movediscussion">';
         // Popup menu to move discussions to other forums. The discussion in a
         // single discussion forum can't be moved.
         $modinfo = get_fast_modinfo($course);
@@ -250,18 +247,19 @@
                 }
             }
             if (!empty($forummenu)) {
-
-                echo "<div style=\"float:right;\">";
+                echo '<div class="movediscussionoption">';
                 $select = new url_select($forummenu, '', array(''=>get_string("movethisdiscussionto", "forum")), 'forummenu');
                 echo $OUTPUT->render($select);
                 echo "</div>";
             }
         }
+        echo "</div>";
     }
-    echo "</td></tr></table>";
+    echo '<div class="clearfloat">&nbsp;</div>';
+    echo "</div>";
 
     if (!empty($forum->blockafter) && !empty($forum->blockperiod)) {
-        $a = new object();
+        $a = new stdClass();
         $a->blockafter  = $forum->blockafter;
         $a->blockperiod = get_string('secondstotime'.$forum->blockperiod);
         echo $OUTPUT->notification(get_string('thisforumisthrottled','forum',$a));

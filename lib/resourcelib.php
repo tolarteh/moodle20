@@ -18,10 +18,13 @@
 /**
  * Recourse module like helper functions
  *
- * @package   moodlecore
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  2009 Petr Skoda (http://skodak.org)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /** Try the best way */
 define('RESOURCELIB_DISPLAY_AUTO', 0);
@@ -51,11 +54,12 @@ define('RESOURCELIB_LEGACYFILES_ACTIVE', 2);
  * @param string $filepath old file path
  * @param int $cmid migrated course module if
  * @param int $courseid
+ * @param string $component
  * @param string $filearea new file area
  * @param int $itemid migrated file item id
  * @return mixed, false if not found, stored_file instance if migrated to new area
  */
-function resourcelib_try_file_migration($filepath, $cmid, $courseid, $filearea, $itemid) {
+function resourcelib_try_file_migration($filepath, $cmid, $courseid, $component, $filearea, $itemid) {
     $fs = get_file_storage();
 
     if (stripos($filepath, '/backupdata/') === 0 or stripos($filepath, '/moddata/') === 0) {
@@ -70,13 +74,26 @@ function resourcelib_try_file_migration($filepath, $cmid, $courseid, $filearea, 
         return false;
     }
 
-    $pathnamehash = sha1($coursecontext->id.'course_content0'.$filepath);
-    if (!$file = $fs->get_file_by_hash($pathnamehash)) {
-        return false;
-    }
+    $fullpath = rtrim("/$coursecontext->id/course/legacy/0".$filepath, '/');
+    do {
+        if (!$file = $fs->get_file_by_hash(sha1($fullpath))) {
+            if ($file = $fs->get_file_by_hash(sha1("$fullpath/.")) and $file->is_directory()) {
+                if ($file = $fs->get_file_by_hash(sha1("$fullpath/index.htm"))) {
+                    break;
+                }
+                if ($file = $fs->get_file_by_hash(sha1("$fullpath/index.html"))) {
+                    break;
+                }
+                if ($file = $fs->get_file_by_hash(sha1("$fullpath/Default.htm"))) {
+                    break;
+                }
+            }
+            return false;
+        }
+    } while (false);
 
     // copy and keep the same path, name, etc.
-    $file_record = array('contextid'=>$context->id, 'filearea'=>$filearea, 'itemid'=>$itemid);
+    $file_record = array('contextid'=>$context->id, 'component'=>$component, 'filearea'=>$filearea, 'itemid'=>$itemid);
     try {
         return $fs->create_file_from_storedfile($file_record, $file);
     } catch (Exception $e) {
@@ -178,36 +195,42 @@ function resourcelib_embed_mp3($fullurl, $title, $clicktoopen) {
     global $CFG, $OUTPUT, $PAGE;
 
     $c = $OUTPUT->resource_mp3player_colors();   // You can set this up in your theme/xxx/config.php
+    $colors = explode('&', $c);
+    $playercolors = array();
+    foreach ($colors as $color) {
+        $color = explode('=', $color);
+        $playercolors[$color[0]] = $color[1];
+    }
 
-    $c .= '&volText='.get_string('vol', 'resource').'&panText='.get_string('pan','resource');
     $id = 'filter_mp3_'.time(); //we need something unique because it might be stored in text cache
 
-    $ufoargs = array('movie'        => $CFG->wwwroot.'/lib/mp3player/mp3player.swf?src='.urlencode($fullurl),
-                     'width'        => 600,
-                     'height'       => 70,
-                     'majorversion' => 6,
-                     'build'        => 40,
-                     'flashvars'    => $c,
-                     'quality'      => 'high');
+    $playerpath = $CFG->wwwroot .'/filter/mediaplugin/mp3player.swf';
+    $audioplayerpath = $CFG->wwwroot .'/filter/mediaplugin/flowplayer.audio.swf';
 
-    // If we have Javascript, use UFO to embed the MP3 player, otherwise depend on plugins
     $code = <<<OET
 <div class="resourcecontent resourcemp3">
-  <span class="mediaplugin mediaplugin_mp3" id="$id"></span>
-  <noscript>
-    <object type="audio/mpeg" data="$fullurl" width="600" height="70">
-      <param name="src" value="$fullurl" />
-      <param name="quality" value="high" />
-      <param name="autoplay" value="true" />
-      <param name="autostart" value="true" />
+  <span class="resourcemediaplugin resourcemediaplugin_mp3" id="$id"></span>
+  <noscript><div>
+    <object width="251" height="25" id="nonjsmp3plugin" name="undefined" data="$playerpath" type="application/x-shockwave-flash">
+    <param name="movie" value="$playerpath" />
+    <param name="allowfullscreen" value="false" />
+    <param name="allowscriptaccess" value="always" />
+    <param name="flashvars" value='config={"plugins": {"controls": {
+                                                            "fullscreen": false,
+                                                            "height": 25,
+                                                            "autoHide": false
+                                                            }
+                                                      },
+                                           "clip":{"url":"$fullurl",
+                                                   "autoPlay": false},
+                                           "content":{"url":"$playerpath"}}}' />
     </object>
-    $clicktoopen
-  </noscript>
+  </div></noscript>
 </div>
 OET;
+    $PAGE->requires->js('/lib/flowplayer.js');
+    $code .= $PAGE->requires->js_function_call('M.util.init_mp3flowplayer', array('id'=>$id, 'playerpath'=>$playerpath, 'audioplayerpath'=>$audioplayerpath, 'fileurl'=>$fullurl, 'color'=>$playercolors));
 
-    $PAGE->requires->js('/lib/ufo.js');
-    $code .= $PAGE->requires->js_function_call('M.util.create_UFO_object', array($id, $ufoargs));
     return $code;
 }
 
@@ -223,34 +246,26 @@ function resourcelib_embed_flashvideo($fullurl, $title, $clicktoopen) {
 
     $id = 'filter_flv_'.time(); //we need something unique because it might be stored in text cache
 
-    $ufoargs = array('movie'             => $CFG->wwwroot.'/filter/mediaplugin/flvplayer.swf?file='.urlencode($fullurl),
-                     'width'             => 600,
-                     'height'            => 400,
-                     'majorversion'      => 6,
-                     'build'             => 40,
-                     'allowscriptaccess' => 'never',
-                     'allowfullscreen'   => 'true',
-                     'quality'           => 'high');
-
-    // If we have Javascript, use UFO to embed the FLV player, otherwise depend on plugins
+    $playerpath = $CFG->wwwroot .'/filter/mediaplugin/flvplayer.swf';
 
     $code = <<<EOT
 <div class="resourcecontent resourceflv">
   <span class="mediaplugin mediaplugin_flv" id="$id"></span>
-  <noscript>
-    <object type="video/x-flv" data="$fullurl" width="600" height="400">
-      <param name="src" value="$fullurl" />
-      <param name="quality" value="high" />
-      <param name="autoplay" value="true" />
-      <param name="autostart" value="true" />
+  <noscript><div>
+    <object width="800" height="600" id="undefined" name="undefined" data="$playerpath" type="application/x-shockwave-flash">
+    <param name="movie" value="$playerpath" />
+    <param name="allowfullscreen" value="true" />
+    <param name="allowscriptaccess" value="always" />
+    <param name="flashvars" value='config={"clip":{"url":"$fullurl",
+                                                   "autoPlay": false},
+                                           "content":{"url":"$playerpath"}}}' />
     </object>
-    $clicktoopen
-  </noscript>
+  </div></noscript>
 </div>
 EOT;
 
-    $PAGE->requires->js('/lib/ufo.js');
-    $code .= $PAGE->requires->js_function_call('M.util.create_UFO_object', array($id, $ufoargs));
+    $PAGE->requires->js('/lib/flowplayer.js');
+    $code .= $PAGE->requires->js_function_call('M.util.init_flvflowplayer', array('id'=>$id, 'playerpath'=>$playerpath, 'fileurl'=>$fullurl));
     return $code;
 }
 
@@ -410,6 +425,30 @@ EOT;
 }
 
 /**
+ * Returns general link or pdf embedding html.
+ * @param string $fullurl
+ * @param string $title
+ * @param string $clicktoopen
+ * @return string html
+ */
+function resourcelib_embed_pdf($fullurl, $title, $clicktoopen) {
+    global $CFG, $PAGE;
+
+    $code = <<<EOT
+<div class="resourcecontent resourcepdf">
+  <object id="resourceobject" data="$fullurl" type="application/pdf">
+    <param name="src" value="$fullurl" />
+    $clicktoopen
+  </object>
+</div>
+EOT;
+    //$PAGE->requires->js_init_call('M.util.init_maximised_embed', array('resourceobject'), true);
+
+    return $code;
+}
+
+
+/**
  * Returns general link or file embedding html.
  * @param string $fullurl
  * @param string $title
@@ -448,8 +487,9 @@ EOT;
   </object>
 </div>
 EOT;
-        $PAGE->requires->js_init_call('M.util.init_maximised_embed', array('resourceobject'), true);
     }
+
+    $PAGE->requires->js_init_call('M.util.init_maximised_embed', array('resourceobject'), true);
 
     return $code;
 }

@@ -132,6 +132,10 @@ if ($form->is_cancelled()){
     $aggregation->insert();
 
     // Role aggregation
+    if (empty($data->role_aggregation)) {
+        $data->role_aggregation = 0;
+    }
+
     $aggregation = new completion_aggregation();
     $aggregation->course = $data->id;
     $aggregation->criteriatype = COMPLETION_CRITERIA_TYPE_ROLE;
@@ -139,11 +143,13 @@ if ($form->is_cancelled()){
     $aggregation->insert();
 
     // Update course total passing grade
-    if ($grade_item = grade_category::fetch_course_category($course->id)->grade_item) {
-        $grade_item->gradepass = $data->criteria_grade_value;
-        if (method_exists($grade_item, 'update')) {
-            $grade_item->update('course/completion.php');
-        }
+    if (!empty($data->criteria_grade)) {
+    	if ($grade_item = grade_category::fetch_course_category($course->id)->grade_item) {
+        	$grade_item->gradepass = $data->criteria_grade_value;
+        	if (method_exists($grade_item, 'update')) {
+            	$grade_item->update('course/completion.php');
+        	}
+    	}
     }
 
     redirect($CFG->wwwroot."/course/view.php?id=$course->id", get_string('changessaved'));

@@ -50,7 +50,6 @@ class user_filter_select extends user_filter_type {
         $objs[] =& $mform->createElement('select', $this->_name.'_op', null, $this->get_operators());
         $objs[] =& $mform->createElement('select', $this->_name, null, $this->_options);
         $grp =& $mform->addElement('group', $this->_name.'_grp', $this->_label, $objs, '', false);
-        $mform->setHelpButton($this->_name.'_grp', array('select', $this->_label, 'filters'));
         $mform->disabledIf($this->_name, $this->_name.'_op', 'eq', 0);
         if (!is_null($this->_default)) {
             $mform->setDefault($this->_name, $this->_default);
@@ -121,7 +120,7 @@ class user_filter_select extends user_filter_type {
             return '';
         }
 
-        $a = new object();
+        $a = new stdClass();
         $a->label    = $this->_label;
         $a->value    = '"'.s($this->_options[$value]).'"';
         $a->operator = $operators[$operator];

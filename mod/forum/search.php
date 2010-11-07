@@ -63,6 +63,7 @@ if ($timetorestrict) {
     $dateto = optional_param('dateto', 0, PARAM_INT);      // Ending date
 }
 
+$PAGE->set_pagelayout('standard');
 $PAGE->set_url($FULLME);
 
 if (empty($search)) {   // Check the other parameters instead
@@ -125,7 +126,6 @@ if (!$search || $showform) {
 
     $PAGE->set_title($strsearch);
     $PAGE->set_heading($course->fullname);
-    $PAGE->set_focuscontrol('words');
     echo $OUTPUT->header();
 
     forum_print_big_search_form($course);
@@ -145,7 +145,6 @@ $PAGE->navbar->add(s($search, true));
 if (!$posts = forum_search_posts($searchterms, $course->id, $page*$perpage, $perpage, $totalcount)) {
     $PAGE->set_title($strsearchresults);
     $PAGE->set_heading($course->fullname);
-    $PAGE->set_focuscontrol('words');
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string("nopostscontaining", "forum", $search));
 
@@ -233,17 +232,20 @@ foreach ($posts as $post) {
     // will do it for us later.
     $missing_terms = "";
 
-    $options = new object();
+    $options = new stdClass();
     $options->trusted = $post->messagetrust;
-    $message = highlight($strippedsearch,
+    $post->message = highlight($strippedsearch,
                     format_text($post->message, $post->messageformat, $options, $course->id),
                     0, '<fgw9sdpq4>', '</fgw9sdpq4>');
 
     foreach ($searchterms as $searchterm) {
-        if (preg_match("/$searchterm/i",$message) && !preg_match('/<fgw9sdpq4>'.$searchterm.'<\/fgw9sdpq4>/i',$message)) {
+        if (preg_match("/$searchterm/i",$post->message) && !preg_match('/<fgw9sdpq4>'.$searchterm.'<\/fgw9sdpq4>/i',$post->message)) {
             $missing_terms .= " $searchterm";
         }
     }
+
+    $post->message = str_replace('<fgw9sdpq4>', '<span class="highlight">', $post->message);
+    $post->message = str_replace('</fgw9sdpq4>', '</span>', $post->message);
 
     if ($missing_terms) {
         $strmissingsearchterms = get_string('missingsearchterms','forum');
@@ -254,8 +256,8 @@ foreach ($posts as $post) {
     $fulllink = "<a href=\"discuss.php?d=$post->discussion#p$post->id\">".get_string("postincontext", "forum")."</a>";
 
     // Now pring the post.
-    forum_print_post($post, $discussion, $forum, $cm, $course, false, false, false, false,
-            $fulllink, $strippedsearch, -99, false);
+    forum_print_post($post, $discussion, $forum, $cm, $course, false, false, false,
+            $fulllink, '', -99, false);
 }
 
 echo $OUTPUT->paging_bar($totalcount, $page, $perpage, $url);

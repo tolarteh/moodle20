@@ -76,6 +76,11 @@ class backup_forum_activity_structure_step extends backup_activity_structure_ste
             'userid', 'discussionid', 'postid', 'firstread',
             'lastread'));
 
+        $trackedprefs = new backup_nested_element('trackedprefs');
+
+        $track = new backup_nested_element('track', array('id'), array(
+            'userid'));
+
         // Build the tree
 
         $forum->add_child($discussions);
@@ -86,6 +91,9 @@ class backup_forum_activity_structure_step extends backup_activity_structure_ste
 
         $forum->add_child($readposts);
         $readposts->add_child($read);
+
+        $forum->add_child($trackedprefs);
+        $trackedprefs->add_child($track);
 
         $discussion->add_child($posts);
         $posts->add_child($post);
@@ -105,11 +113,17 @@ class backup_forum_activity_structure_step extends backup_activity_structure_ste
                  WHERE forum = ?',
                 array(backup::VAR_PARENTID));
 
-            $post->set_source_table('forum_posts', array('discussion' => backup::VAR_PARENTID));
+            // Need posts ordered by id so parents are always before childs on restore
+            $post->set_source_sql("SELECT *
+                                     FROM {forum_posts}
+                                    WHERE discussion = :discussion
+                                 ORDER BY id", array('discussion' => backup::VAR_PARENTID));
 
             $subscription->set_source_table('forum_subscriptions', array('forum' => backup::VAR_PARENTID));
 
             $read->set_source_table('forum_read', array('forumid' => backup::VAR_PARENTID));
+
+            $track->set_source_table('forum_track_prefs', array('forumid' => backup::VAR_PARENTID));
 
             $rating->set_source_table('rating', array('contextid' => backup::VAR_CONTEXTID,
                                                       'itemid'    => backup::VAR_PARENTID));
@@ -132,11 +146,14 @@ class backup_forum_activity_structure_step extends backup_activity_structure_ste
 
         $read->annotate_ids('user', 'userid');
 
+        $track->annotate_ids('user', 'userid');
+
         // Define file annotations
 
-        $forum->annotate_files(array('forum_intro'), null); // This file area hasn't itemid
+        $forum->annotate_files('mod_forum', 'intro', null); // This file area hasn't itemid
 
-        $post->annotate_files(array('forum_post', 'forum_attachment'), 'id');
+        $post->annotate_files('mod_forum', 'post', 'id');
+        $post->annotate_files('mod_forum', 'attachment', 'id');
 
         // Return the root element (forum), wrapped into standard activity structure
         return $this->prepare_activity_structure($forum);

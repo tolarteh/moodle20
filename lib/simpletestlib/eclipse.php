@@ -3,7 +3,7 @@
  *  base include file for eclipse plugin  
  *  @package    SimpleTest
  *  @subpackage Eclipse
- *  @version    $Id: eclipse.php,v 1.2 2008-06-10 20:10:53 nicolasconnault Exp $
+ *  @version    $Id: eclipse.php,v 1.3 2010/07/19 08:53:16 skodak Exp $
  */
 /**#@+
  * simpletest include files
@@ -53,7 +53,7 @@ class EclipseReporter extends SimpleScorer {
      *    @return SimpleSocket      Connection to Eclipse.
      */
     function &createListener($port, $host="127.0.0.1"){
-        $tmplistener = &new SimpleSocket($host, $port, 5);
+        $tmplistener = new SimpleSocket($host, $port, 5);
         return $tmplistener;
     }
     
@@ -64,7 +64,7 @@ class EclipseReporter extends SimpleScorer {
      *    @access public
      */
     function &createInvoker(&$invoker){
-        $eclinvoker = &new EclipseInvoker($invoker, $this->_listener);
+        $eclinvoker = new EclipseInvoker($invoker, $this->_listener);
         return $eclinvoker;
     }
     

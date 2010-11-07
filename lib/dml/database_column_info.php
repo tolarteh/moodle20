@@ -19,11 +19,13 @@
 /**
  * Database column information.
  *
- * @package    moodlecore
- * @subpackage DML
+ * @package    core
+ * @subpackage dml
  * @copyright  2008 Petr Skoda (http://skodak.org)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Detail database field information.
@@ -131,7 +133,7 @@ class database_column_info {
      */
     public function __construct($data) {
         foreach ($data as $key=>$value) {
-            if (array_key_exists($key, $this)) {
+            if (property_exists($this, $key)) {
                 $this->$key = $value;
             }
         }

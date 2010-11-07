@@ -18,10 +18,13 @@
 /**
  * Capabilities for meta link access plugin.
  *
- * @package   enrol_meta
- * @copyright 2010 Petr Skoda {@link http://skodak.org}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage meta
+ * @copyright  2010 Petr Skoda {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 $capabilities = array(
     'enrol/meta:config' => array(
@@ -29,6 +32,7 @@ $capabilities = array(
         'contextlevel' => CONTEXT_COURSE,
         'legacy' => array(
             'manager' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
         )
     ),
 

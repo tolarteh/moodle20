@@ -29,11 +29,13 @@
  */
 
 $string['admindirname'] = 'Directorio de administración';
+$string['availablelangs'] = 'Paquetes de idioma dispoñibles';
 $string['chooselanguagehead'] = 'Escolla idioma';
 $string['chooselanguagesub'] = 'Escolla un idioma SÓ para a instalación. Poderá escoller o idioma do sitio e o idioma de usuario en próximas pantallas.';
 $string['dataroot'] = 'Directorio de datos';
 $string['dbprefix'] = 'Prefixo das táboas';
 $string['dirroot'] = 'Directorio Moodle';
+$string['environmenthead'] = 'Verificando o seu ámbito ...';
 $string['installation'] = 'Instalación';
 $string['langdownloaderror'] = 'Desafortunadamente o idioma "{$a}" non foi instalado. O proceso de instalación continuará en inglés.';
 $string['memorylimithelp'] = '<p>O límite de memoria para PHP do seu servidor está actualmente establecido en {$a}.</p>

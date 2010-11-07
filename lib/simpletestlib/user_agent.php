@@ -3,7 +3,7 @@
  *  Base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage WebTester
- *  @version    $Id: user_agent.php,v 1.3 2008-06-10 20:10:52 nicolasconnault Exp $
+ *  @version    $Id: user_agent.php,v 1.4 2010/07/19 08:53:16 skodak Exp $
  */
 
 /**#@+
@@ -44,8 +44,8 @@ class SimpleUserAgent {
      *    @access public
      */
     function SimpleUserAgent() {
-        $this->_cookie_jar = &new SimpleCookieJar();
-        $this->_authenticator = &new SimpleAuthenticator();
+        $this->_cookie_jar = new SimpleCookieJar();
+        $this->_authenticator = new SimpleAuthenticator();
     }
     
     /**
@@ -176,7 +176,7 @@ class SimpleUserAgent {
         if ((strncmp($proxy, 'http://', 7) != 0) && (strncmp($proxy, 'https://', 8) != 0)) {
             $proxy = 'http://'. $proxy;
         }
-        $this->_proxy = &new SimpleUrl($proxy);
+        $this->_proxy = new SimpleUrl($proxy);
         $this->_proxy_username = $username;
         $this->_proxy_password = $password;
     }
@@ -295,7 +295,7 @@ class SimpleUserAgent {
      *    @access protected
      */
     function &_createHttpRequest($url, $encoding) {
-        $request = &new SimpleHttpRequest($this->_createRoute($url), $encoding);
+        $request = new SimpleHttpRequest($this->_createRoute($url), $encoding);
         return $request;
     }
     
@@ -307,13 +307,13 @@ class SimpleUserAgent {
      */
     function &_createRoute($url) {
         if ($this->_proxy) {
-            $route = &new SimpleProxyRoute(
+            $route = new SimpleProxyRoute(
                     $url,
                     $this->_proxy,
                     $this->_proxy_username,
                     $this->_proxy_password);
         } else {
-            $route = &new SimpleRoute($url);
+            $route = new SimpleRoute($url);
         }
         return $route;
     }

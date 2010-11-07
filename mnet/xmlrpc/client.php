@@ -39,7 +39,7 @@ class mnet_xmlrpc_client {
     function set_timeout($timeout) {
         if (!is_integer($timeout)) {
             if (is_numeric($timeout)) {
-                $this->timeout = (integer($timeout));
+                $this->timeout = (integer)$timeout;
                 return true;
             }
             return false;
@@ -282,7 +282,11 @@ class mnet_xmlrpc_client {
                 return $this->send($rekeyed_mnet_peer);
             }
             if (!empty($CFG->mnet_rpcdebug)) {
-                $guidance = get_string('error'.$this->response['faultCode'], 'mnet');
+                if (get_string_manager()->string_exists('error'.$this->response['faultCode'], 'mnet')) {
+                    $guidance = get_string('error'.$this->response['faultCode'], 'mnet');
+                } else {
+                    $guidance = '';
+                }
             } else {
                 $guidance = '';
             }

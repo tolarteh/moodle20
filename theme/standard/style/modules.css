@@ -20,14 +20,13 @@ table.mod_index {width:90%;margin:1em auto;}
 .path-mod-assignment .feedback .files {background-color: #EFEFEF;padding:5px;}
 .path-mod-assignment .feedback .time,
 #page-mod-assignment-view .feedback .date {font-size: 0.8em;}
-.path-mod-assignment .late {color: red;}
 .path-mod-assignment #wordcount {font-size: 0.8em;text-align: right;}
 #page-mod-assignment-submissions .feedback .content,
 #page-mod-assignment-submissions .feedback .topic,
 #page-mod-assignment-submissions .feedback .picture {padding: 10px;border:1px solid #DDD;}
 #page-mod-assignment-submissions .generaltable .r1 {background-color: #FFFFFF;}
 #page-mod-assignment-submissions .s0 {background: #FFD991;}
-#page-mod-assignment-submissions table.submissions td,
+#page-mod-assignment-submissions table.submissions td.cell,
 #page-mod-assignment-submissions table.submissions th{border:1px solid #DDD;vertical-align: middle;padding-left: 5px;padding-right: 5px;}
 #page-mod-assignment-submissions .timemodified,
 #page-mod-assignment-submissions .timemarked {font-size: 0.9em;}
@@ -77,20 +76,17 @@ table.mod_index {width:90%;margin:1em auto;}
 #page-mod-folder-view .foldertree {width: 90%;margin:0 auto;}
 
 /** Forum **/
-.forumpost {border-color:#DDDDDD;} /** header of reply posts and lower corners of all posts in */
-.forumpost .starter {background-color:#DDDDDD;} /** header of the first post in */
-.forumpost .topic {border-bottom-color: #EEEEEE;} /** line between header and post body in */
-.forumpost .topic .author {font-size: 0.8em;}
-.forumpost .topic .subject {font-weight: bold;}
-.forumpost .ratings {padding-top: 1em;}
-.forumpost .attachments {padding: 7px;}
-.forumpost .content {padding: 4px;background-color: #FFFFFF;}
-.forumpost .commands,
-.forumpost .footer,
-.forumpost .link {padding-top: 0.5em;font-size: 0.9em;}
-.forumpost .left {padding: 4px;text-align: center;background-color:#EEEEEE;}
-.forumpost .edited {font-style: italic;}
+.forumpost {border-color:#DDDDDD;}
+.forumpost .row {background-color:#FFF;}
+.forumpost .row.header {background-color:#EEE;background-image:none;}
+.forumpost.firstpost .row.header {background-color:#DDD;}
+.forumpost .topic .author {font-size: 0.8em;padding:4px;}
+.forumpost .topic .subject {font-weight: bold;padding:4px 4px 0;}
+.forumpost .content div,
+.forumpost .options div {padding:4px;}
 .forumpost.unread {background: #9EBEFF;}
+.forumpost.unread .content {border:2px solid #0046C7;} /** inside border of unread posts in nested format in */
+
 #page-mod-forum-view .forummode,
 .path-mod-forum .forumheaderlist .replies {text-align: center;}
 .path-mod-forum .forumheaderlist .discussion .lastpost {font-size: 0.7em;}
@@ -100,7 +96,6 @@ table.mod_index {width:90%;margin:1em auto;}
 #page-mod-forum-subscribers .subscriberdiv,
 #page-mod-forum-subscribers .subscribertable tr td {padding:0.2em 0.3em;}
 #page-mod-forum-discuss .ratingsubmit {text-align:center;padding:10px;}
-#page-mod-forum-discuss .forumpost.unread .content {border:2px solid #0046C7;} /** inside border of unread posts in nested format in */
 #page-mod-forum-view .forumheaderlist .discussion .starter, /** Discussion column background in */
 #page-mod-forum-view .forumaddnew {margin-bottom: 20px;text-align:center;}
 #page-mod-forum-view .forumheaderlist td {border-color: #FFFFFF;} /** wire frame around cells in */
@@ -110,10 +105,11 @@ table.mod_index {width:90%;margin:1em auto;}
 #page-mod-forum-view .highlight2 {color:#AA0000;}
 
 /** Glossary **/
-.path-mod-glossary .glossarypost {width: 95%;border:1px solid #DDD;}
+.path-mod-glossary .glossarypost {border:1px solid #DDD;}
 .path-mod-glossary .glossarypost .entry {padding: 3px;}
 .path-mod-glossary .glossarypost .concept h3 {font-size: 1em;margin: 0;font-weight: normal;text-align: left;}
 .path-mod-glossary .glossarypost .entryheader {font-weight: normal;text-align: left;}
+.path-mod-glossary .glossarypost .entryheader h3 {display:inline;}
 .path-mod-glossary .glossarypost .entryheader,
 .path-mod-glossary .glossarypost .entryapproval,
 .path-mod-glossary .glossarypost .picture,
@@ -133,7 +129,7 @@ table.mod_index {width:90%;margin:1em auto;}
 .path-mod-glossary .entrybox {border-width: 0px 1px 1px 1px;border-style: solid;border-color: #BBB;}
 .path-mod-glossary .entrybox hr {border-left:none;border-right:none;}
 #page-mod-glossary-report table tr.teacher {background: #F0F0F0;}
-#page-mod-glossary-view table.glossarycategoryheader {width: 95%;background-color: #DDD;}
+#page-mod-glossary-view table.glossarycategoryheader {background-color: #DDD;}
 #page-mod-glossary-view table.glossarycategoryheader h2 {font-size: 1em;margin: 0;}
 
 /** Lesson **/

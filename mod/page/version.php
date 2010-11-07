@@ -18,12 +18,15 @@
 /**
  * Page module version information
  *
- * @package   mod-page
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage page
+ * @copyright  2009 Petr Skoda (http://skodak.org)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$module->version  = 2009080500;
-$module->requires = 2009073101;  // Requires this Moodle version
+defined('MOODLE_INTERNAL') || die;
+
+$module->version  = 2010101400;
+$module->requires = 2010080300;  // Requires this Moodle version
 $module->cron     = 0;
 

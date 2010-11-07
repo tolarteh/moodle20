@@ -65,6 +65,8 @@ abstract class backup_helper {
      * TODO: Modernise this
      */
     static public function delete_dir_contents($dir, $excludeddir='') {
+        global $CFG;
+
         if (!is_dir($dir)) {
             // if we've been given a directory that doesn't exist yet, return true.
             // this happens when we're trying to clear out a course that has only just
@@ -78,7 +80,7 @@ abstract class backup_helper {
         $dir_subdirs    = array();
 
         // Make sure we can delete it
-        chmod($dir, 0777);
+        chmod($dir, $CFG->directorypermissions);
 
         if ((($handle = opendir($dir))) == false) {
             // The directory could not be opened
@@ -97,7 +99,7 @@ abstract class backup_helper {
 
         // Delete all files in the curent directory return false and halt if a file cannot be removed
         for ($i=0; $i<count($dir_files); $i++) {
-            chmod($dir_files[$i], 0777);
+            chmod($dir_files[$i], $CFG->directorypermissions);
             if (((unlink($dir_files[$i]))) == false) {
                 return false;
             }
@@ -105,7 +107,7 @@ abstract class backup_helper {
 
         // Empty sub directories and then remove the directory
         for ($i=0; $i<count($dir_subdirs); $i++) {
-            chmod($dir_subdirs[$i], 0777);
+            chmod($dir_subdirs[$i], $CFG->directorypermissions);
             if (self::delete_dir_contents($dir_subdirs[$i]) == false) {
                 return false;
             } else {
@@ -173,7 +175,7 @@ abstract class backup_helper {
 
     /**
      * Given one backupid and the (FS) final generated file, perform its final storage
-     * into Moodle file storage
+     * into Moodle file storage. For stored files it returns the complete file_info object
      */
     static public function store_backup_file($backupid, $filepath) {
 
@@ -182,7 +184,7 @@ abstract class backup_helper {
 
         // Extract useful information to decide
         $hasusers  = (bool)$sinfo['users']->value;     // Backup has users
-        $isannon   = (bool)$sinfo['anonymize']->value; // Backup is annonymzed
+        $isannon   = (bool)$sinfo['anonymize']->value; // Backup is anonymised
         $filename  = $sinfo['filename']->value;        // Backup filename
         $backupmode= $dinfo[0]->mode;                  // Backup mode backup::MODE_GENERAL/IMPORT/HUB
         $backuptype= $dinfo[0]->type;                  // Backup type backup::TYPE_1ACTIVITY/SECTION/COURSE
@@ -191,36 +193,39 @@ abstract class backup_helper {
         $courseid  = $dinfo[0]->courseid;              // Id of the course
 
         // Quick hack. If for any reason, filename is blank, fix it here.
-        // This hack will be out once MDL-22142 - P26 gets fixed
+        // TODO: This hack will be out once MDL-22142 - P26 gets fixed
         if (empty($filename)) {
             $filename = backup_plan_dbops::get_default_backup_filename('moodle2', $backuptype, $id, $hasusers, $isannon);
         }
 
-
         // Backups of type IMPORT aren't stored ever
         if ($backupmode == backup::MODE_IMPORT) {
-            return true;
+            return false;
         }
 
         // Calculate file storage options of id being backup
-        $ctxid    = 0;
-        $filearea = '';
-        $itemid   = 0;
+        $ctxid     = 0;
+        $filearea  = '';
+        $component = '';
+        $itemid    = 0;
         switch ($backuptype) {
             case backup::TYPE_1ACTIVITY:
-                $ctxid    = get_context_instance(CONTEXT_MODULE, $id)->id;
-                $filearea = 'activity_backup';
-                $itemid   = 0;
+                $ctxid     = get_context_instance(CONTEXT_MODULE, $id)->id;
+                $component = 'backup';
+                $filearea  = 'activity';
+                $itemid    = 0;
                 break;
             case backup::TYPE_1SECTION:
-                $ctxid    = get_context_instance(CONTEXT_COURSE, $courseid)->id;
-                $filearea = 'section_backup';
-                $itemid   = $id;
+                $ctxid     = get_context_instance(CONTEXT_COURSE, $courseid)->id;
+                $component = 'backup';
+                $filearea  = 'section';
+                $itemid    = $id;
                 break;
             case backup::TYPE_1COURSE:
-                $ctxid    = get_context_instance(CONTEXT_COURSE, $courseid)->id;
-                $filearea = 'course_backup';
-                $itemid   = 0;
+                $ctxid     = get_context_instance(CONTEXT_COURSE, $courseid)->id;
+                $component = 'backup';
+                $filearea  = 'course';
+                $itemid    = 0;
                 break;
         }
 
@@ -228,25 +233,28 @@ abstract class backup_helper {
         // are sent to user's "user_tohub" file area. The upload process
         // will be responsible for cleaning that filearea once finished
         if ($backupmode == backup::MODE_HUB) {
-            $ctxid = get_context_instance(CONTEXT_USER, $userid)->id;
-            $filearea = 'user_tohub';
-            $itemid   = 0;
+            $ctxid     = get_context_instance(CONTEXT_USER, $userid)->id;
+            $component = 'user';
+            $filearea  = 'tohub';
+            $itemid    = 0;
         }
 
-        // Backups without user info or withe the anoymise functionality
+        // Backups without user info or with the anonymise functionality
         // enabled are sent to user's "user_backup"
         // file area. Maintenance of such area is responsibility of
         // the user via corresponding file manager frontend
         if ($backupmode == backup::MODE_GENERAL && (!$hasusers || $isannon)) {
-            $ctxid = get_context_instance(CONTEXT_USER, $userid)->id;
-            $filearea = 'user_backup';
-            $itemid   = 0;
+            $ctxid     = get_context_instance(CONTEXT_USER, $userid)->id;
+            $component = 'user';
+            $filearea  = 'backup';
+            $itemid    = 0;
         }
 
         // Let's send the file to file storage, everything already defined
         $fs = get_file_storage();
         $fr = array(
             'contextid'   => $ctxid,
+            'component'   => $component,
             'filearea'    => $filearea,
             'itemid'      => $itemid,
             'filepath'    => '/',
@@ -257,12 +265,30 @@ abstract class backup_helper {
         // If file already exists, delete if before
         // creating it again. This is BC behaviour - copy()
         // overwrites by default
-        if ($fs->file_exists($fr['contextid'], $fr['filearea'], $fr['itemid'], $fr['filepath'], $fr['filename'])) {
-            $pathnamehash = $fs->get_pathname_hash($fr['contextid'], $fr['filearea'], $fr['itemid'], $fr['filepath'], $fr['filename']);
+        if ($fs->file_exists($fr['contextid'], $fr['component'], $fr['filearea'], $fr['itemid'], $fr['filepath'], $fr['filename'])) {
+            $pathnamehash = $fs->get_pathname_hash($fr['contextid'], $fr['component'], $fr['filearea'], $fr['itemid'], $fr['filepath'], $fr['filename']);
             $sf = $fs->get_file_by_hash($pathnamehash);
             $sf->delete();
         }
         return $fs->create_file_from_pathname($fr, $filepath);
+    }
+
+    /**
+     * This function simply marks one param to be considered as straight sql
+     * param, so it won't be searched in the structure tree nor converted at
+     * all. Useful for better integration of definition of sources in structure
+     * and DB stuff
+     */
+    public static function is_sqlparam($value) {
+        return array('sqlparam' => $value);
+    }
+
+    /**
+     * This function returns one array of itemnames that are being handled by
+     * inforef.xml files. Used both by backup and restore
+     */
+    public static function get_inforef_itemnames() {
+        return array('user', 'grouping', 'group', 'role', 'file', 'scale', 'outcome', 'grade_item', 'question_category');
     }
 }
 

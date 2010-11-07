@@ -1,6 +1,6 @@
 <?php
     /*
-    *  $Id: CoverageRecorder.php,v 1.1 2009-06-23 09:23:06 stronk7 Exp $
+    *  $Id: CoverageRecorder.php,v 1.1 2009/06/23 09:23:06 stronk7 Exp $
     *  
     *  Copyright(c) 2004-2006, SpikeSource Inc. All Rights Reserved.
     *  Licensed under the Open Software License version 2.1

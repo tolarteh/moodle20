@@ -23,10 +23,9 @@ $courseid = required_param('id', PARAM_INT);
 
 $PAGE->set_url('/grade/edit/outcome/course.php', array('id'=>$courseid));
 
+$course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
+
 /// Make sure they can even access this course
-if (!$course = $DB->get_record('course', array('id' => $courseid))) {
-    print_error('nocourseid');
-}
 require_login($course);
 $context = get_context_instance(CONTEXT_COURSE, $course->id);
 require_capability('moodle/course:update', $context);
@@ -57,7 +56,7 @@ foreach ($courseused as $oid) {
 foreach($co_custom as $oid=>$outcome) {
     if (!in_array($oid, $courseused)) {
         $courseused[$oid] = $oid;
-        $goc = new object();
+        $goc = new stdClass();
         $goc->courseid = $courseid;
         $goc->outcomeid = $oid;
         $DB->insert_record('grade_outcomes_courses', $goc);
@@ -79,7 +78,7 @@ if ($realused = $DB->get_records_sql($sql, $params)) {
 
             if (!in_array($oid, $courseused)) {
                 $courseused[$oid] = $oid;
-                $goc = new object();
+                $goc = new stdClass();
                 $goc->courseid = $courseid;
                 $goc->outcomeid = $oid;
                 $DB->insert_record('grade_outcomes_courses', $goc);
@@ -107,7 +106,7 @@ if ($data = data_submitted() and confirm_sesskey()) {
             if (!array_key_exists($add, $standardoutcomes)) {
                 continue;
             }
-            $goc = new object();
+            $goc = new stdClass();
             $goc->courseid = $courseid;
             $goc->outcomeid = $add;
             $DB->insert_record('grade_outcomes_courses', $goc);

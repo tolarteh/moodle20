@@ -18,9 +18,10 @@
 /**
  * Resource module version information
  *
- * @package   mod-resource
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage resource
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require('../../config.php');
@@ -49,10 +50,12 @@ $course = $DB->get_record('course', array('id'=>$cm->course), '*', MUST_EXIST);
 
 require_course_login($course, true, $cm);
 $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+require_capability('mod/resource:view', $context);
 
 add_to_log($course->id, 'resource', 'view', 'view.php?id='.$cm->id, $resource->id, $cm->id);
 
 // Update 'viewed' state if required by completion system
+require_once($CFG->libdir . '/completionlib.php');
 $completion = new completion_info($course);
 $completion->set_module_viewed($cm);
 
@@ -64,7 +67,7 @@ if ($resource->tobemigrated) {
 }
 
 $fs = get_file_storage();
-$files = $fs->get_area_files($context->id, 'resource_content', 0, 'sortorder');
+$files = $fs->get_area_files($context->id, 'mod_resource', 'content', 0, 'sortorder');
 if (count($files) < 1) {
     resource_print_filenotfound($resource, $cm, $course);
     die;
@@ -75,7 +78,7 @@ if (count($files) < 1) {
 if ($redirect) {
     // coming from course page or url index page
     // this redirect trick solves caching problems when tracking views ;-)
-    $path = '/'.$context->id.'/resource_content/'.$resource->revision.$file->get_filepath().$file->get_filename();
+    $path = '/'.$context->id.'/mod_resource/content/'.$resource->revision.$file->get_filepath().$file->get_filename();
     $fullurl = file_encode_url($CFG->wwwroot.'/pluginfile.php', $path, false);
     redirect($fullurl);
 }

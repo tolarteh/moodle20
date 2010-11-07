@@ -19,6 +19,7 @@
  * Allows a creator to edit custom scales, and also display help about scales
  *
  * @copyright 1999 Martin Dougiamas  http://dougiamas.com
+ * @deprecated - TODO remove this file or replace it with an alternative solution for scales overview
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @package course
  */
@@ -35,26 +36,29 @@ if ($scaleid !== 0) {
 }
 $PAGE->set_url($url);
 
-if (!$course = $DB->get_record('course', array('id'=>$id))) {
-    print_error("invalidcourseid");
+$context = null;
+if ($course = $DB->get_record('course', array('id'=>$id))) {
+    require_login($course);
+    $context = get_context_instance(CONTEXT_COURSE, $course->id);
+} else {
+    //$id will be 0 for site level scales
+    require_login();
+    $context = get_context_instance(CONTEXT_SYSTEM);
 }
 
-require_login($course);
-$context = get_context_instance(CONTEXT_COURSE, $course->id);
+$PAGE->set_context($context);
 require_capability('moodle/course:viewscales', $context);
 
-$strscale = get_string("scale");
 $strscales = get_string("scales");
-$strcustomscale = get_string("scalescustom");
-$strstandardscale = get_string("scalesstandard");
 $strcustomscales = get_string("scalescustom");
 $strstandardscales = get_string("scalesstandard");
-$strname = get_string("name");
-$strdescription = get_string("description");
-$strhelptext = get_string("helptext");
-$stractivities = get_string("activities");
 
 $PAGE->set_title($strscales);
+if (!empty($course)) {
+    $PAGE->set_heading($course->fullname);
+} else {
+    $PAGE->set_heading($SITE->fullname);
+}
 echo $OUTPUT->header();
 
 if ($scaleid) {
@@ -90,7 +94,7 @@ if ($scales = $DB->get_records("scale", array("courseid"=>$course->id), "name AS
 
     foreach ($scales as $scale) {
 
-        $scale->description = file_rewrite_pluginfile_urls($scale->description, 'pluginfile.php', $systemcontext->id, 'grade_scale', $scale->id);
+        $scale->description = file_rewrite_pluginfile_urls($scale->description, 'pluginfile.php', $systemcontext->id, 'grade', 'scale', $scale->id);
 
         $scalemenu = make_menu_from_list($scale->scale);
 
@@ -116,7 +120,7 @@ if ($scales = $DB->get_records("scale", array("courseid"=>0), "name ASC")) {
     echo $OUTPUT->heading($strstandardscales);
     foreach ($scales as $scale) {
 
-        $scale->description = file_rewrite_pluginfile_urls($scale->description, 'pluginfile.php', $systemcontext->id, 'grade_scale', $scale->id);
+        $scale->description = file_rewrite_pluginfile_urls($scale->description, 'pluginfile.php', $systemcontext->id, 'grade', 'scale', $scale->id);
 
         $scalemenu = make_menu_from_list($scale->scale);
 

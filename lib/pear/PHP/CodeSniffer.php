@@ -11,7 +11,7 @@
  * @author    Marc McIntyre <mmcintyre@squiz.net>
  * @copyright 2006 Squiz Pty Ltd (ABN 77 084 670 600)
  * @license   http://matrix.squiz.net/developer/tools/php_cs/licence BSD Licence
- * @version   CVS: $Id: CodeSniffer.php,v 1.2 2009-05-20 08:14:38 nicolasconnault Exp $
+ * @version   CVS: $Id: CodeSniffer.php,v 1.2 2009/05/20 08:14:38 nicolasconnault Exp $
  * @link      http://pear.php.net/package/PHP_CodeSniffer
  */
 

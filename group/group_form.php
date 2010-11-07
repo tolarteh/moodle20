@@ -10,9 +10,7 @@
  * @package groups
  */
 
-if (!defined('MOODLE_INTERNAL')) {
-    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
-}
+defined('MOODLE_INTERNAL') || die;
 
 require_once($CFG->dirroot.'/lib/formslib.php');
 
@@ -34,12 +32,10 @@ class group_form extends moodleform {
         $mform->setType('description_editor', PARAM_RAW);
 
         $mform->addElement('passwordunmask', 'enrolmentkey', get_string('enrolmentkey', 'group'), 'maxlength="254" size="24"', get_string('enrolmentkey', 'group'));
-        $mform->setHelpButton('enrolmentkey', array('groupenrolmentkey', get_string('enrolmentkey', 'group')), true);
+        $mform->addHelpButton('enrolmentkey', 'enrolmentkey', 'group');
         $mform->setType('enrolmentkey', PARAM_RAW);
 
-        $maxbytes = get_max_upload_file_size($CFG->maxbytes, $COURSE->maxbytes);
-
-        if (!empty($CFG->gdversion) and $maxbytes) {
+        if (!empty($CFG->gdversion)) {
             $options = array(get_string('no'), get_string('yes'));
             $mform->addElement('select', 'hidepicture', get_string('hidepicture'), $options);
 
@@ -84,10 +80,6 @@ class group_form extends moodleform {
         }
 
         return $errors;
-    }
-
-    function get_um() {
-        return $this->_upload_manager;
     }
 
     function get_editor_options() {

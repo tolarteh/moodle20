@@ -59,6 +59,7 @@ if (isguestuser($user)) {
 }
 
 $PAGE->set_context($coursecontext);
+$PAGE->set_course($course);
 $PAGE->set_pagetype('course-view-' . $course->format);  // To get the blocks exactly like the course
 $PAGE->add_body_class('path-user');                     // So we can style it independently
 $PAGE->set_other_editing_capability('moodle/course:manageactivities');
@@ -73,13 +74,11 @@ if (!$currentuser
     //       please note this is just a guess!
     require_login();
     $isparent = true;
-
 } else {
     // normal course
     require_login($course);
     // what to do with users temporary accessing this course? shoudl they see the details?
 }
-
 
 $strpersonalprofile = get_string('personalprofile');
 $strparticipants = get_string("participants");
@@ -190,39 +189,38 @@ if (has_capability('moodle/user:viewhiddendetails', $coursecontext)) {
 }
 
 if (is_mnet_remote_user($user)) {
-    $sql = "
-         SELECT DISTINCT h.id, h.name, h.wwwroot,
-                a.name as application, a.display_name
-           FROM {mnet_host} h, {mnet_application} a
-          WHERE h.id = ? AND h.applicationid = a.id
-       ORDER BY a.display_name, h.name";
+    $sql = "SELECT h.id, h.name, h.wwwroot,
+                   a.name as application, a.display_name
+              FROM {mnet_host} h, {mnet_application} a
+             WHERE h.id = ? AND h.applicationid = a.id";
 
     $remotehost = $DB->get_record_sql($sql, array($user->mnethostid));
+    $a = new stdclass();
+    $a->remotetype = $remotehost->display_name;
+    $a->remotename = $remotehost->name;
+    $a->remoteurl  = $remotehost->wwwroot;
 
-    echo '<p class="errorboxcontent">'.get_string('remoteappuser', $remotehost->application)." <br />\n";
-    if ($currentuser) {
-        if ($remotehost->application =='moodle') {
-            echo "Remote {$remotehost->display_name}: <a href=\"{$remotehost->wwwroot}/user/edit.php\">{$remotehost->name}</a> ".get_string('editremoteprofile')." </p>\n";
-        } else {
-            echo "Remote {$remotehost->display_name}: <a href=\"{$remotehost->wwwroot}/\">{$remotehost->name}</a> ".get_string('gotoyourserver')." </p>\n";
-        }
-    } else {
-        echo "Remote {$remotehost->display_name}: <a href=\"{$remotehost->wwwroot}/\">{$remotehost->name}</a></p>\n";
-    }
+    echo $OUTPUT->box(get_string('remoteuserinfo', 'mnet', $a), 'remoteuserinfo');
 }
 
-echo '<div class="profilepicture">';
+echo '<div class="userprofilebox clearfix"><div class="profilepicture">';
 echo $OUTPUT->user_picture($user, array('size'=>100));
 echo '</div>';
 
 // Print the description
-echo '<div class="description">';
+echo '<div class="descriptionbox"><div class="description">';
 if ($user->description && !isset($hiddenfields['description'])) {
     if (!empty($CFG->profilesforenrolledusersonly) && !$DB->record_exists('role_assignments', array('userid'=>$id))) {
         echo get_string('profilenotshown', 'moodle');
     } else {
-        $user->description = file_rewrite_pluginfile_urls($user->description, 'pluginfile.php', $usercontext->id, 'user_profile', $id);
-        echo format_text($user->description, $user->descriptionformat);
+        if ($courseid == SITEID) {
+            $user->description = file_rewrite_pluginfile_urls($user->description, 'pluginfile.php', $usercontext->id, 'user', 'profile', null);
+        } else {
+            // we have to make a little detour thought the course context to verify the access control for course profile
+            $user->description = file_rewrite_pluginfile_urls($user->description, 'pluginfile.php', $coursecontext->id, 'user', 'profile', $user->id);
+        }
+        $options = array('overflowdiv'=>true);
+        echo format_text($user->description, $user->descriptionformat, $options);
     }
 }
 echo '</div>';
@@ -249,12 +247,23 @@ if ($rolestring = get_user_roles_in_course($id, $course->id)) {
 
 // Show groups this user is in
 if (!isset($hiddenfields['groups'])) {
-    if ($course->groupmode != SEPARATEGROUPS or has_capability('moodle/site:accessallgroups', $coursecontext)) {
-        if ($usergroups = groups_get_all_groups($course->id, $user->id)) {
-            $groupstr = '';
-            foreach ($usergroups as $group){
-                $groupstr .= ' <a href="'.$CFG->wwwroot.'/user/index.php?id='.$course->id.'&amp;group='.$group->id.'">'.format_string($group->name).'</a>,';
+    $accessallgroups = has_capability('moodle/site:accessallgroups', $coursecontext);
+    if ($usergroups = groups_get_all_groups($course->id, $user->id)) {
+        $groupstr = '';
+        foreach ($usergroups as $group){
+            if ($course->groupmode == SEPARATEGROUPS and !$accessallgroups and $user->id != $USER->id) {
+                if (!groups_is_member($group->id, $user->id)) {
+                    continue;
+                }
             }
+
+            if ($course->groupmode != NOGROUPS) {
+                $groupstr .= ' <a href="'.$CFG->wwwroot.'/user/index.php?id='.$course->id.'&amp;group='.$group->id.'">'.format_string($group->name).'</a>,';
+            } else {
+                $groupstr .= ' '.format_string($group->name); // the user/index.php shows groups only when course in group mode
+            }
+        }
+        if ($groupstr !== '') {
             print_row(get_string("group").":", rtrim($groupstr, ', '));
         }
     }
@@ -293,11 +302,13 @@ if (!isset($hiddenfields['mycourses'])) {
     }
 }
 
-echo "</table>";
+echo "</table></div></div>";
 
-echo '<div class="fullprofilelink">';
-echo html_writer::link($CFG->wwwroot.'/user/profile.php?id='.$id, get_string('fullprofile'));
-echo '</div>';
+if ($currentuser || has_capability('moodle/user:viewdetails', $usercontext) || has_coursecontact_role($id)) {
+    echo '<div class="fullprofilelink">';
+    echo html_writer::link($CFG->wwwroot.'/user/profile.php?id='.$id, get_string('fullprofile'));
+    echo '</div>';
+}
 
 /// TODO Add more useful overview info for teachers here, see below
 

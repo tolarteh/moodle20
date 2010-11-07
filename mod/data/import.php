@@ -95,7 +95,7 @@ if (!$formdata = $form->get_data()) {
     require_once('import_form.php');
     echo $OUTPUT->heading(get_string('uploadrecords', 'data'), 3);
     $form = new mod_data_import_form(new moodle_url('/mod/data/import.php'));
-    $formdata = new stdclass;
+    $formdata = new stdClass();
     $formdata->d = $data->id;
     $form->set_data($formdata);
     $form->display();
@@ -107,10 +107,7 @@ if (!$formdata = $form->get_data()) {
     // that we'll take longer, and that the process should be recycled soon
     // to free up memory.
     @set_time_limit(0);
-    @raise_memory_limit("96M");
-    if (function_exists('apache_child_terminate')) {
-        @apache_child_terminate();
-    }
+    raise_memory_limit(MEMORY_EXTRA);
 
     $iid = csv_import_reader::get_new_iid('moddata');
     $cir = new csv_import_reader($iid, 'moddata');
@@ -143,7 +140,7 @@ if (!$formdata = $form->get_data()) {
 
                 // Insert new data_content fields with NULL contents:
                 foreach ($fields as $field) {
-                    $content = new object();
+                    $content = new stdClass();
                     $content->recordid = $recordid;
                     $content->fieldid = $field->id;
                     $DB->insert_record('data_content', $content);
@@ -152,7 +149,7 @@ if (!$formdata = $form->get_data()) {
                 foreach ($record as $key => $value) {
                     $name = $fieldnames[$key];
                     $field = $fields[$name];
-                    $content = new object();
+                    $content = new stdClass();
                     $content->fieldid = $field->id;
                     $content->recordid = $recordid;
                     if ($field->type == 'textarea') {

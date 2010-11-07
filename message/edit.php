@@ -32,7 +32,7 @@ $url = new moodle_url('/message/edit.php');
 if ($userid !== $USER->id) {
     $url->param('id', $userid);
 }
-if ($course !== SITEID) {
+if ($course != SITEID) {
     $url->param('course', $course);
 }
 $PAGE->set_url($url);
@@ -65,12 +65,17 @@ $systemcontext   = get_context_instance(CONTEXT_SYSTEM);
 $personalcontext = get_context_instance(CONTEXT_USER, $user->id);
 $coursecontext   = get_context_instance(CONTEXT_COURSE, $course->id);
 
+$PAGE->set_context($personalcontext);
+$PAGE->set_pagelayout('course');
 
 // check access control
 if ($user->id == $USER->id) {
     //editing own message profile
     require_capability('moodle/user:editownmessageprofile', $systemcontext);
-
+    if ($course->id != SITEID && $node = $PAGE->navigation->find($course->id, navigation_node::TYPE_COURSE)) {
+        $node->make_active();
+        $PAGE->navbar->includesettingsbase = true;
+    }
 } else {
     // teachers, parents, etc.
     require_capability('moodle/user:editmessageprofile', $personalcontext);
@@ -78,31 +83,43 @@ if ($user->id == $USER->id) {
     if (isguestuser($user->id)) {
         print_error('guestnoeditmessageother', 'message');
     }
-    // no editing of primary admin!
-    $mainadmin = get_admin();
-    if ($user->id == $mainadmin->id) {
-        print_error('adminprimarynoedit');
+    // no editing of admins by non admins!
+    if (is_siteadmin($user) and !is_siteadmin($USER)) {
+        print_error('useradmineditadmin');
     }
+    $PAGE->navigation->extend_for_user($user);
 }
 
-/// Save new preferences if data was submited
+/// Save new preferences if data was submitted
 
 if (($form = data_submitted()) && confirm_sesskey()) {
     $preferences = array();
 
 /// Set all the preferences for all the message providers
     $providers = message_get_my_providers();
+    $possiblestates = array('loggedin', 'loggedoff');
     foreach ( $providers as $providerid => $provider){
-        foreach (array('loggedin', 'loggedoff') as $state){
+        foreach ($possiblestates as $state){
             $linepref = '';
-            foreach ($form->{$provider->component.'_'.$provider->name.'_'.$state} as $process=>$one){
-                if ($linepref == ''){
-                    $linepref = $process;
-                } else {
-                    $linepref .= ','.$process;
+            $componentproviderstate = $provider->component.'_'.$provider->name.'_'.$state;
+            if (array_key_exists($componentproviderstate, $form)) {
+                foreach ($form->{$componentproviderstate} as $process=>$one){
+                    if ($linepref == ''){
+                        $linepref = $process;
+                    } else {
+                        $linepref .= ','.$process;
+                    }
                 }
             }
             $preferences['message_provider_'.$provider->component.'_'.$provider->name.'_'.$state] = $linepref;
+        }
+    }
+    foreach ( $providers as $providerid => $provider){
+        foreach ($possiblestates as $state){
+            $preferencekey = 'message_provider_'.$provider->component.'_'.$provider->name.'_'.$state;
+            if (empty($preferences[$preferencekey])) {
+                $preferences[$preferencekey] = 'none';
+            }
         }
     }
 
@@ -123,6 +140,10 @@ if (($form = data_submitted()) && confirm_sesskey()) {
         }
     }
 
+    //process general messaging preferences
+    $preferences['message_blocknoncontacts']  = !empty($form->blocknoncontacts)?1:0;
+    //$preferences['message_beepnewmessage']    = !empty($form->beepnewmessage)?1:0;
+
 /// Save all the new preferences to the database
     if (!set_user_preferences( $preferences, $user->id ) ){
         print_error('cannotupdateusermsgpref');
@@ -132,7 +153,7 @@ if (($form = data_submitted()) && confirm_sesskey()) {
 }
 
 /// Load preferences
-$preferences = new object();
+$preferences = new stdClass();
 
 /// Get providers preferences
 $providers = message_get_my_providers();
@@ -166,17 +187,15 @@ foreach ( $processors as $processorid => $processor){
     }
 }
 
+//load general messaging preferences
+$preferences->blocknoncontacts  =  get_user_preferences( 'message_blocknoncontacts', '', $user->id);
+//$preferences->beepnewmessage    =  get_user_preferences( 'message_beepnewmessage', '', $user->id);
+
 /// Display page header
 $streditmymessage = get_string('editmymessage', 'message');
 $strparticipants  = get_string('participants');
 $userfullname     = fullname($user, true);
 
-if (has_capability('moodle/course:viewparticipants', $coursecontext) ||
-    has_capability('moodle/site:viewparticipants', $systemcontext)) {
-    $PAGE->navbar->add($strparticipants, new moodle_url('/message/index.php', array('id'=>$course->id)));
-}
-$PAGE->navbar->add($userfullname, new moodle_url('/user/view.php', array('id'=>$user->id, 'course'=>$course->id)));
-$PAGE->navbar->add($streditmymessage);
 $PAGE->set_title("$course->shortname: $streditmymessage");
 if ($course->id != SITEID) {
     $PAGE->set_heading("$course->fullname: $streditmymessage");
@@ -192,27 +211,20 @@ echo '<form class="mform" method="post" action="'.$CFG->wwwroot.'/message/edit.p
 echo '<fieldset id="providers" class="clearfix">';
 echo '<legend class="ftoggler">'.get_string('providers_config', 'message').'</legend>';
 $providers = message_get_my_providers();
-$processors = $DB->get_records('message_processors');
+$processors = $DB->get_records('message_processors', null, 'name DESC');
 $number_procs = count($processors);
 echo '<table cellpadding="2"><tr><td>&nbsp;</td>'."\n";
 foreach ( $processors as $processorid => $processor){
-    echo '<th align="center">'.get_string($processor->name, 'message_'.$processor->name).'</th>';
+    echo '<th align="center">'.get_string('pluginname', 'message_'.$processor->name).'</th>';
 }
 echo '</tr>';
 
 foreach ( $providers as $providerid => $provider){
     $providername = get_string('messageprovider:'.$provider->name, $provider->component);
 
-/// TODO XXX: This is only a quick hack ... helpfile locations should be provided as part of the provider definition
-    if ($provider->component == 'moodle') {
-        $helpbtn = $OUTPUT->old_help_icon('moodle_'.$provider->name, $providername, 'message');
-    } else {
-        $helpbtn = $OUTPUT->old_help_icon('message_'.$provider->name, $providername, basename($provider->component));
-    }
-
-    echo '<tr><th align="right">'.$providername.$helpbtn.'</th><td colspan="'.$number_procs.'"></td></tr>'."\n";
+    echo '<tr><th align="right">'.$providername.'</th><td colspan="'.$number_procs.'"></td></tr>'."\n";
     foreach (array('loggedin', 'loggedoff') as $state){
-        $state_res = get_string($state, 'message');
+        $state_res = get_string($state.'description', 'message');
         echo '<tr><td align="right">'.$state_res.'</td>'."\n";
         foreach ( $processors as $processorid => $processor) {
             if (!isset($preferences->{$provider->component.'_'.$provider->name.'_'.$state})) {
@@ -233,6 +245,7 @@ echo '</fieldset>';
 /// Show all the message processors
 $processors = $DB->get_records('message_processors');
 
+$processorconfigform = null;
 foreach ($processors as $processorid => $processor) {
     $processorfile = $CFG->dirroot. '/message/output/'.$processor->name.'/message_output_'.$processor->name.'.php';
     if (is_readable($processorfile)) {
@@ -241,18 +254,27 @@ foreach ($processors as $processorid => $processor) {
 
         if (class_exists($processclass)) {
             $pclass = new $processclass();
-            echo '<fieldset id="messageprocessor_'.$processor->name.'" class="clearfix">';
-            echo '<legend class="ftoggler">'.get_string($processor->name, 'message_'.$processor->name).'</legend>';
+            $processorconfigform = $pclass->config_form($preferences);
 
-            echo $pclass->config_form($preferences);
+            if (!empty($processorconfigform)) {
+            echo '<fieldset id="messageprocessor_'.$processor->name.'" class="clearfix">';
+            echo '<legend class="ftoggler">'.get_string('pluginname', 'message_'.$processor->name).'</legend>';
+
+            echo $processorconfigform;
 
             echo '</fieldset>';
-
+            }
         } else{
             print_error('errorcallingprocessor', 'message');
         }
     }
 }
+
+echo '<fieldset id="messageprocessor_general" class="clearfix">';
+echo '<legend class="ftoggler">'.get_string('generalsettings','admin').'</legend>';
+echo get_string('blocknoncontacts', 'message').': <input type="checkbox" name="blocknoncontacts" '.($preferences->blocknoncontacts==1?' checked="checked"':'');
+//get_string('beepnewmessage', 'message').': <input type="checkbox" name="beepnewmessage" '.($preferences->beepnewmessage==1?" checked=\"checked\"":"").' />';
+echo '</fieldset>';
 
 echo '<div><input type="hidden" name="sesskey" value="'.sesskey().'" /></div>';
 echo '<div style="text-align:center"><input name="submit" value="'. get_string('updatemyprofile') .'" type="submit" /></div>';

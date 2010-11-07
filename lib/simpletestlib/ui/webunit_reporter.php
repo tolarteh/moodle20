@@ -3,7 +3,7 @@
  *	base include file for SimpleTest PUnit reporter
  *	@package	SimpleTest
  *	@subpackage	UnitTester
- *	@version	$Id: webunit_reporter.php,v 1.1 2006-06-30 14:59:23 tjhunt Exp $
+ *	@version	$Id: webunit_reporter.php,v 1.1 2006/06/30 14:59:23 tjhunt Exp $
  */
 
 /**

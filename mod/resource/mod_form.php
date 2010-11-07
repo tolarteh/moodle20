@@ -18,14 +18,13 @@
 /**
  * Resource configuration form
  *
- * @package   mod-resource
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage resource
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-if (!defined('MOODLE_INTERNAL')) {
-    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
-}
+defined('MOODLE_INTERNAL') || die;
 
 require_once($CFG->dirroot.'/course/moodleform_mod.php');
 require_once($CFG->dirroot.'/mod/resource/locallib.php');
@@ -53,7 +52,7 @@ class mod_resource_mod_form extends moodleform_mod {
         if (!empty($CFG->formatstringstriptags)) {
             $mform->setType('name', PARAM_TEXT);
         } else {
-            $mform->setType('name', PARAM_CLEAN);
+            $mform->setType('name', PARAM_CLEANHTML);
         }
         $mform->addRule('name', null, 'required', null, 'client');
         $this->add_intro_editor($config->requiremodintro);
@@ -90,6 +89,7 @@ class mod_resource_mod_form extends moodleform_mod {
             $mform->addElement('select', 'display', get_string('displayselect', 'resource'), $options);
             $mform->setDefault('display', $config->display);
             $mform->setAdvanced('display', $config->display_adv);
+            $mform->addHelpButton('display', 'displayselect', 'resource');
         }
 
         if (array_key_exists(RESOURCELIB_DISPLAY_POPUP, $options)) {
@@ -158,7 +158,7 @@ class mod_resource_mod_form extends moodleform_mod {
     function data_preprocessing(&$default_values) {
         if ($this->current->instance and !$this->current->tobemigrated) {
             $draftitemid = file_get_submitted_draft_itemid('files');
-            file_prepare_draft_area($draftitemid, $this->context->id, 'resource_content', 0, array('subdirs'=>true));
+            file_prepare_draft_area($draftitemid, $this->context->id, 'mod_resource', 'content', 0, array('subdirs'=>true));
             $default_values['files'] = $draftitemid;
         }
         if (!empty($default_values['displayoptions'])) {
@@ -194,7 +194,7 @@ class mod_resource_mod_form extends moodleform_mod {
 
         $usercontext = get_context_instance(CONTEXT_USER, $USER->id);
         $fs = get_file_storage();
-        if (!$files = $fs->get_area_files($usercontext->id, 'user_draft', $data['files'], 'sortorder, id', false)) {
+        if (!$files = $fs->get_area_files($usercontext->id, 'user', 'draft', $data['files'], 'sortorder, id', false)) {
             $errors['files'] = get_string('required');
             return $errors;
         }
@@ -212,7 +212,7 @@ class mod_resource_mod_form extends moodleform_mod {
             // set a default main file
             if (!$mainfile) {
                 $file = reset($files);
-                file_set_sortorder($file->get_contextid(), $file->get_filearea(), $file->get_itemid(),
+                file_set_sortorder($file->get_contextid(), $file->get_component(), $file->get_filearea(), $file->get_itemid(),
                                    $file->get_filepath(), $file->get_filename(), 1);
             }
         }

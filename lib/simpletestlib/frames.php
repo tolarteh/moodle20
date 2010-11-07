@@ -3,7 +3,7 @@
  *  Base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage WebTester
- *  @version    $Id: frames.php,v 1.3 2008-06-10 20:10:52 nicolasconnault Exp $
+ *  @version    $Id: frames.php,v 1.3 2008/06/10 20:10:52 nicolasconnault Exp $
  */
 
 /**#@+

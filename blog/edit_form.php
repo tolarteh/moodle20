@@ -46,9 +46,6 @@ class blog_edit_form extends moodleform {
 
         $mform->setType('summary_editor', PARAM_RAW);
         $mform->addRule('summary_editor', get_string('emptybody', 'blog'), 'required', null, 'client');
-        $mform->setHelpButton('summary_editor', array('writing', 'richtext2'), false, 'editorhelpbutton');
-
-        $mform->addElement('format', 'summaryformat', get_string('format'));
 
         $mform->addElement('filemanager', 'attachment_filemanager', get_string('attachment', 'forum'), null, $attachmentoptions);
 
@@ -62,7 +59,7 @@ class blog_edit_form extends moodleform {
         }
 
         $mform->addElement('select', 'publishstate', get_string('publishto', 'blog'), $publishstates);
-        $mform->setHelpButton('publishstate', array('publish_state', get_string('publishto', 'blog'), 'blog'));
+        $mform->addHelpButton('publishstate', 'publishto', 'blog');
         $mform->setDefault('publishstate', 0);
 
         if (!empty($CFG->usetags)) {
@@ -78,10 +75,12 @@ class blog_edit_form extends moodleform {
                     $course = $DB->get_record('course', array('id' => $courseid));
                     $mform->addElement('header', 'assochdr', get_string('associations', 'blog'));
                     $context = get_context_instance(CONTEXT_COURSE, $courseid);
+                    $a = new stdClass();
                     $a->coursename = $course->fullname;
                     $contextid = $context->id;
                 } else {
                     $sql = 'SELECT fullname FROM {course} cr LEFT JOIN {context} ct ON ct.instanceid = cr.id WHERE ct.id = ?';
+                    $a = new stdClass();
                     $a->coursename = $DB->get_field_sql($sql, array($entry->courseassoc));
                     $contextid = $entry->courseassoc;
                 }
@@ -91,12 +90,14 @@ class blog_edit_form extends moodleform {
             } else if ((!empty($entry->modassoc) || !empty($modid)) && has_capability('moodle/blog:associatemodule', $sitecontext)) {
                 if (!empty($modid)) {
                     $mod = get_coursemodule_from_id(false, $modid);
+                    $a = new stdClass();
                     $a->modtype = get_string('modulename', $mod->modname);
                     $a->modname = $mod->name;
                     $context = get_context_instance(CONTEXT_MODULE, $modid);
                 } else {
                     $context = $DB->get_record('context', array('id' => $entry->modassoc));
                     $cm = $DB->get_record('course_modules', array('id' => $context->instanceid));
+                    $a = new stdClass();
                     $a->modtype = $DB->get_field('modules', 'name', array('id' => $cm->module));
                     $a->modname = $DB->get_field($a->modtype, 'name', array('id' => $cm->instance));
                 }
@@ -152,7 +153,7 @@ class blog_edit_form extends moodleform {
 
             if ($modcontext) {
                 // get context of the mod's course
-                $path = split('/', $modcontext->path);
+                $path = explode('/', $modcontext->path);
                 $coursecontext = $DB->get_record('context', array('id' => $path[(count($path) - 2)]));
 
                 // ensure only one course is associated

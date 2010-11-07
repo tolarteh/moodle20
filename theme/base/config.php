@@ -22,7 +22,7 @@
  * basic layout. It is intended as a base for other themes to build upon.
  * It is not recommend to actually choose this theme for production sites!
  *
- * DO NOT COPY THIS TO START NEW THEMES! 
+ * DO NOT COPY THIS TO START NEW THEMES!
  * Start with another theme, like "standard".
  *
  * For full information about creating Moodle themes, see:
@@ -51,7 +51,7 @@ $THEME->sheets = array(
     'user'
 );
 
-$THEME->editor_sheets = array();
+$THEME->editor_sheets = array('editor');
 
 $THEME->layouts = array(
     // Most backwards compatible layout without the blocks - this is the layout used by default
@@ -118,7 +118,7 @@ $THEME->layouts = array(
     'popup' => array(
         'file' => 'general.php',
         'regions' => array(),
-        'options' => array('nofooter'=>true, 'nonavbar'=>true, 'nocustommenu'=>true),
+        'options' => array('nofooter'=>true, 'nonavbar'=>true, 'nocustommenu'=>true, 'nologininfo'=>true),
     ),
     // No blocks and minimal footer - used for legacy frame layouts only!
     'frametop' => array(
@@ -139,6 +139,24 @@ $THEME->layouts = array(
         'file' => 'general.php',
         'regions' => array(),
         'options' => array('noblocks'=>true, 'nofooter'=>true, 'nonavbar'=>true, 'nocustommenu'=>true),
+    ),
+    // Should display the content and basic headers only.
+    'print' => array(
+        'file' => 'general.php',
+        'regions' => array(),
+        'options' => array('noblocks'=>true, 'nofooter'=>true, 'nonavbar'=>false, 'nocustommenu'=>true),
+    ),
+    // The pagelayout used when a redirection is occuring.
+    'redirect' => array(
+        'file' => 'embedded.php',
+        'regions' => array(),
+        'options' => array('nofooter'=>true, 'nonavbar'=>true, 'nocustommenu'=>true),
+    ),
+    // The pagelayout used for reports
+    'report' => array(
+        'file' => 'report.php',
+        'regions' => array('side-pre'),
+        'defaultregion' => 'side-pre',
     ),
 );
 

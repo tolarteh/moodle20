@@ -3,7 +3,7 @@
  *  base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage UnitTester
- *  @version    $Id: detached.php,v 1.3 2008-06-10 20:10:52 nicolasconnault Exp $
+ *  @version    $Id: detached.php,v 1.4 2010/07/19 08:53:16 skodak Exp $
  */
 
 /**#@+
@@ -53,7 +53,7 @@ class DetachedTestCase {
      *    @access public
      */
     function run(&$reporter) {
-        $shell = &new SimpleShell();
+        $shell = new SimpleShell();
         $shell->execute($this->_command);
         $parser = &$this->_createParser($reporter);
         if (! $parser->parse($shell->getOutput())) {
@@ -70,9 +70,9 @@ class DetachedTestCase {
      */
     function getSize() {
         if ($this->_size === false) {
-            $shell = &new SimpleShell();
+            $shell = new SimpleShell();
             $shell->execute($this->_dry_command);
-            $reporter = &new SimpleReporter();
+            $reporter = new SimpleReporter();
             $parser = &$this->_createParser($reporter);
             if (! $parser->parse($shell->getOutput())) {
                 trigger_error('Cannot parse incoming XML from [' . $this->_dry_command . ']');

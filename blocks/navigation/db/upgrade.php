@@ -22,7 +22,7 @@
  * and other major things that may break installations.
  *
  * The upgrade function in this file will attempt to perform all the necessary
- * actions to upgrade your older installtion to the current version.
+ * actions to upgrade your older installation to the current version.
  *
  * If there's something it cannot do itself, it will tell you what you need to do.
  *
@@ -48,10 +48,29 @@
  * was complex due to us wanting to remvoe the outmoded blocks that this
  * block was going to replace.
  *
+ * @global moodle_database $DB
  * @param int $oldversion
  * @param object $block
  */
 function xmldb_block_navigation_upgrade($oldversion, $block) {
+    global $DB;
     // Implemented at 2009082800
+
+    if ($oldversion < 2010091400) {
+
+        $sql = "SELECT bp.id FROM {block_instances} bi 
+                LEFT JOIN {block_positions} bp ON bp.blockinstanceid=bi.id
+                WHERE bi.blockname='navigation' AND bp.visible=0";
+        $blockpositions = $DB->get_records_sql($sql);
+        if ($blockpositions) {
+            foreach ($blockpositions as $bp) {
+                $bp->visible = 1;
+                $DB->update_record('block_positions', $bp);
+            }
+        }
+
+        upgrade_block_savepoint(true, 2010091400, 'navigation');
+    }
+
     return true;
 }

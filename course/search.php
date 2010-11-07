@@ -68,9 +68,7 @@
                 $visible = 1;
             }
             if ($course) {
-                if (! $DB->set_field("course", "visible", $visible, array("id"=>$course->id))) {
-                    echo $OUTPUT->notification("Could not update that course!");
-                }
+                $DB->set_field("course", "visible", $visible, array("id"=>$course->id));
             }
         }
     }
@@ -131,14 +129,14 @@
     // get list of courses containing blocks if required
     if (!empty($blocklist) and confirm_sesskey()) {
         $blockname = $DB->get_field('block', 'name', array('id' => $blocklist));
-        $courses = $DB->get_recordset_sql("
+        $courses = array();
+        $courses = $DB->get_records_sql("
                 SELECT * FROM {course} WHERE id IN (
                     SELECT DISTINCT ctx.instanceid
                     FROM {context} ctx
-                    JOIN {block_instances} bi ON bi.contextid = ctx.id
+                    JOIN {block_instances} bi ON bi.parentcontextid = ctx.id
                     WHERE ctx.contextlevel = " . CONTEXT_COURSE . " AND bi.blockname = ?)",
                 array($blockname));
-        $courses = array();
         foreach ($courses as $course) {
             $courses[$course->id] = $course;
         }
@@ -290,9 +288,9 @@
                 }
 
                 // checks whether user can do role assignment
-                if (has_capability('moodle/role:assign', $coursecontext)) {
-                    echo'<a title="'.get_string('assignroles', 'role').'" href="'.$CFG->wwwroot.'/'.$CFG->admin.'/roles/assign.php?contextid='.$coursecontext->id.'">';
-                    echo '<img src="'.$OUTPUT->pix_url('i/roles') . '" class="iconsmall" alt="'.get_string('assignroles', 'role').'" /></a> ' . "\n";
+                if (has_capability('moodle/course:enrolreview', $coursecontext)) {
+                    echo'<a title="'.get_string('enrolledusers', 'enrol').'" href="'.$CFG->wwwroot.'/enrol/users.php?id='.$course->id.'">';
+                    echo '<img src="'.$OUTPUT->pix_url('i/users') . '" class="iconsmall" alt="'.get_string('enrolledusers', 'enrol').'" /></a> ' . "\n";
                 }
 
                 // checks whether user can delete course
@@ -341,7 +339,7 @@
 
     } else {
         if (!empty($search)) {
-            echo $OUTPUT->heading(get_string("nocoursesfound", s($search)));
+            echo $OUTPUT->heading(get_string("nocoursesfound",'', s($search)));
         }
         else {
             echo $OUTPUT->heading( $strnovalidcourses );

@@ -18,9 +18,10 @@
 /**
  * A form used by teachers to give feedback to reviewers on assessments
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -58,6 +59,7 @@ class workshop_feedbackreviewer_form extends moodleform {
         }
 
         $mform->addElement('hidden', 'asid');
+        $mform->setType('asid', PARAM_INT);
 
         $mform->addElement('submit', 'save', get_string('saveandclose', 'workshop'));
 

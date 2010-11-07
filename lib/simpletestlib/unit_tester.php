@@ -3,7 +3,7 @@
  *  base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage UnitTester
- *  @version    $Id: unit_tester.php,v 1.3 2008-06-10 20:10:53 nicolasconnault Exp $
+ *  @version    $Id: unit_tester.php,v 1.4 2010/07/19 08:53:16 skodak Exp $
  */
 
 /**#@+
@@ -71,7 +71,7 @@ class UnitTestCase extends SimpleTestCase {
      *    @access public
      */
     function assertNull($value, $message = '%s') {
-        $dumper = &new SimpleDumper();
+        $dumper = new SimpleDumper();
         $message = sprintf(
                 $message,
                 '[' . $dumper->describeValue($value) . '] should be null');
@@ -86,7 +86,7 @@ class UnitTestCase extends SimpleTestCase {
      *    @access public
      */
     function assertNotNull($value, $message = '%s') {
-        $dumper = &new SimpleDumper();
+        $dumper = new SimpleDumper();
         $message = sprintf(
                 $message,
                 '[' . $dumper->describeValue($value) . '] should not be null');
@@ -235,7 +235,7 @@ class UnitTestCase extends SimpleTestCase {
      *    @access public
      */
     function assertReference(&$first, &$second, $message = '%s') {
-        $dumper = &new SimpleDumper();
+        $dumper = new SimpleDumper();
         $message = sprintf(
                 $message,
                 '[' . $dumper->describeValue($first) .
@@ -257,13 +257,13 @@ class UnitTestCase extends SimpleTestCase {
      *    @access public
      */
     function assertClone(&$first, &$second, $message = '%s') {
-        $dumper = &new SimpleDumper();
+        $dumper = new SimpleDumper();
         $message = sprintf(
                 $message,
                 '[' . $dumper->describeValue($first) .
                         '] and [' . $dumper->describeValue($second) .
                         '] should not be the same object');
-        $identical = &new IdenticalExpectation($first);
+        $identical = new IdenticalExpectation($first);
         return $this->assertTrue(
                 $identical->test($second) &&
                         ! SimpleTestCompatibility::isReference($first, $second),
@@ -274,7 +274,7 @@ class UnitTestCase extends SimpleTestCase {
      *    @deprecated
      */
     function assertCopy(&$first, &$second, $message = "%s") {
-        $dumper = &new SimpleDumper();
+        $dumper = new SimpleDumper();
         $message = sprintf(
                 $message,
                 "[" . $dumper->describeValue($first) .

@@ -19,7 +19,7 @@
  * This page shows all course enrolment options for current user.
  *
  * @package    core
- * @subpackage course
+ * @subpackage enrol
  * @copyright  2010 Petr Skoda {@link http://skodak.org}
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -43,6 +43,8 @@ if ($course->id == SITEID) {
     redirect("$CFG->wwwroot/");
 }
 
+$PAGE->set_course($course);
+$PAGE->set_pagelayout('course');
 $PAGE->set_url('/enrol/index.php', array('id'=>$course->id));
 
 // do not allow enrols when in login-as session
@@ -77,8 +79,7 @@ if (is_enrolled($context, $USER, '', true)) {
 
 $PAGE->set_title($course->shortname);
 $PAGE->set_heading($course->fullname);
-$PAGE->navbar->add($course->fullname);
-
+$PAGE->navbar->add(get_string('enrolmentoptions','enrol'));
 
 echo $OUTPUT->header();
 

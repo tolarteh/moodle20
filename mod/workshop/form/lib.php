@@ -18,9 +18,10 @@
 /**
  * This file defines interface of all grading strategy logic classes
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -45,7 +46,7 @@ interface workshop_strategy {
      * to be evaluated. Each dimension consists of a set of form fields. Strategy-specific information
      * are saved in workshopform_{strategyname} tables.
      *
-     * @param stdclass $data Raw data as returned by the form editor
+     * @param stdClass $data Raw data as returned by the form editor
      * @return void
      */
     public function save_edit_strategy_form(stdclass $data);
@@ -55,7 +56,7 @@ interface workshop_strategy {
      *
      * @param moodle_url $actionurl URL of form handler, defaults to auto detect the current url
      * @param string $mode          Mode to open the form in: preview|assessment
-     * @param stdclass $assessment  If opening in the assessment mode, the current assessment record
+     * @param stdClass $assessment  If opening in the assessment mode, the current assessment record
      * @param bool $editable        Shall the form be opened as editable (true) or read-only (false)
      * @param array $options        More assessment form options, editableweight implemented only now
      */
@@ -68,8 +69,8 @@ interface workshop_strategy {
      * The returned grade should be rounded to 5 decimals as with round($grade, 5).
      *
      * @see grade_floatval()
-     * @param stdclass $assessment Assessment being filled
-     * @param stdclass $data       Raw data as returned by the assessment form
+     * @param stdClass $assessment Assessment being filled
+     * @param stdClass $data       Raw data as returned by the assessment form
      * @return float|null          Raw percentual grade (0.00000 to 100.00000) for submission
      *                             as suggested by the peer or null if impossible to count
      */
@@ -115,4 +116,14 @@ interface workshop_strategy {
      * @return bool
      */
     public static function scale_used($scaleid, $workshopid=null);
+
+    /**
+     * Delete all data related to a given workshop module instance
+     *
+     * This is called from {@link workshop_delete_instance()}.
+     *
+     * @param int $workshopid id of the workshop module instance being deleted
+     * @return void
+     */
+    public static function delete_instance($workshopid);
 }

@@ -1,6 +1,6 @@
 <?php
 /*
- *  $Id: phpcoverage.remote.bottom.inc.php,v 1.1 2009-06-23 09:23:07 stronk7 Exp $
+ *  $Id: phpcoverage.remote.bottom.inc.php,v 1.1 2009/06/23 09:23:07 stronk7 Exp $
  *  
  *  Copyright(c) 2004-2006, SpikeSource Inc. All Rights Reserved.
  *  Licensed under the Open Software License version 2.1

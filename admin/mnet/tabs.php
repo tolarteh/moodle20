@@ -21,7 +21,8 @@
  * $mnet_peer object must be set and bootstrapped
  * $currenttab string must be set
  *
- * @package    moodlecore
+ * @package    core
+ * @subpackage mnet
  * @copyright  2007 Donal McMullan
  * @copyright  2007 Martin Langhoff
  * @copyright  2010 Penny Leach
@@ -35,7 +36,6 @@ if (!defined('MOODLE_INTERNAL')) {
 $strmnetservices   = get_string('mnetservices', 'mnet');
 $strmnetlog        = get_string('mnetlog', 'mnet');
 $strmnetedithost   = get_string('reviewhostdetails', 'mnet');
-$strmnetthemes     = get_string('mnetthemes', 'mnet');
 
 $logurl = $CFG->wwwroot.
           '/course/report/log/index.php?chooselog=1&amp;showusers=1&amp;showcourses=1&amp;host_course='.$mnet_peer->id.
@@ -46,7 +46,6 @@ $tabs = array();
 if (isset($mnet_peer->id) && $mnet_peer->id > 0) {
     $tabs[] = new tabobject('mnetdetails', 'peers.php?step=update&amp;hostid='.$mnet_peer->id, $strmnetedithost, $strmnetedithost, false);
     $tabs[] = new tabobject('mnetservices', 'services.php?hostid='.$mnet_peer->id, $strmnetservices, $strmnetservices, false);
-    $tabs[] = new tabobject('mnetthemes', 'mnet_themes.php?step=list&amp;hostid='.$mnet_peer->id, $strmnetthemes, $strmnetthemes, false);
     if ($mnet_peer->application->name == 'moodle' && $mnet_peer->id != $CFG->mnet_all_hosts_id) {
         $tabs[] = new tabobject('mnetlog', $logurl, $strmnetlog, $strmnetlog, false);
     }

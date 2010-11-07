@@ -16,15 +16,15 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package moodlecore
- * @subpackage backup-moodle2
- * @copyright 2010 onwards Eloy Lafuente (stronk7) {@link http://stronk7.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * Define all the backup steps that will be used by the backup_imscp_activity_task
+ *
+ * @package    mod
+ * @subpackage imscp
+ * @copyright  2010 onwards Eloy Lafuente (stronk7) {@link http://stronk7.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/**
- * Define all the backup steps that will be used by the backup_imscp_activity_task
- */
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Define the complete imscp structure for backup, with file and id annotations
@@ -51,18 +51,14 @@ class backup_imscp_activity_structure_step extends backup_activity_structure_ste
         // (none)
 
         // Define file annotations
-        $imscp->annotate_files(array('imscp_intro'), null); // This file area hasn't itemid
+        $imscp->annotate_files('mod_imscp', 'intro', null); // This file area hasn't itemid
+        $imscp->annotate_files('mod_imscp', 'backup', null); // This file area hasn't itemid
         /**
-         * Don't annotate contents for now. It breaks backup as far as it's using itemid for storing
-         * revisions. Each element only can have one files anotation and itemid must be null or id for all them
-         * To be able to backup this properly we must sort of of these:
-         *  * take out those revisions from imscp
-         *  * if want to implement them properly, create imscp_revisions and associate contents there
-         *  * change backup so each file_area can have its own itemid (no good idea form my structured mind)
-         *
-         * TODO: To decide MDL-22315 comments about this.
+         * I don't like itemid used for "imaginative" things like "revisions"!
+         * I don't like itemid used for "imaginative" things like "revisions"!
+         * I don't like itemid used for "imaginative" things like "revisions"!
          */
-        // $imscp->annotate_files(array('imscp_content'), 'revision'); // This file area uses 'revision' as itemid
+        $imscp->annotate_files('mod_imscp', 'content', null); // Horrible use of itemid here. Ignoring for backup/restore purposes
 
         // Return the root element (imscp), wrapped into standard activity structure
         return $this->prepare_activity_structure($imscp);

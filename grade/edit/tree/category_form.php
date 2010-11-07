@@ -101,9 +101,12 @@ class edit_category_form extends moodleform {
         $mform->disabledIf('droplow', 'keephigh', 'noteq', 0);
 
         // Grade item settings
-        $mform->addElement('header', 'general', get_string('gradeitem', 'grades'));
+        // Displayed as Category total to avoid confusion between grade items requiring marking and category totals
+        $mform->addElement('header', 'general', get_string('categorytotal', 'grades'));
 
-        $mform->addElement('text', 'grade_item_itemname', get_string('itemname', 'grades'));
+        $mform->addElement('text', 'grade_item_itemname', get_string('categorytotalname', 'grades'));
+        $mform->setAdvanced('grade_item_itemname');
+
         $mform->addElement('text', 'grade_item_iteminfo', get_string('iteminfo', 'grades'));
         $mform->addHelpButton('grade_item_iteminfo', 'iteminfo', 'grades');
 
@@ -135,7 +138,7 @@ class edit_category_form extends moodleform {
                 $options[$scale->id] = $scale->get_name();
             }
         }
-        // ugly BC hack - it was possbile to use custom scale from other courses :-(
+        // ugly BC hack - it was possible to use custom scale from other courses :-(
         if (!empty($category->grade_item_scaleid) and !isset($options[$category->grade_item_scaleid])) {
             if ($scale = grade_scale::fetch(array('id'=>$category->grade_item_scaleid))) {
                 $options[$scale->id] = $scale->get_name().' '.get_string('incorrectcustomscale', 'grades');

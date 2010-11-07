@@ -18,11 +18,13 @@
 /**
  * Functions to support installation process
  *
- * @package    moodlecore
+ * @package    core
  * @subpackage install
  * @copyright  2009 Petr Skoda (http://skodak.org)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /** INSTALL_WELCOME = 0 */
 define('INSTALL_WELCOME',       0);
@@ -74,6 +76,57 @@ function install_ini_get_bool($ini_get_arg) {
         return true;
     }
     return false;
+}
+
+/**
+ * Creates dataroot if not exists yet,
+ * makes sure it is writable, add lang directory
+ * and add .htaccess just in case it works.
+ *
+ * @param string $dataroot full path to dataroot
+ * @param int $dirpermissions
+ * @return bool success
+ */
+function install_init_dataroot($dataroot, $dirpermissions) {
+    if (file_exists($dataroot) and !is_dir($dataroot)) {
+        // file with the same name exists
+        return false;
+    }
+
+    umask(0000);
+    if (!file_exists($dataroot)) {
+        if (!mkdir($dataroot, $dirpermissions, true)) {
+            // most probably this does not work, but anyway
+            return false;
+        }
+    }
+    @chmod($dataroot, $dirpermissions);
+
+    if (!is_writable($dataroot)) {
+        return false; // we can not continue
+    }
+
+    // now create the lang folder - we need it and it makes sure we can really write in dataroot
+    if (!is_dir("$dataroot/lang")) {
+        if (!mkdir("$dataroot/lang", $dirpermissions, true)) {
+            return false;
+        }
+    }
+    if (!is_writable("$dataroot/lang")) {
+        return false; // we can not continue
+    }
+
+    // finally just in case some broken .htaccess that prevents access just in case it is allowed
+    if (!file_exists("$dataroot/.htaccess")) {
+        if ($handle = fopen("$dataroot/.htaccess", 'w')) {
+            fwrite($handle, "deny from all\r\nAllowOverride None\r\nNote: this file is broken intentionally, we do not want anybody to undo it in subdirectory!\r\n");
+            fclose($handle);
+        } else {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 /**
@@ -136,6 +189,7 @@ function install_generate_configphp($database, $cfg) {
     $configphp = '<?php  // Moodle configuration file' . PHP_EOL . PHP_EOL;
 
     $configphp .= 'unset($CFG);' . PHP_EOL;
+    $configphp .= 'global $CFG;' . PHP_EOL;
     $configphp .= '$CFG = new stdClass();' . PHP_EOL . PHP_EOL; // prevent PHP5 strict warnings
 
     $dbconfig = $database->export_dbconfig();
@@ -201,7 +255,7 @@ function install_print_help_page($help) {
             print_string($help, 'install', phpversion());
             break;
         case 'memorylimithelp':
-            print_string($help, 'install', get_memory_limit());
+            print_string($help, 'install', @ini_get('memory_limit'));
             break;
         default:
             print_string($help, 'install');
@@ -300,7 +354,7 @@ function install_print_footer($config, $reload=false) {
     if ($config->stage > INSTALL_WELCOME) {
         $first = '<input type="submit" id="previousbutton" name="previous" value="&laquo; '.s(get_string('previous')).'" />';
     } else {
-        $first = '<input type="submit" id="previousbutton" name="next" value="'.s(get_string('reload', 'admin')).'" />';
+        $first = '<input type="submit" id="previousbutton" name="next" value="'.s(get_string('reload')).'" />';
         $first .= '<script type="text/javascript">
 //<![CDATA[
     var first = document.getElementById("previousbutton");
@@ -311,7 +365,7 @@ function install_print_footer($config, $reload=false) {
     }
 
     if ($reload) {
-        $next = '<input type="submit" id="nextbutton" name="next" value="'.s(get_string('reload', 'admin')).'" />';
+        $next = '<input type="submit" id="nextbutton" name="next" value="'.s(get_string('reload')).'" />';
     } else {
         $next = '<input type="submit" id="nextbutton" name="next" value="'.s(get_string('next')).' &raquo;" />';
     }
@@ -437,4 +491,101 @@ fieldset {
 ';
 
     die;
+}
+
+/**
+ * Install Moodle DB,
+ * config.php must exist, there must not be any tables in db yet.
+ *
+ * @param array $options adminpass is mandatory
+ * @param bool $interactive
+ * @return void
+ */
+function install_cli_database(array $options, $interactive) {
+    global $CFG, $DB;
+    require_once($CFG->libdir.'/environmentlib.php');
+    require_once($CFG->libdir.'/upgradelib.php');
+
+    // show as much debug as possible
+    @error_reporting(1023);
+    @ini_set('display_errors', '1');
+    $CFG->debug = 38911;
+    $CFG->debugdisplay = true;
+
+    $CFG->version = '';
+    $CFG->release = '';
+    $version = null;
+    $release = null;
+
+    // read $version and $release
+    require($CFG->dirroot.'/version.php');
+
+    if ($DB->get_tables() ) {
+        cli_error(get_string('clitablesexist', 'install'));
+    }
+
+    if (empty($options['adminpass'])) {
+        cli_error('Missing required admin password');
+    }
+
+    // test environment first
+    if (!check_moodle_environment($version, $environment_results, false, ENV_SELECT_RELEASE)) {
+        $errors = environment_get_errors($environment_results);
+        cli_heading(get_string('environment', 'admin'));
+        foreach ($errors as $error) {
+            list($info, $report) = $error;
+            echo "!! $info !!\n$report\n\n";
+        }
+        exit(1);
+    }
+
+    if (!$DB->setup_is_unicodedb()) {
+        if (!$DB->change_db_encoding()) {
+            // If could not convert successfully, throw error, and prevent installation
+            cli_error(get_string('unicoderequired', 'admin'));
+        }
+    }
+
+    if ($interactive) {
+        cli_separator();
+        cli_heading(get_string('databasesetup'));
+    }
+
+    // install core
+    install_core($version, true);
+    set_config('release', $release);
+
+    // install all plugins types, local, etc.
+    upgrade_noncore(true);
+
+    // set up admin user password
+    $DB->set_field('user', 'password', hash_internal_user_password($options['adminpass']), array('username' => 'admin'));
+
+    // rename admin username if needed
+    if (isset($options['adminuser']) and $options['adminuser'] !== 'admin' and $options['adminuser'] !== 'guest') {
+        $DB->set_field('user', 'username', $options['adminuser'], array('username' => 'admin'));
+    }
+
+    // indicate that this site is fully configured
+    set_config('rolesactive', 1);
+    upgrade_finished();
+
+    // log in as admin - we need do anything when applying defaults
+    $admins = get_admins();
+    $admin = reset($admins);
+    session_set_user($admin);
+    message_set_default_message_preferences($admin);
+
+    // apply all default settings, do it twice to fill all defaults - some settings depend on other setting
+    admin_apply_default_settings(NULL, true);
+    admin_apply_default_settings(NULL, true);
+    set_config('registerauth', '');
+
+    // set the site name
+    if (isset($options['shortname']) and $options['shortname'] !== '') {
+        $DB->set_field('course', 'shortname', $options['shortname'], array('format' => 'site'));
+    }
+    if (isset($options['fullname']) and $options['fullname'] !== '') {
+        $DB->set_field('course', 'fullname', $options['fullname'], array('format' => 'site'));
+    }
 }

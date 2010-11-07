@@ -18,7 +18,7 @@
 /**
  * Lets you assign roles to users in a particular context.
  *
- * @package    moodlecore
+ * @package    core
  * @subpackage role
  * @copyright  1999 onwards Martin Dougiamas (http://dougiamas.com)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -36,7 +36,10 @@ list($context, $course, $cm) = get_context_info_array($contextid);
 
 $url = new moodle_url('/admin/roles/assign.php', array('contextid' => $contextid));
 
-if (!$course) {
+if ($course) {
+    $isfrontpage = ($course->id == SITEID);
+} else {
+    $isfrontpage = false;
     if ($context->contextlevel == CONTEXT_USER) {
         $course = $DB->get_record('course', array('id'=>optional_param('courseid', SITEID, PARAM_INT)), '*', MUST_EXIST);
         $user = $DB->get_record('user', array('id'=>$context->instanceid), '*', MUST_EXIST);
@@ -56,7 +59,6 @@ $PAGE->set_context($context);
 
 $contextname = print_context_name($context);
 $courseid = $course->id;
-$isfrontpage = ($course->id == SITEID);
 
 // These are needed early because of tabs.php
 list($assignableroles, $assigncounts, $nameswithcounts) = get_assignable_roles($context, ROLENAME_BOTH, true);
@@ -146,12 +148,8 @@ switch ($context->contextlevel) {
         admin_externalpage_setup('assignroles', '', array('contextid' => $contextid, 'roleid' => $roleid));
         break;
     case CONTEXT_USER:
-        if ($isfrontpage) {
-            $fullname = fullname($user, has_capability('moodle/site:viewfullnames', $context));
-            $PAGE->set_heading($fullname);
-        } else {
-            $PAGE->set_heading($course->fullname);
-        }
+        $fullname = fullname($user, has_capability('moodle/site:viewfullnames', $context));
+        $PAGE->set_heading($fullname);
         $showroles = 1;
         break;
     case CONTEXT_COURSECAT:

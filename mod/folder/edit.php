@@ -18,9 +18,10 @@
 /**
  * Manage files in folder module instance
  *
- * @package   mod-folder
- * @copyright 2010 Dongsheng Cai <dongsheng@moodle.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage folder
+ * @copyright  2010 Dongsheng Cai <dongsheng@moodle.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require('../../config.php');
@@ -31,38 +32,37 @@ require_once("$CFG->dirroot/repository/lib.php");
 $id = required_param('id', PARAM_INT);  // Course module ID
 
 $cm = get_coursemodule_from_id('folder', $id, 0, false, MUST_EXIST);
-$context = get_context_instance(CONTEXT_MODULE, $cm->id);
+$context = get_context_instance(CONTEXT_MODULE, $cm->id, MUST_EXIST);
 $folder = $DB->get_record('folder', array('id'=>$cm->instance), '*', MUST_EXIST);
 $course = $DB->get_record('course', array('id'=>$cm->course), '*', MUST_EXIST);
 
-require_login($course, true, $cm);
-require_capability('moodle/course:managefiles', $context);
+require_login($course, false, $cm);
+require_capability('mod/folder:managefiles', $context);
 
 add_to_log($course->id, 'folder', 'edit', 'edit.php?id='.$cm->id, $folder->id, $cm->id);
 
-$data = new stdclass;
-$data->id = $cm->id;
-
-$options = array('subdirs'=>1, 'maxbytes'=>$CFG->maxbytes, 'maxfiles'=>-1, 'accepted_types'=>'*', 'return_types'=>FILE_INTERNAL);
-
 $PAGE->set_url('/mod/folder/edit.php', array('id' => $cm->id));
-
 $PAGE->set_title($course->shortname.': '.$folder->name);
 $PAGE->set_heading($course->fullname);
 $PAGE->set_activity_record($folder);
 
+$data = new stdClass();
+$data->id = $cm->id;
+$options = array('mainfile'=>true, 'subdirs'=>1, 'maxbytes'=>$CFG->maxbytes, 'maxfiles'=>-1, 'accepted_types'=>'*', 'return_types'=>FILE_INTERNAL);
+file_prepare_standard_filemanager($data, 'files', $options, $context, 'mod_folder', 'content', 0);
 
-$form = new mod_folder_edit_form(null, array('id'=>$cm->id));
+$mform = new mod_folder_edit_form(null, array('data'=>$data, 'options'=>$options));
 
-if ($formdata = $form->get_data()) {
-    $formdata = file_postupdate_standard_filemanager($formdata, 'files', $options, $context, 'folder_content', 0);
+if ($mform->is_cancelled()) {
     redirect(new moodle_url('/mod/folder/view.php', array('id'=>$cm->id)));
-} else {
-    file_prepare_standard_filemanager($data, 'files', $options, $context, 'folder_content', 0);
-    $form->set_data($data);
-    echo $OUTPUT->header();
-    echo $OUTPUT->box_start('generalbox foldertree');
-    $form->display();
-    echo $OUTPUT->box_end();
-    echo $OUTPUT->footer();
+
+} else if ($formdata = $mform->get_data()) {
+    $formdata = file_postupdate_standard_filemanager($formdata, 'files', $options, $context, 'mod_folder', 'content', 0);
+    redirect(new moodle_url('/mod/folder/view.php', array('id'=>$cm->id)));
 }
+
+echo $OUTPUT->header();
+echo $OUTPUT->box_start('generalbox foldertree');
+$mform->display();
+echo $OUTPUT->box_end();
+echo $OUTPUT->footer();

@@ -49,16 +49,17 @@
  *          UL->user level info
  *          files->table may have files)
  *
- * @package   moodlecore
- * @copyright 2010 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage lesson
+ * @copyright  2010 Sam Hemelryk
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /**
  * Structure step class that informs a backup task how to backup the lesson module.
  *
- * @copyright 2010 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @copyright  2010 Sam Hemelryk
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class backup_lesson_activity_structure_step extends backup_activity_structure_step {
 
@@ -85,7 +86,8 @@ class backup_lesson_activity_structure_step extends backup_activity_structure_st
         $pages = new backup_nested_element('pages');
         $page = new backup_nested_element('page', array('id'), array(
             'prevpageid','nextpageid','qtype','qoption','layout',
-            'display','timecreated','timemodified','title','contents'
+            'display','timecreated','timemodified','title','contents',
+            'contentsformat'
         ));
 
         // The lesson_answers table
@@ -95,7 +97,7 @@ class backup_lesson_activity_structure_step extends backup_activity_structure_st
         $answers = new backup_nested_element('answers');
         $answer = new backup_nested_element('answer', array('id'), array(
             'jumpto','grade','score','flags','timecreated','timemodified','answer_text',
-            'response'
+            'response', 'answerformat', 'responseformat'
         ));
         // Tell the answer element about the answer_text elements mapping to the answer
         // database field.
@@ -159,7 +161,12 @@ class backup_lesson_activity_structure_step extends backup_activity_structure_st
         // Set the source table for the elements that aren't reliant on the user
         // at this point (lesson, lesson_pages, lesson_answers)
         $lesson->set_source_table('lesson', array('id' => backup::VAR_ACTIVITYID));
-        $page->set_source_table('lesson_pages', array('lessonid' => backup::VAR_PARENTID));
+        //we use SQL here as it must be ordered by prevpageid so that restore gets the pages in the right order.
+        $page->set_source_sql("
+                SELECT *
+                  FROM {lesson_pages}
+                 WHERE lessonid = ? ORDER BY prevpageid",
+                array(backup::VAR_PARENTID));
         $answer->set_source_table('lesson_answers', array('pageid' => backup::VAR_PARENTID));
 
         // Check if we are also backing up user information
@@ -181,8 +188,8 @@ class backup_lesson_activity_structure_step extends backup_activity_structure_st
         $timer->annotate_ids('user', 'userid');
 
         // Annotate the file areas in user by the lesson module.
-        $lesson->annotate_files(array('lesson_media_file'), 'id');
-        $page->annotate_files(array('lesson_page_contents'), 'id');
+        $lesson->annotate_files('mod_lesson', 'mediafile', null);
+        $page->annotate_files('mod_lesson', 'page_contents', 'id');
 
         // Prepare and return the structure we have just created for the lesson module.
         return $this->prepare_activity_structure($lesson);

@@ -30,8 +30,8 @@ class question_category_list extends moodle_list {
     public $context = null;
     public $sortby = 'parent, sortorder, name';
 
-    public function question_category_list($type='ul', $attributes='', $editable = false, $pageurl=null, $page = 0, $pageparamname = 'page', $itemsperpage = 20, $context = null){
-        parent::moodle_list('ul', '', $editable, $pageurl, $page, 'cpage', $itemsperpage);
+    public function __construct($type='ul', $attributes='', $editable = false, $pageurl=null, $page = 0, $pageparamname = 'page', $itemsperpage = 20, $context = null){
+        parent::__construct('ul', '', $editable, $pageurl, $page, 'cpage', $itemsperpage);
         $this->context = $context;
     }
 
@@ -59,8 +59,6 @@ class question_category_list extends moodle_list {
 }
 
 class question_category_list_item extends list_item {
-
-
     public function set_icon_html($first, $last, &$lastitem){
         global $CFG;
         $category = $this->item;
@@ -79,6 +77,7 @@ class question_category_list_item extends list_item {
                 get_string('shareincontext', 'question', print_context_name($this->parentlist->lastlist->context)), $url, 'up');
         }
     }
+
     public function item_html($extraargs = array()){
         global $CFG, $OUTPUT;
         $str = $extraargs['str'];
@@ -100,7 +99,6 @@ class question_category_list_item extends list_item {
 
         return $item;
     }
-
 }
 
 
@@ -252,7 +250,7 @@ class question_category_object {
     public function output_edit_lists() {
         global $OUTPUT;
 
-        echo $OUTPUT->heading_with_help(get_string('editcategories', 'quiz'), 'categories', 'question'); 
+        echo $OUTPUT->heading_with_help(get_string('editcategories', 'question'), 'editcategories', 'question');
 
         foreach ($this->editlists as $context => $list){
             $listhtml = $list->to_html(0, array('str'=>$this->str));
@@ -401,7 +399,7 @@ class question_category_object {
             }
         }
 
-        $cat = new object();
+        $cat = new stdClass();
         $cat->parent = $parentid;
         $cat->contextid = $contextid;
         $cat->name = $newcategory;

@@ -120,10 +120,12 @@
  *
  * That's all!
  *
- * @package   moodlecore
+ * @package   core
  * @copyright (C) 2001-3001 Eloy Lafuente (stronk7) {@link http://contiento.com}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
  /**
   * @global object $CFG
@@ -486,7 +488,7 @@ class component_installer {
                 $lines=preg_split('/\r?\n/',$contents);
             /// Each line will be one component
                 foreach($lines as $line) {
-                    $availablecomponents[] = split(',', $line);
+                    $availablecomponents[] = explode(',', $line);
                 }
             /// If no components have been found, return error
                 if (empty($availablecomponents)) {

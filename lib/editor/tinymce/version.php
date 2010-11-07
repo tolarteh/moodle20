@@ -18,12 +18,14 @@
 /**
  * TinyMCE text editor integration version file.
  *
- * @package    moodlecore
- * @subpackage editor
+ * @package    editor
+ * @subpackage tinymce
  * @copyright  2009 Petr Skoda (http://skodak.org)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$plugin->version  = 2009071900;
-$plugin->requires = 2009051200;
-$module->release  = 'v3.2.5-01';
+defined('MOODLE_INTERNAL') || die();
+
+$plugin->version  = 2010093000;
+$plugin->requires = 2010070300;
+$plugin->release  = '3.3.9.2';

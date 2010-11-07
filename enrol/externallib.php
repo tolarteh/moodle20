@@ -27,7 +27,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die;
+defined('MOODLE_INTERNAL') || die();
 
 require_once("$CFG->libdir/externallib.php");
 
@@ -38,13 +38,13 @@ class moodle_enrol_external extends external_api {
      * Returns description of method parameters
      * @return external_function_parameters
      */
-    public static function get_enrolled_users() {
+    public static function get_enrolled_users_parameters() {
         return new external_function_parameters(
             array(
                 'courseid'       => new external_value(PARAM_INT, 'Course id'),
                 'withcapability' => new external_value(PARAM_CAPABILITY, 'User should have this capability'),
                 'groupid'        => new external_value(PARAM_INT, 'Group id, null means all groups'),
-                'activeonly'     => new external_value(PARAM_INT, 'True means only active, false means all participants'),
+                'onlyactive'     => new external_value(PARAM_INT, 'True means only active, false means all participants'),
             )
         );
     }
@@ -63,16 +63,24 @@ class moodle_enrol_external extends external_api {
 
         // Do basic automatic PARAM checks on incoming data, using params description
         // If any problems are found then exceptions are thrown with helpful error messages
-        $params = self::validate_parameters(self::get_enrolled_users(), array('courseid'=>$courseid, 'withcapability'=>$withcapability, 'groupid'=>$groupid, 'onlyactive'=>$onlyactive));
+        $params = self::validate_parameters(self::get_enrolled_users_parameters(), array('courseid'=>$courseid, 'withcapability'=>$withcapability, 'groupid'=>$groupid, 'onlyactive'=>$onlyactive));
 
         $coursecontext = get_context_instance(CONTEXT_COURSE, $params['courseid']);
         if ($courseid == SITEID) {
-            $systemcontext = get_context_instance(CONTEXT_SYSTEM);
+            $context = get_context_instance(CONTEXT_SYSTEM);
         } else {
             $context = $coursecontext;
         }
 
-        self::validate_context($context);
+        try {
+            self::validate_context($context);
+        } catch (Exception $e) {
+                $exceptionparam = new stdClass();
+                $exceptionparam->message = $e->getMessage();
+                $exceptionparam->courseid = $params['courseid'];
+                throw new moodle_exception(
+                        get_string('errorcoursecontextnotvalid' , 'webservice', $exceptionparam));
+        }
 
         if ($courseid == SITEID) {
             require_capability('moodle/site:viewparticipants', $context);
@@ -88,18 +96,26 @@ class moodle_enrol_external extends external_api {
                 require_capability('moodle/site:accessallgroups', $coursecontext);
             }
         }
-        if ($activeonly) {
+        if ($onlyactive) {
             require_capability('moodle/course:enrolreview', $coursecontext);
         }
 
         list($sql, $params) =  get_enrolled_sql($coursecontext, $withcapability, $groupid, $onlyactive);
-        $sql = "SELECT e.courseid, ue.userid
+        $sql = "SELECT DISTINCT ue.userid, e.courseid
                   FROM {user_enrolments} ue
                   JOIN {enrol} e ON (e.id = ue.enrolid)
                  WHERE e.courseid = :courseid AND ue.userid IN ($sql)";
         $params['courseid'] = $courseid;
 
-        return $DB->get_records_sql($sql, $params);
+        $enrolledusers = $DB->get_records_sql($sql, $params);
+
+        $result = array();
+        foreach ($enrolledusers as $enrolleduser) {
+            $result[] = array('courseid' => $enrolleduser->courseid,
+                'userid' => $enrolleduser->userid);
+        }
+
+        return $result;
     }
 
     /**
@@ -107,10 +123,12 @@ class moodle_enrol_external extends external_api {
      * @return external_description
      */
     public static function get_enrolled_users_returns() {
-        new external_single_structure(
-            array(
-                'courseid' => new external_value(PARAM_INT, 'id of course'),
-                'userid' => new external_value(PARAM_INT, 'id of user'),
+        return new external_multiple_structure(
+            new external_single_structure(
+                array(
+                    'courseid' => new external_value(PARAM_INT, 'id of course'),
+                    'userid' => new external_value(PARAM_INT, 'id of user'),
+                )
             )
         );
     }

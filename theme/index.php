@@ -47,13 +47,26 @@ if ($reset and confirm_sesskey()) {
     $theme = theme_config::load($chosentheme);
     set_config($config, $theme->name);
 
-    echo $OUTPUT->header();
-    echo $OUTPUT->heading($heading);
-    echo $OUTPUT->box_start();
+    // Create a new page for the display of the themes readme.
+    // This ensures that the readme page is shown using the new theme.
+    $confirmpage = new moodle_page();
+    $confirmpage->set_context($PAGE->context);
+    $confirmpage->set_url($PAGE->url);
+    $confirmpage->set_pagelayout($PAGE->pagelayout);
+    $confirmpage->set_pagetype($PAGE->pagetype);
+    $confirmpage->set_title($PAGE->title);
+    $confirmpage->set_heading($PAGE->heading);
+
+    // Get the core renderer for the new theme.
+    $output = $confirmpage->get_renderer('core');
+
+    echo $output->header();
+    echo $output->heading($heading);
+    echo $output->box_start();
     echo format_text(get_string('choosereadme', 'theme_'.$CFG->theme), FORMAT_MOODLE);
-    echo $OUTPUT->box_end();
-    echo $OUTPUT->continue_button($CFG->wwwroot . '/' . $CFG->admin . '/index.php');
-    echo $OUTPUT->footer();
+    echo $output->box_end();
+    echo $output->continue_button($CFG->wwwroot . '/' . $CFG->admin . '/index.php');
+    echo $output->footer();
     exit;
 }
 
@@ -87,6 +100,7 @@ foreach ($themes as $themename => $themedir) {
         // designer mode is switched off we will respect that decision.
         continue;
     }
+    $strthemename = get_string('pluginname', 'theme_'.$themename);
 
     // Build the table row, and also a list of items to go in the second cell.
     $row = array();
@@ -109,10 +123,10 @@ foreach ($themes as $themename => $themedir) {
     // link to the screenshot, now mandatory - the image path is hardcoded because we need image from other themes, not the current one
     $screenshotpath = new moodle_url('/theme/image.php', array('theme'=>$themename, 'image'=>'screenshot','component'=>'theme'));
     // Contents of the first screenshot/preview cell.
-    $row[] = html_writer::empty_tag('img', array('src'=>$screenshotpath, 'alt'=>$themename));
+    $row[] = html_writer::empty_tag('img', array('src'=>$screenshotpath, 'alt'=>$strthemename));
 
     // Contents of the second cell.
-    $infocell = $OUTPUT->heading($themename, 3);
+    $infocell = $OUTPUT->heading($strthemename, 3);
 
     // Button to choose this as the main theme
     $maintheme = new single_button(new moodle_url('/theme/index.php', array('choose' => $themename, 'sesskey' => sesskey())), get_string('useformaintheme'), 'get');
@@ -123,9 +137,9 @@ foreach ($themes as $themename => $themedir) {
     $legacytheme = new single_button(new moodle_url('/theme/index.php', array('chooselegacy' => $themename, 'sesskey' => sesskey())), get_string('useforlegacytheme'), 'get');
     $legacytheme->disabled = $ischosenlegacytheme;
     $infocell .= $OUTPUT->render($legacytheme);
-    
+
     $row[] = $infocell;
-    
+
     $table->data[$themename] = $row;
     $table->rowclasses[$themename] = join(' ', $rowclasses);
 }

@@ -40,20 +40,20 @@ class WikiSearchDocument extends SearchDocument {
         $doc->itemtype      = 'standard';
         $doc->contextid     = $context_id;
 
-        $doc->title     = $page['pagename'];
-        $doc->date      = $page['lastmodified'];
+        $doc->title     = $page['title'];
+        $doc->date      = $page['timemodified'];
         //remove '(ip.ip.ip.ip)' from wiki author field
-        $doc->author    = preg_replace('/\(.*?\)/', '', $page['author']);
-        $doc->contents  = $page['content'];
-        $doc->url       = wiki_make_link($wiki_id, $page['pagename'], $page['version']);
-        
+        $doc->author    = $page['author'];
+        $doc->contents  = $page['cachedcontent'];
+        $doc->url       = wiki_make_link($page['id']);
+
         // module specific information; optional
-        $data->version  = $page['version'];
+        //$data->version  = $page['version'];
         $data->wiki     = $wiki_id;
-        
+
         // construct the parent class
         parent::__construct($doc, $data, $course_id, $group_id, $user_id, 'mod/'.SEARCH_TYPE_WIKI);
-    } 
+    }
 }
 
 /**
@@ -72,10 +72,10 @@ function wiki_name_convert($str) {
 * @param int $version
 * @uses $CFG
 */
-function wiki_make_link($wikiId, $title, $version) {
+function wiki_make_link($pageid) {
     global $CFG;
 
-    return $CFG->wwwroot.'/mod/wiki/view.php?wid='.$wikiId.'&amp;page='.wiki_name_convert($title).'&amp;version='.$version;
+    return $CFG->wwwroot.'/mod/wiki/view.php?pageid='.$pageid;
 }
 
 /**
@@ -88,31 +88,33 @@ function wiki_make_link($wikiId, $title, $version) {
 */
 function wiki_get_latest_page(&$entry, $pagename, $version = 0) {
     global $DB;
-    
-    $pagename = "'".addslashes($pagename)."'";
-    
+
+    $params = array('title' => $pagename, 'subwikiid' => $entry->id);
+
     if ($version > 0 && is_int($version)) {
-        $versionclause = "AND ( version = '$version' )";
+        $versionclause = "AND ( version = :version )";
+        $sort   = 'version DESC';
+        $params['version'] = $version;
     } else {
         $versionclause = '';
-    } 
-    
-    $select = "( pagename = ':pagename' ) AND wiki = :wikiid :versionclause ";
-    $sort   = 'version DESC';
-    
+        $sort   = '';
+    }
+
+    $select = "( title = :title ) AND subwikiid = :subwikiid $versionclause ";
+
     //change this to recordset_select, as per http://docs.moodle.org/en/Datalib_Notes
-    if ($result_arr = $DB->get_records_select('wiki_pages', $select, array('pagename' => $pagename, 'wikiid' => $entry->id, 'versionclause' => $versionclause), $sort, '*', 0, 1)) {
+    if ($result_arr = $DB->get_records_select('wiki_pages', $select, $params, $sort, '*', 0, 1)) {
         foreach ($result_arr as $obj) {
             $result_obj = $obj;
-        } 
-    } 
-    
+        }
+    }
+
     if (isset($result_obj))  {
         $result_obj->meta = @unserialize($result_obj->meta);
         return $result_obj;
     } else {
         return false;
-    } 
+    }
 }
 
 /**
@@ -123,7 +125,7 @@ function wiki_get_latest_page(&$entry, $pagename, $version = 0) {
 */
 function wiki_get_pages(&$entry) {
     global $DB;
-    
+
     return $DB->get_records('wiki_pages', array('wiki', $entry->id));
 }
 
@@ -134,7 +136,7 @@ function wiki_get_pages(&$entry) {
 */
 function wiki_get_latest_pages(&$entry) {
   global $DB;
-    
+
   //== (My)SQL for this
   /* select * from wiki_pages
      inner join
@@ -144,16 +146,16 @@ function wiki_get_latest_pages(&$entry) {
     (wiki_pages.pagename like a.pagename)) */
 
     $pages = array();
-    
+
     //http://moodle.org/bugs/bug.php?op=show&bugid=5877&pos=0
-    if ($ids = $DB->get_records('wiki_pages', array('wiki' => $entry->id), '', 'distinct pagename')) {
-        if ($pagesets = $DB->get_records('wiki_pages', array('wiki' => $entry->id), '', 'distinct pagename')) {
+    if ($ids = $DB->get_records('wiki_pages', array('subwikiid' => $entry->id), '', 'distinct title')) {
+        if ($pagesets = $DB->get_records('wiki_pages', array('subwikiid' => $entry->id), '', 'distinct title')) {
             foreach ($pagesets as $aPageset) {
-                $pages[] = wiki_get_latest_page($entry, $aPageset->pagename);
-            } 
+                $pages[] = wiki_get_latest_page($entry, $aPageset->title);
+            }
         } else {
             return false;
-        } 
+        }
     }
     return $pages;
 }
@@ -177,29 +179,32 @@ function wiki_iterator() {
 * @return an array of searchable deocuments
 */
 function wiki_get_content_for_index(&$wiki) {
-    global $DB;
+    global $CFG, $DB;
+    require_once($CFG->dirroot . '/mod/wiki/locallib.php');
 
     $documents = array();
-    $entries = wiki_get_entries($wiki);
+    $entries = wiki_get_subwikis($wiki->id);
     if ($entries){
         $coursemodule = $DB->get_field('modules', 'id', array('name' => 'wiki'));
         $cm = $DB->get_record('course_modules', array('course' => $wiki->course, 'module' => $coursemodule, 'instance' => $wiki->id));
         $context = get_context_instance(CONTEXT_MODULE, $cm->id);
         foreach($entries as $entry) {
-    
+
             //all pages
             //$pages = wiki_get_pages($entry);
-            
+
             //latest pages
             $pages = wiki_get_latest_pages($entry);
             if (is_array($pages)) {
                 foreach($pages as $page) {
-                    if (strlen($page->content) > 0) {
-                        $documents[] = new WikiSearchDocument(get_object_vars($page), $entry->wikiid, $entry->course, $entry->groupid, $page->userid, $context->id);
-                    } 
-                } 
-            } 
-        } 
+                    if (strlen($page->title) > 0) {
+                        $owner = $DB->get_record('user', array('id' => $page->userid));
+                        $page->author = fullname($owner);
+                        $documents[] = new WikiSearchDocument(get_object_vars($page), $entry->wikiid, $wiki->course, $entry->groupid, $page->userid, $context->id);
+                    }
+                }
+            }
+        }
     }
     return $documents;
 }
@@ -213,13 +218,16 @@ function wiki_get_content_for_index(&$wiki) {
 */
 function wiki_single_document($id, $itemtype) {
     global $DB;
-    
+
     $page = $DB->get_record('wiki_pages', array('id' => $id));
-    $entry = $DB->get_record('wiki_entries', array('id' => $page->wiki));
+    $entry = $DB->get_record('wiki_subwikis', array('id' => $page->subwikiid));
+    $wiki = $DB->get_record('wiki', array('id' => $entry->wikiid));
     $coursemodule = $DB->get_field('modules', 'id', array('name' => 'wiki'));
-    $cm = $DB->get_record('course_modules', array('course' => $entry->course, 'module' => $coursemodule, 'instance' => $entry->wikiid));
+    $cm = $DB->get_record('course_modules', array('course' => $wiki->course, 'module' => $coursemodule, 'instance' => $entry->wikiid));
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
-    return new WikiSearchDocument(get_object_vars($page), $entry->wikiid, $entry->course, $entry->groupid, $page->userid, $context->id);
+    $user = $DB->get_record('user', array('id' => $page->userid));
+    $page->author = fullname($user);
+    return new WikiSearchDocument(get_object_vars($page), $entry->wikiid, $wiki->course, $entry->groupid, $page->userid, $context->id);
 }
 
 /**
@@ -235,20 +243,20 @@ function wiki_delete($info, $itemtype) {
 
 //returns the var names needed to build a sql query for addition/deletions
 function wiki_db_names() {
-    //[primary id], [table name], [time created field name], [time modified field name]
-    return array(array('id', 'wiki_pages', 'created', 'lastmodified', 'standard'));
+    //[primary id], [table name], [time created field name], [time modified field name], [docsubtype], [additional where conditions for sql]
+    return array(array('id', 'wiki_pages', 'timecreated', 'timemodified', 'standard'));
 }
 
 /**
-* this function handles the access policy to contents indexed as searchable documents. If this 
+* this function handles the access policy to contents indexed as searchable documents. If this
 * function does not exist, the search engine assumes access is allowed.
-* When this point is reached, we already know that : 
+* When this point is reached, we already know that :
 * - user is legitimate in the surrounding context
 * - user may be guest and guest access is allowed to the module
 * - the function may perform local checks within the module information logic
 * @param string $path the access path to the module script code
 * @param string $itemtype the information subclassing (usefull for complex modules, defaults to 'standard')
-* @param int $this_id the item id within the information class denoted by itemtype. In wikies, this id 
+* @param int $this_id the item id within the information class denoted by itemtype. In wikies, this id
 * points out the indexed wiki page.
 * @param object $user the user record denoting the user who searches
 * @param int $group_id the current group used by the user when searching
@@ -258,7 +266,7 @@ function wiki_db_names() {
 */
 function wiki_check_text_access($path, $itemtype, $this_id, $user, $group_id, $context_id){
     global $CFG, $DB, $SESSION;
-    
+
     // get the wiki object and all related stuff
     $page = $DB->get_record('wiki_pages', array('id' => $this_id));
     $wiki = $DB->get_record('wiki', array('id' => $page->wiki));
@@ -272,7 +280,7 @@ function wiki_check_text_access($path, $itemtype, $this_id, $user, $group_id, $c
         if (!empty($CFG->search_access_debug)) echo "search reject : hidden wiki ";
         return false;
     }
-    
+
     //group consistency check : checks the following situations about groups
     // trap if user is not same group and groups are separated
     if (isset($SESSION->currentgroup[$course->id])) {
@@ -296,7 +304,7 @@ function wiki_check_text_access($path, $itemtype, $this_id, $user, $group_id, $c
         if (!empty($CFG->search_access_debug)) echo "search reject : separated group owner wiki ";
         return false;
     }
-        
+
     return true;
 }
 
@@ -306,7 +314,7 @@ function wiki_check_text_access($path, $itemtype, $this_id, $user, $group_id, $c
 */
 function wiki_link_post_processing($title){
     global $CFG;
-    
+
     if ($CFG->block_search_utf8dir){
         return mb_convert_encoding($title, 'UTF-8', 'auto');
     }

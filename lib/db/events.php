@@ -1,31 +1,31 @@
 <?php
 
-///////////////////////////////////////////////////////////////////////////
-// Defines core event handlers                                           //
-///////////////////////////////////////////////////////////////////////////
-//                                                                       //
-// NOTICE OF COPYRIGHT                                                   //
-//                                                                       //
-// Moodle - Modular Object-Oriented Dynamic Learning Environment         //
-//          http://moodle.org                                            //
-//                                                                       //
-// Copyright (C) 1999 onwards  Martin Dougiamas  http://moodle.com       //
-//                                                                       //
-// This program is free software; you can redistribute it and/or modify  //
-// it under the terms of the GNU General Public License as published by  //
-// the Free Software Foundation; either version 3 of the License, or     //
-// (at your option) any later version.                                   //
-//                                                                       //
-// This program is distributed in the hope that it will be useful,       //
-// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
-// GNU General Public License for more details:                          //
-//                                                                       //
-//          http://www.gnu.org/copyleft/gpl.html                         //
-//                                                                       //
-///////////////////////////////////////////////////////////////////////////
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * Definition of core event handler
+ * and description of all events throws from core.
+ *
+ * @package    core
+ * @subpackage event
+ * @copyright  2007 onwards Martin Dougiamas  http://dougiamas.com
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
+defined('MOODLE_INTERNAL') || die();
 
 /* List of handlers */
 
@@ -41,7 +41,8 @@ $handlers = array(
     'portfolio_send' => array (
         'handlerfile'      => '/lib/portfolio.php',
         'handlerfunction'  => 'portfolio_handle_event',    // argument to call_user_func(), could be an array
-        'schedule'         => 'cron'
+        'schedule'         => 'cron',
+        'internal'         => 0,
     ),
 
 
@@ -67,8 +68,8 @@ course_category_deleted - object course_categories table record
 
 course_created - object course table record
 course_updated - object course table record
-course_content_removed - object course table record
-course_deleted - object course table record
+course_content_removed - object course table record + context property
+course_deleted - object course table record + context property
 
 user_enrolled - object record from user_enrolments table + courseid,enrol
 user_unenrol_modified - object record from user_enrolments table + courseid,enrol
@@ -107,10 +108,10 @@ groups_groupings_deleted        - int course id - deleted all course groupings
 role_assigned         - object role_assignments table record
 role_unassigned       - object role_assignments table record
 
-==== Module Related events ====
+==== activity module events ====
 
-modulename_mod_deleted - int courseid, int cmid - happens when a module is deleted -eg quiz_mod_deleted
-modulename_mod_created - int courseid, int cmid - happens when a module is created -eg quiz_mod_created
-modulename_mod_updated - int courseid, int cmid - happens when a module is updated -eg quiz_mod_updated
+mod_deleted - int courseid, int cmid, text modulename - happens when a module is deleted
+mod_created - int courseid, int cmid, text modulename - happens when a module is created
+mod_updated - int courseid, int cmid, text modulename - happens when a module is updated
 
 */

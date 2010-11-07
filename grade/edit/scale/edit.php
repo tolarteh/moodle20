@@ -24,6 +24,7 @@ $courseid = optional_param('courseid', 0, PARAM_INT);
 $id       = optional_param('id', 0, PARAM_INT);
 
 $PAGE->set_url('/grade/edit/scale/edit.php', array('id' => $id, 'courseid' => $courseid));
+$PAGE->set_pagelayout('admin');
 
 $systemcontext = get_context_instance(CONTEXT_SYSTEM);
 $heading = '';
@@ -63,7 +64,7 @@ if ($id) {
     if (!$course = $DB->get_record('course', array('id' => $courseid))) {
         print_error('nocourseid');
     }
-    $scale_rec = new object();
+    $scale_rec = new stdClass();
     $scale_rec->standard = 0;
     $scale_rec->courseid = $courseid;
     require_login($course);
@@ -72,7 +73,7 @@ if ($id) {
 
 } else {
     /// adding new scale from admin section
-    $scale_rec = new object();
+    $scale_rec = new stdClass();
     $scale_rec->standard = 1;
     $scale_rec->courseid = 0;
     require_login();
@@ -90,9 +91,9 @@ $returnurl = $gpr->get_return_url('index.php?id='.$courseid);
 $editoroptions = array('maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$CFG->maxbytes, 'trusttext'=>false, 'noclean'=>true);
 
 if (!empty($scale_rec->id)) {
-    $scale_rec = file_prepare_standard_editor($scale_rec, 'description', $editoroptions, $systemcontext, 'grade_scale', $scale_rec->id);
+    $scale_rec = file_prepare_standard_editor($scale_rec, 'description', $editoroptions, $systemcontext, 'grade', 'scale', $scale_rec->id);
 } else {
-    $scale_rec = file_prepare_standard_editor($scale_rec, 'description', $editoroptions, $systemcontext, 'grade_scale', null);
+    $scale_rec = file_prepare_standard_editor($scale_rec, 'description', $editoroptions, $systemcontext, 'grade', 'scale', null);
 }
 $mform = new edit_scale_form(null, compact('gpr', 'editoroptions'));
 
@@ -107,16 +108,17 @@ if ($mform->is_cancelled()) {
 
     if (empty($scale->id)) {
         $data->description = $data->description_editor['text'];
+        $data->descriptionformat = $data->description_editor['format'];
         grade_scale::set_properties($scale, $data);
         if (!has_capability('moodle/grade:manage', $systemcontext)) {
             $data->standard = 0;
         }
         $scale->courseid = !empty($data->standard) ? 0 : $courseid;
         $scale->insert();
-        $data = file_postupdate_standard_editor($data, 'description', $editoroptions, $systemcontext, 'grade_scale', $scale->id);
+        $data = file_postupdate_standard_editor($data, 'description', $editoroptions, $systemcontext, 'grade', 'scale', $scale->id);
         $DB->set_field($scale->table, 'description', $data->description, array('id'=>$scale->id));
     } else {
-        $data = file_postupdate_standard_editor($data, 'description', $editoroptions, $systemcontext, 'grade_scale', $id);
+        $data = file_postupdate_standard_editor($data, 'description', $editoroptions, $systemcontext, 'grade', 'scale', $id);
         grade_scale::set_properties($scale, $data);
         if (isset($data->standard)) {
             $scale->courseid = !empty($data->standard) ? 0 : $courseid;

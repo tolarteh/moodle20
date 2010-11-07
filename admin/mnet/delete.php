@@ -19,7 +19,8 @@
 /**
  * Page to allow the administrator to delete networked hosts, with a confirm message
  *
- * @package    moodlecore
+ * @package    core
+ * @subpackage mnet
  * @copyright  2007 Donal McMullan
  * @copyright  2007 Martin Langhoff
  * @copyright  2010 Penny Leach
@@ -51,7 +52,7 @@ $mnet_peer->set_id($hostid);
 if ('verify' == $step) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('deleteaserver', 'mnet'));
-    if ($mnet_peer->count_live_sessions() > 0) {
+    if ($live_users = $mnet_peer->count_live_sessions() > 0) {
         echo $OUTPUT->notification(get_string('usersareonline', 'mnet', $live_users));
     }
     $yesurl = new moodle_url('/admin/mnet/delete.php', array('hostid' => $mnet_peer->id, 'step' => 'delete'));

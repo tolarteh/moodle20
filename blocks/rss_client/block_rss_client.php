@@ -27,8 +27,6 @@
 
     function init() {
         $this->title = get_string('feedstitle', 'block_rss_client');
-        $this->version = 2009072901;
-        $this->cron = 300; /// Set min time between cron executions to 300 secs (5 mins)
     }
 
     function preferred_width() {
@@ -187,7 +185,7 @@
         }
 
 
-        $r.='<ul class="list">'."\n";
+        $r.='<ul class="list no-overflow">'."\n";
 
         $feeditems = $feed->get_items(0, $maxentries);
         foreach($feeditems as $item){
@@ -199,12 +197,12 @@
 
         if ($this->config->block_rss_client_show_channel_link) {
 
-            $channellink = str_replace('&', '&amp;', $feed->get_link());
+            $channellink = $feed->get_link();
 
             if (!empty($channellink)){
                 //NOTE: this means the 'last feed' display wins the block title - but
                 //this is exiting behaviour..
-                $this->content->footer = '<a href="'. $channellink.'">'. get_string('clientchannellink', 'block_rss_client') .'</a>';
+                $this->content->footer = '<a href="'.htmlspecialchars(clean_param($channellink,PARAM_URL)).'">'. get_string('clientchannellink', 'block_rss_client') .'</a>';
             }
         }
 
@@ -242,25 +240,23 @@
             $link = $item->get_id();
         }
 
+        $r = html_writer::start_tag('li');
+            $r.= html_writer::start_tag('div',array('class'=>'link'));
+                $r.= html_writer::link(clean_param($link,PARAM_URL), s($title), array('onclick'=>'this.target="_blank"'));
+            $r.= html_writer::end_tag('div');
 
-        $r = "<li>\n";
-        $r.= '<div class="link"><a href="'.$link.'" onclick="this.target=\'_blank\'" >'."\n";
-        $r.= s($title);
-        $r.= "</a></div>\n";
+            if($this->config->display_description && !empty($description)){
 
-        if($this->config->display_description && !empty($description)){
+                $description = break_up_long_words($description, 30);
 
-            $description = break_up_long_words($description, 30);
+                $formatoptions = new stdClass();
+                $formatoptions->para = false;
 
-            $formatoptions = new object;
-            $formatoptions->para = false;
-
-            $r.= '<div class="description">';
-            $r.= format_text($description, FORMAT_HTML, $formatoptions, $this->page->course->id);
-            $r.= '</div>';
-        }
-
-        $r.= '</li>';
+                $r.= html_writer::start_tag('div',array('class'=>'description'));
+                    $r.= format_text($description, FORMAT_HTML, $formatoptions, $this->page->course->id);
+                $r.= html_writer::end_tag('div');
+            }
+        $r.= html_writer::end_tag('li');
 
         return $r;
     }

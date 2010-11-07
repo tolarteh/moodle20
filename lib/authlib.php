@@ -20,10 +20,13 @@
  *
  * 2006-08-28  File created, AUTH return values defined.
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  http://dougiamas.com
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage auth
+ * @copyright  1999 onwards Martin Dougiamas  http://dougiamas.com
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Returned when the login was successful.
@@ -136,11 +139,36 @@ class auth_plugin_base {
      * This method is used if can_change_password() returns true.
      * This method is called only when user is logged in, it may use global $USER.
      *
-     * @return string
+     * @return moodle_url url of the profile page or null if standard used
      */
     function change_password_url() {
         //override if needed
-        return '';
+        return null;
+    }
+
+    /**
+     * Returns true if this authentication plugin can edit the users'
+     * profile.
+     *
+     * @return bool
+     */
+    function can_edit_profile() {
+        //override if needed
+        return true;
+    }
+
+    /**
+     * Returns the URL for editing the users' profile, or empty if the default
+     * URL can be used.
+     *
+     * This method is used if can_edit_profile() returns true.
+     * This method is called only when user is logged in, it may use global $USER.
+     *
+     * @return moodle_url url of the profile page or null if standard used
+     */
+    function edit_profile_url() {
+        //override if needed
+        return null;
     }
 
     /**

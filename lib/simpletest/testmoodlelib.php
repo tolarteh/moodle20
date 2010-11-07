@@ -231,13 +231,13 @@ class moodlelib_test extends UnitTestCase {
     function test_optional_param() {
         $_POST['username'] = 'post_user';
         $_GET['username'] = 'get_user';
-        $this->assertEqual(optional_param('username', 'default_user', PARAM_CLEAN), 'post_user');
+        $this->assertEqual(optional_param('username', 'default_user', PARAM_RAW), 'post_user');
 
         unset($_POST['username']);
-        $this->assertEqual(optional_param('username', 'default_user', PARAM_CLEAN), 'get_user');
+        $this->assertEqual(optional_param('username', 'default_user', PARAM_RAW), 'get_user');
 
         unset($_GET['username']);
-        $this->assertEqual(optional_param('username', 'default_user', PARAM_CLEAN), 'default_user');
+        $this->assertEqual(optional_param('username', 'default_user', PARAM_RAW), 'default_user');
     }
 
     function test_clean_param_raw() {
@@ -246,8 +246,9 @@ class moodlelib_test extends UnitTestCase {
     }
 
     function test_clean_param_clean() {
-        $this->assertEqual(clean_param('#()*#,9789\'".,<42897></?$(*DSFMO#$*)(SDJ)($*)', PARAM_CLEAN),
-            '#()*#,9789\'".,');
+        // PARAM_CLEAN is an ugly hack, do not use in new code (skodak)
+        // instead use more specific type, or submit sothing that can be verified properly
+        $this->assertEqual(clean_param('xx<script>', PARAM_CLEAN), 'xx');
     }
 
     function test_clean_param_alpha() {
@@ -268,6 +269,27 @@ class moodlelib_test extends UnitTestCase {
     function test_clean_param_sequence() {
         $this->assertEqual(clean_param('#()*#,9789\'".,<42897></?$(*DSFMO#$*)(SDJ)($*)', PARAM_SEQUENCE),
                 ',9789,42897');
+    }
+
+    function test_clean_param_text() {
+        $this->assertEqual(PARAM_TEXT, PARAM_MULTILANG);
+        //standard
+        $this->assertEqual(clean_param('xx<lang lang="en">aa</lang><lang lang="yy">pp</lang>', PARAM_TEXT), 'xx<lang lang="en">aa</lang><lang lang="yy">pp</lang>');
+        $this->assertEqual(clean_param('<span lang="en" class="multilang">aa</span><span lang="xy" class="multilang">bb</span>', PARAM_TEXT), '<span lang="en" class="multilang">aa</span><span lang="xy" class="multilang">bb</span>');
+        $this->assertEqual(clean_param('xx<lang lang="en">aa'."\n".'</lang><lang lang="yy">pp</lang>', PARAM_TEXT), 'xx<lang lang="en">aa'."\n".'</lang><lang lang="yy">pp</lang>');
+        //malformed
+        $this->assertEqual(clean_param('<span lang="en" class="multilang">aa</span>', PARAM_TEXT), '<span lang="en" class="multilang">aa</span>');
+        $this->assertEqual(clean_param('<span lang="en" class="nothing" class="multilang">aa</span>', PARAM_TEXT), 'aa');
+        $this->assertEqual(clean_param('<lang lang="en" class="multilang">aa</lang>', PARAM_TEXT), 'aa');
+        $this->assertEqual(clean_param('<lang lang="en!!">aa</lang>', PARAM_TEXT), 'aa');
+        $this->assertEqual(clean_param('<span lang="en==" class="multilang">aa</span>', PARAM_TEXT), 'aa');
+        $this->assertEqual(clean_param('a<em>b</em>c', PARAM_TEXT), 'abc');
+        $this->assertEqual(clean_param('a><xx >c>', PARAM_TEXT), 'a>c>'); // standard strip_tags() behaviour
+        $this->assertEqual(clean_param('a<b', PARAM_TEXT), 'a');
+        $this->assertEqual(clean_param('a>b', PARAM_TEXT), 'a>b');
+        $this->assertEqual(clean_param('<lang lang="en">a>a</lang>', PARAM_TEXT), '<lang lang="en">a>a</lang>'); // standard strip_tags() behaviour
+        $this->assertEqual(clean_param('<lang lang="en">a<a</lang>', PARAM_TEXT), 'a');
+        $this->assertEqual(clean_param('<lang lang="en">a<br>a</lang>', PARAM_TEXT), '<lang lang="en">aa</lang>');
     }
 
     function test_clean_param_url() {
@@ -319,7 +341,7 @@ class moodlelib_test extends UnitTestCase {
         $this->assertEqual(clean_param('john#$%&() ', PARAM_USERNAME), 'john');
         $this->assertEqual(clean_param('JOHNdóé ', PARAM_USERNAME), 'johnd');
         $this->assertEqual(clean_param('john.,:;-_/|\ñÑ[]A_X-,D {} ~!@#$%^&*()_+ ?><[] ščřžžý ?ýá?ý??doe ', PARAM_USERNAME), 'john.-_a_x-d@_doe');
-        
+
 
         // Test success condition, if extendedusernamechars == ENABLE;
         $CFG->extendedusernamechars = TRUE;
@@ -330,7 +352,7 @@ class moodlelib_test extends UnitTestCase {
         $this->assertEqual(clean_param('joHN´doe', PARAM_USERNAME), 'john´doe');
         $this->assertEqual(clean_param('johnDOE', PARAM_USERNAME), 'johndoe');
         $this->assertEqual(clean_param('johndóé ', PARAM_USERNAME), 'johndóé');
-                
+
         $CFG->extendedusernamechars = $currentstatus;
     }
 
@@ -389,25 +411,6 @@ class moodlelib_test extends UnitTestCase {
         }
     }
 
-    function test_make_user_directory() {
-        global $CFG;
-
-        // Test success conditions
-        $this->assertEqual("$CFG->dataroot/user/0/0", make_user_directory(0, true));
-        $this->assertEqual("$CFG->dataroot/user/0/1", make_user_directory(1, true));
-        $this->assertEqual("$CFG->dataroot/user/0/999", make_user_directory(999, true));
-        $this->assertEqual("$CFG->dataroot/user/1000/1000", make_user_directory(1000, true));
-        $this->assertEqual("$CFG->dataroot/user/2147483000/2147483647", make_user_directory(2147483647, true)); // Largest int possible
-
-        // Test fail conditions
-        $this->assertFalse(make_user_directory(2147483648, true)); // outside int boundary
-        $this->assertFalse(make_user_directory(-1, true));
-        $this->assertFalse(make_user_directory('string', true));
-        $this->assertFalse(make_user_directory(false, true));
-        $this->assertFalse(make_user_directory(true, true));
-
-    }
-
     function test_shorten_text() {
         $text = "short text already no tags";
         $this->assertEqual($text, shorten_text($text));
@@ -445,6 +448,11 @@ class moodlelib_test extends UnitTestCase {
         $userstimezone = $USER->timezone;
         $USER->timezone = 2;//set the timezone to a known state
 
+        // The string version of date comes from server locale setting and does
+        // not respect user language, so it is necessary to reset that.
+        $oldlocale = setlocale(LC_TIME, '0');
+        setlocale(LC_TIME, 'en_AU.UTF-8'); 
+
         $ts = 1261540267; //the time this function was created
 
         $arr = usergetdate($ts,1);//specify the timezone as an argument
@@ -459,8 +467,8 @@ class moodlelib_test extends UnitTestCase {
         $this->assertEqual($mon,12);
         $this->assertEqual($year,2009);
         $this->assertEqual($yday,357);
-        $this->assertEqual($weekday,'Wednesday');
-        $this->assertEqual($month,'December');
+        $this->assertEqual($weekday, 'Wednesday');
+        $this->assertEqual($month, 'December');
 
         $arr = usergetdate($ts);//gets the timezone from the $USER object
         $arr = array_values($arr);
@@ -474,10 +482,207 @@ class moodlelib_test extends UnitTestCase {
         $this->assertEqual($mon,12);
         $this->assertEqual($year,2009);
         $this->assertEqual($yday,357);
-        $this->assertEqual($weekday,'Wednesday');
-        $this->assertEqual($month,'December');
+        $this->assertEqual($weekday, 'Wednesday');
+        $this->assertEqual($month, 'December');
 
         //set the timezone back to what it was
         $USER->timezone = $userstimezone;
+        setlocale(LC_TIME, $oldlocale);
+    }
+
+    public function test_normalize_component() {
+
+        // moodle core
+        $this->assertEqual(normalize_component('moodle'), array('core', null));
+        $this->assertEqual(normalize_component('core'), array('core', null));
+
+        // moodle core subsystems
+        $this->assertEqual(normalize_component('admin'), array('core', 'admin'));
+        $this->assertEqual(normalize_component('core_admin'), array('core', 'admin'));
+
+        // activity modules and their subplugins
+        $this->assertEqual(normalize_component('workshop'), array('mod', 'workshop'));
+        $this->assertEqual(normalize_component('mod_workshop'), array('mod', 'workshop'));
+        $this->assertEqual(normalize_component('workshopform_accumulative'), array('workshopform', 'accumulative'));
+        $this->assertEqual(normalize_component('quiz'), array('mod', 'quiz'));
+        $this->assertEqual(normalize_component('quiz_grading'), array('quiz', 'grading'));
+        $this->assertEqual(normalize_component('data'), array('mod', 'data'));
+        $this->assertEqual(normalize_component('datafield_checkbox'), array('datafield', 'checkbox'));
+
+        // other plugin types
+        $this->assertEqual(normalize_component('auth_mnet'), array('auth', 'mnet'));
+        $this->assertEqual(normalize_component('enrol_self'), array('enrol', 'self'));
+        $this->assertEqual(normalize_component('block_html'), array('block', 'html'));
+        $this->assertEqual(normalize_component('block_mnet_hosts'), array('block', 'mnet_hosts'));
+        $this->assertEqual(normalize_component('local_amos'), array('local', 'amos'));
+
+        // unknown components are supposed to be activity modules
+        $this->assertEqual(normalize_component('whothefuckwouldcomewithsuchastupidnameofcomponent'),
+                array('mod', 'whothefuckwouldcomewithsuchastupidnameofcomponent'));
+        $this->assertEqual(normalize_component('whothefuck_wouldcomewithsuchastupidnameofcomponent'),
+                array('mod', 'whothefuck_wouldcomewithsuchastupidnameofcomponent'));
+        $this->assertEqual(normalize_component('whothefuck_would_come_withsuchastupidnameofcomponent'),
+                array('mod', 'whothefuck_would_come_withsuchastupidnameofcomponent'));
+    }
+
+    protected function get_fake_preference_test_userid() {
+        global $DB;
+
+        // we need some nonexistent user id
+        $id = 2147483647 - 666;
+        if ($DB->get_records('user', array('id'=>$id))) {
+            //weird!
+            return false;
+        }
+        return $id;
+    }
+
+    public function test_mark_user_preferences_changed() {
+        if (!$otheruserid = $this->get_fake_preference_test_userid()) {
+            $this->fail('Can not find unused user id for the preferences test');
+            return;
+        }
+
+        set_cache_flag('userpreferenceschanged', $otheruserid, NULL);
+        mark_user_preferences_changed($otheruserid);
+
+        $this->assertEqual(get_cache_flag('userpreferenceschanged', $otheruserid, time()-10), 1);
+        set_cache_flag('userpreferenceschanged', $otheruserid, NULL);
+    }
+
+    public function test_check_user_preferences_loaded() {
+        global $DB;
+
+        if (!$otheruserid = $this->get_fake_preference_test_userid()) {
+            $this->fail('Can not find unused user id for the preferences test');
+            return;
+        }
+
+        $DB->delete_records('user_preferences', array('userid'=>$otheruserid));
+        set_cache_flag('userpreferenceschanged', $otheruserid, NULL);
+
+        $user = new stdClass();
+        $user->id = $otheruserid;
+
+        // load
+        check_user_preferences_loaded($user);
+        $this->assertTrue(isset($user->preference));
+        $this->assertTrue(is_array($user->preference));
+        $this->assertTrue(isset($user->preference['_lastloaded']));
+        $this->assertEqual(count($user->preference), 1);
+
+        // add preference via direct call
+        $DB->insert_record('user_preferences', array('name'=>'xxx', 'value'=>'yyy', 'userid'=>$user->id));
+
+        // no cache reload yet
+        check_user_preferences_loaded($user);
+        $this->assertEqual(count($user->preference), 1);
+
+        // forced reloading of cache
+        unset($user->preference);
+        check_user_preferences_loaded($user);
+        $this->assertEqual(count($user->preference), 2);
+        $this->assertEqual($user->preference['xxx'], 'yyy');
+
+        // add preference via direct call
+        $DB->insert_record('user_preferences', array('name'=>'aaa', 'value'=>'bbb', 'userid'=>$user->id));
+
+        // test timeouts and modifications from different session
+        set_cache_flag('userpreferenceschanged', $user->id, 1, time() + 1000);
+        $user->preference['_lastloaded'] = $user->preference['_lastloaded'] - 20;
+        check_user_preferences_loaded($user);
+        $this->assertEqual(count($user->preference), 2);
+        check_user_preferences_loaded($user, 10);
+        $this->assertEqual(count($user->preference), 3);
+        $this->assertEqual($user->preference['aaa'], 'bbb');
+        set_cache_flag('userpreferenceschanged', $user->id, null);
+    }
+
+    public function test_set_user_preference() {
+        global $DB, $USER;
+
+        if (!$otheruserid = $this->get_fake_preference_test_userid()) {
+            $this->fail('Can not find unused user id for the preferences test');
+            return;
+        }
+
+        $DB->delete_records('user_preferences', array('userid'=>$otheruserid));
+        set_cache_flag('userpreferenceschanged', $otheruserid, null);
+
+        $user = new stdClass();
+        $user->id = $otheruserid;
+
+        set_user_preference('aaa', 'bbb', $otheruserid);
+        $this->assertEqual('bbb', $DB->get_field('user_preferences', 'value', array('userid'=>$otheruserid, 'name'=>'aaa')));
+        $this->assertEqual('bbb', get_user_preferences('aaa', null, $otheruserid));
+
+        set_user_preference('xxx', 'yyy', $user);
+        $this->assertEqual('yyy', $DB->get_field('user_preferences', 'value', array('userid'=>$otheruserid, 'name'=>'xxx')));
+        $this->assertEqual('yyy', get_user_preferences('xxx', null, $otheruserid));
+        $this->assertTrue(is_array($user->preference));
+        $this->assertEqual($user->preference['aaa'], 'bbb');
+        $this->assertEqual($user->preference['xxx'], 'yyy');
+
+        set_user_preference('xxx', NULL, $user);
+        $this->assertIdentical(false, $DB->get_field('user_preferences', 'value', array('userid'=>$otheruserid, 'name'=>'xxx')));
+        $this->assertIdentical(null, get_user_preferences('xxx', null, $otheruserid));
+
+        set_user_preference('ooo', true, $user);
+        $prefs = get_user_preferences(null, null, $otheruserid);
+        $this->assertIdentical($prefs['aaa'], $user->preference['aaa']);
+        $this->assertIdentical($prefs['ooo'], $user->preference['ooo']);
+        $this->assertIdentical($prefs['ooo'], '1');
+
+        set_user_preference('null', 0, $user);
+        $this->assertIdentical('0', get_user_preferences('null', null, $otheruserid));
+
+        $this->assertIdentical('lala', get_user_preferences('undefined', 'lala', $otheruserid));
+
+        $DB->delete_records('user_preferences', array('userid'=>$otheruserid));
+        set_cache_flag('userpreferenceschanged', $otheruserid, null);
+
+        // test $USER default
+        set_user_preference('_test_user_preferences_pref', 'ok');
+        $this->assertIdentical('ok', $USER->preference['_test_user_preferences_pref']);
+        unset_user_preference('_test_user_preferences_pref');
+        $this->assertTrue(!isset($USER->preference['_test_user_preferences_pref']));
+
+        //test invalid params
+        try {
+            set_user_preference('_test_user_preferences_pref', array());
+            $this->assertFail('Exception expected - array not valid preference value');
+        } catch (Exception $ex) {
+            $this->assertTrue(true);
+        }
+        try {
+            set_user_preference('_test_user_preferences_pref', new stdClass);
+            $this->assertFail('Exception expected - class not valid preference value');
+        } catch (Exception $ex) {
+            $this->assertTrue(true);
+        }
+        try {
+            set_user_preference('_test_user_preferences_pref', 1, array('xx'=>1));
+            $this->assertFail('Exception expected - user instance expected');
+        } catch (Exception $ex) {
+            $this->assertTrue(true);
+        }
+        try {
+            set_user_preference('_test_user_preferences_pref', 1, 'abc');
+            $this->assertFail('Exception expected - user instance expected');
+        } catch (Exception $ex) {
+            $this->assertTrue(true);
+        }
+        try {
+            set_user_preference('', 1);
+            $this->assertFail('Exception expected - invalid name accepted');
+        } catch (Exception $ex) {
+            $this->assertTrue(true);
+        }
+        try {
+            set_user_preference('1', 1);
+            $this->assertFail('Exception expected - invalid name accepted');
+        } catch (Exception $ex) {
+            $this->assertTrue(true);
+        }
     }
 }

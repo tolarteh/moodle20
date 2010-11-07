@@ -3,7 +3,7 @@
  *  Global state for SimpleTest and kicker script in future versions.
  *  @package    SimpleTest
  *  @subpackage UnitTester
- *  @version    $Id: simpletest.php,v 1.4 2009-01-07 08:58:41 tjhunt Exp $
+ *  @version    $Id: simpletest.php,v 1.5 2010/07/19 08:53:16 skodak Exp $
  */
 
 /**#@+
@@ -327,7 +327,7 @@ class SimpleTestContext {
      */
     function &get($resource) {
         if (! isset($this->_resources[$resource])) {
-            $this->_resources[$resource] = &new $resource();
+            $this->_resources[$resource] = new $resource();
         }
         return $this->_resources[$resource];
     }

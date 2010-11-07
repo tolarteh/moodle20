@@ -10,8 +10,9 @@ M.core_dock = {
     Y : null,               // The YUI instance to use with dock related code
     initialised : false,    // True once thedock has been initialised
     delayedevent : null,    // Will be an object if there is a delayed event in effect
-    preventevent : null     // Will be an eventtype if there is an eventyoe to prevent
-}
+    preventevent : null,    // Will be an eventtype if there is an eventyoe to prevent
+    holdingarea : null
+};
 /**
  * Namespace containing the nodes that relate to the dock
  * @namespace
@@ -20,7 +21,7 @@ M.core_dock.nodes = {
     dock : null, // The dock itself
     body : null, // The body of the page
     panel : null // The docks panel
-}
+};
 /**
  * Configuration parameters used during the initialisation and setup
  * of dock and dock items.
@@ -34,7 +35,7 @@ M.core_dock.cfg = {
     orientation:'vertical',             // vertical || horizontal determines if we change the title
     spacebeforefirstitem: 10,           // Space between the top of the dock and the first item
     removeallicon: M.util.image_url('t/dock_to_block', 'moodle')
-}
+};
 /**
  * CSS classes to use with the dock
  * @namespace
@@ -44,11 +45,12 @@ M.core_dock.css = {
     dockspacer:'dockspacer',        // CSS class applied to the dockspacer
     controls:'controls',            // CSS class applied to the controls box
     body:'has_dock',                // CSS class added to the body when there is a dock
+    buttonscontainer: 'buttons_container',
     dockeditem:'dockeditem',        // CSS class added to each item in the dock
     dockeditemcontainer:'dockeditem_container',
     dockedtitle:'dockedtitle',      // CSS class added to the item's title in each dock
     activeitem:'activeitem'         // CSS class added to the active item
-}
+};
 /**
  * Augments the classes as required and processes early bindings
  */
@@ -91,30 +93,42 @@ M.core_dock.init = function(Y) {
         }
     }
 
-    // Start the construction of the dock
-    dock = Y.Node.create('<div id="dock" class="'+css.dock+' '+css.dock+'_'+this.cfg.position+'_'+this.cfg.orientation+'"></div>');
-    this.nodes.container = Y.Node.create('<div class="'+css.dockeditemcontainer+'"></div>');
-    dock.append(this.nodes.container);
-    if (Y.all('.block.dock_on_load').size() == 0) {
-        // Nothing on the dock... hide it using CSS
-        dock.addClass('nothingdocked');
+    var dock = Y.one('#dock');
+    if (!dock) {
+        // Start the construction of the dock
+        dock = Y.Node.create('<div id="dock" class="'+css.dock+' '+css.dock+'_'+this.cfg.position+'_'+this.cfg.orientation+'"></div>')
+                    .append(Y.Node.create('<div class="'+css.buttonscontainer+'"></div>')
+                        .append(Y.Node.create('<div class="'+css.dockeditemcontainer+'"></div>')));
+        this.nodes.body.append(dock);
     } else {
-        this.nodes.body.addClass(this.css.body);
+        dock.addClass(css.dock+'_'+this.cfg.position+'_'+this.cfg.orientation);
     }
-    // Store the dock
-    this.nodes.dock = dock;
-    this.fire('dock:beforedraw');
-    this.nodes.body.append(dock);
+    this.holdingarea = Y.Node.create('<div></div>').setStyles({display:'none'});
+    this.nodes.body.append(this.holdingarea);
     if (Y.UA.ie > 0 && Y.UA.ie < 7) {
         // Adjust for IE 6 (can't handle fixed pos)
         dock.setStyle('height', dock.get('winHeight')+'px');
     }
+    // Store the dock
+    this.nodes.dock = dock;
+    this.nodes.buttons = dock.one('.'+css.buttonscontainer);
+    this.nodes.container = this.nodes.buttons.one('.'+css.dockeditemcontainer);
+
+    if (Y.all('.block.dock_on_load').size() == 0) {
+        // Nothing on the dock... hide it using CSS
+        dock.addClass('nothingdocked');
+    } else {
+        this.nodes.body.addClass(this.css.body).addClass(this.css.body+'_'+this.cfg.position+'_'+this.cfg.orientation);
+    }
+
+    this.fire('dock:beforedraw');
+
     // Add a removeall button
     // Must set the image src seperatly of we get an error with XML strict headers
     var removeall = Y.Node.create('<img alt="'+M.str.block.undockall+'" title="'+M.str.block.undockall+'" />');
     removeall.setAttribute('src',this.cfg.removeallicon);
     removeall.on('removeall|click', this.remove_all, this);
-    dock.appendChild(Y.Node.create('<div class="'+css.controls+'"></div>').append(removeall));
+    this.nodes.buttons.appendChild(Y.Node.create('<div class="'+css.controls+'"></div>').append(removeall));
 
     // Create a manager for the height of the tabs. Once set this can be forgotten about
     new (function(Y){
@@ -174,7 +188,7 @@ M.core_dock.init = function(Y) {
                     runningcount++;
                 }
             }
-        }
+        };
     })(Y).init();
 
     // Attach the required event listeners
@@ -192,7 +206,7 @@ M.core_dock.init = function(Y) {
     // Inform everyone the dock has been initialised
     this.fire('dock:initialised');
     return true;
-}
+};
 /**
  * Get the panel docked blocks will be shown in and initialise it if we havn't already.
  */
@@ -223,7 +237,7 @@ M.core_dock.getPanel = function() {
                 this.removeClass('dockitempanel_hidden');
                 this.fire('dockpanel:shown');
                 this.fire('dockpanel:visiblechange');
-            }
+            };
             // Add a hide event
             dockpanel.hide = function() {
                 this.fire('dockpanel:beforehide');
@@ -231,7 +245,7 @@ M.core_dock.getPanel = function() {
                 this.addClass('dockitempanel_hidden');
                 this.fire('dockpanel:hidden');
                 this.fire('dockpanel:visiblechange');
-            }
+            };
             // Add a method to set the header content
             dockpanel.setHeader = function(content) {
                 this.contentHeader.setContent(content);
@@ -240,21 +254,20 @@ M.core_dock.getPanel = function() {
                         this.contentHeader.append(arguments[i]);
                     }
                 }
-            }
+            };
             // Add a method to set the body content
             dockpanel.setBody = function(content) {
                 this.contentBody.setContent(content);
-            }
+            };
             // Add a method to set the top of the panel position
             dockpanel.setTop = function(newtop) {
-                this.setY(newtop);
-                return;
-                if (Y.UA.ie > 0) {
+                if (Y.UA.ie > 0 && Y.UA.ie < 7) {
                     this.setY(newtop);
-                    return true;
+                } else {
+                    this.setStyle('top', newtop.toString()+'px');
                 }
-                this.setStyle('top', newtop+'px');
-            }
+                return;
+            };
             // Put the dockpanel in the body
             parent.append(dockpanel);
             // Return it
@@ -265,7 +278,7 @@ M.core_dock.getPanel = function() {
         this.fire('dock:panelgenerated');
     }
     return this.nodes.panel;
-}
+};
 /**
  * Handles a generic event within the dock
  * @param {Y.Event} e
@@ -273,14 +286,22 @@ M.core_dock.getPanel = function() {
  */
 M.core_dock.handleEvent = function(e, options) {
     var item = this.getActiveItem();
-    var target = (e.target.test(options.cssselector))?e.target:e.target.ancestor(options.cssselector);
     if (options.cssselector == 'body') {
         if (!this.nodes.dock.contains(e.target)) {
             if (item) {
                 item.hide();
             }
         }
-    } else if (target) {
+    } else {
+        var target;
+        if (e.target.test(options.cssselector)) {
+            target = e.target;
+        } else {
+            target = e.target.ancestor(options.cssselector);
+        }
+        if (!target) {
+            return true;
+        }
         if (this.preventevent !== null && e.type === this.preventevent) {
             return true;
         }
@@ -311,7 +332,7 @@ M.core_dock.handleEvent = function(e, options) {
         }
     }
     return true;
-}
+};
 /**
  * This function delays an event and then fires it providing the cursor if either
  * within or outside of the original target (options.iscontained=true|false)
@@ -329,7 +350,7 @@ M.core_dock.delayEvent = function(event, options, target) {
                 self.delayedevent.target = e.target;
             }),
             timeout : null
-        }
+        };
     })(self);
     self.delayedevent.timeout = setTimeout(function(){
         self.delayedevent.timeout = null;
@@ -339,7 +360,7 @@ M.core_dock.delayEvent = function(event, options, target) {
         }
     }, options.delay*1000);
     return true;
-}
+};
 /**
  * Corrects the orientation of the title, which for the default
  * dock just means making it vertical
@@ -351,8 +372,14 @@ M.core_dock.delayEvent = function(event, options, target) {
  */
 M.core_dock.fixTitleOrientation = function(item, title, text) {
     var Y = this.Y;
-
+    
     var title = Y.one(title);
+
+    if(M.core_dock.cfg.orientation != 'vertical') {
+        // If the dock isn't vertical don't adjust it!
+        title.setContent(text);
+        return title
+    }
 
     if (Y.UA.ie > 0 && Y.UA.ie < 8) {
         // IE 6/7 can't rotate text so force ver
@@ -374,7 +401,7 @@ M.core_dock.fixTitleOrientation = function(item, title, text) {
 
     if (Y.UA.ie > 7) {
         // IE8 can flip the text via CSS but not handle SVG
-        title.setContent(text)
+        title.setContent(text);
         title.setAttribute('style', 'writing-mode: tb-rl; filter: flipV flipH;display:inline;');
         title.addClass('filterrotate');
         return title;
@@ -405,14 +432,14 @@ M.core_dock.fixTitleOrientation = function(item, title, text) {
     svg.setAttribute('width', width);
     svg.appendChild(txt);
 
-    title.append(svg)
+    title.append(svg);
 
     item.on('dockeditem:drawcomplete', function(txt, title){
         txt.setAttribute('fill', Y.one(title).getStyle('color'));
     }, item, txt, title);
 
     return title;
-}
+};
 /**
  * Resizes the space that contained blocks if there were no blocks left in
  * it. e.g. if all blocks have been moved to the dock
@@ -434,14 +461,20 @@ M.core_dock.resizeBlockSpace = function(node) {
         blockregions[region.get('id')] = {hasblocks: hasblocks, bodyclass: region.get('id').replace(/^region\-/, 'side-')+'-only'};
     });
     var bodynode = M.core_dock.nodes.body;
+    var showregions = false;
+    if (bodynode.hasClass('blocks-moving')) {
+        // open up blocks during blocks positioning
+        showregions = true;
+    }
+
     var noblocksbodyclass = 'content-only';
     var i = null;
-    if (populatedblockregions==0) {
+    if (populatedblockregions==0 && showregions==false) {
         bodynode.addClass(noblocksbodyclass);
         for (i in blockregions) {
             bodynode.removeClass(blockregions[i].bodyclass);
         }
-    } else if (populatedblockregions==1) {
+    } else if (populatedblockregions==1 && showregions==false) {
         bodynode.removeClass(noblocksbodyclass);
         for (i in blockregions) {
             if (!blockregions[i].hasblocks) {
@@ -456,7 +489,7 @@ M.core_dock.resizeBlockSpace = function(node) {
             bodynode.removeClass(blockregions[i].bodyclass);
         }
     }
-}
+};
 /**
  * Adds a dock item into the dock
  * @function
@@ -470,14 +503,14 @@ M.core_dock.add = function(item) {
     this.items[item.id].draw();
     this.fire('dock:itemadded', item);
     this.fire('dock:itemschanged', item);
-}
+};
 /**
  * Appends a dock item to the dock
  * @param {YUI.Node} docknode
  */
 M.core_dock.append = function(docknode) {
     this.nodes.container.append(docknode);
-}
+};
 /**
  * Initialises a generic block object
  * @param {YUI} Y
@@ -488,7 +521,7 @@ M.core_dock.init_genericblock = function(Y, id) {
         this.init(Y);
     }
     new this.genericblock(id).init(Y, Y.one('#inst'+id));
-}
+};
 /**
  * Removes the node at the given index and puts it back into conventional page sturcture
  * @function
@@ -505,7 +538,7 @@ M.core_dock.remove = function(uid) {
     this.fire('dock:itemremoved', uid);
     this.fire('dock:itemschanged', uid);
     return true;
-}
+};
 /**
  * Ensures the the first item in the dock has the correct class
  */
@@ -514,7 +547,7 @@ M.core_dock.resetFirstItem = function() {
     if (this.nodes.dock.one('.'+this.css.dockeditem)) {
         this.nodes.dock.one('.'+this.css.dockeditem).addClass('firstdockitem');
     }
-}
+};
 /**
  * Removes all nodes and puts them back into conventional page sturcture
  * @function
@@ -525,7 +558,7 @@ M.core_dock.remove_all = function() {
         this.remove(i);
     }
     return true;
-}
+};
 /**
  * Hides the active item
  */
@@ -534,22 +567,24 @@ M.core_dock.hideActive = function() {
     if (item) {
         item.hide();
     }
-}
+};
 /**
  * Checks wether the dock should be shown or hidden
  */
 M.core_dock.checkDockVisibility = function() {
     if (!this.count) {
         this.nodes.dock.addClass('nothingdocked');
-        this.nodes.body.removeClass(this.css.body);
+        this.nodes.body.removeClass(this.css.body)
+                       .removeClass(this.css.body+'_'+this.cfg.position+'_'+this.cfg.orientation);
         this.fire('dock:hidden');
     } else {
         this.fire('dock:beforeshow');
         this.nodes.dock.removeClass('nothingdocked');
-        this.nodes.body.addClass(this.css.body);
+        this.nodes.body.addClass(this.css.body)
+                       .addClass(this.css.body+'_'+this.cfg.position+'_'+this.cfg.orientation);
         this.fire('dock:shown');
     }
-}
+};
 /**
  * This smart little function allows developers to attach event listeners before
  * the dock has been augmented to allows event listeners.
@@ -561,7 +596,7 @@ M.core_dock.checkDockVisibility = function() {
  */
 M.core_dock.on = function(event, callback) {
     this.earlybinds.push({event:event,callback:callback});
-}
+};
 /**
  * This function takes all early binds and attaches them as listeners properly
  * This should only be called once augmentation is complete.
@@ -572,7 +607,7 @@ M.core_dock.applyBinds = function() {
         this.on(bind.event, bind.callback);
     }
     this.earlybinds = [];
-}
+};
 /**
  * This function checks the size and position of the panel and moves/resizes if
  * required to keep it within the bounds of the window.
@@ -584,29 +619,44 @@ M.core_dock.resize = function() {
     if (!panel.visible || !item) {
         return;
     }
-    var buffer = this.cfg.buffer;
-    var screenheight = parseInt(this.nodes.body.get('winHeight'))-(buffer*2);
-    var docky = this.nodes.dock.getY();
-    var titletop = item.nodes.docktitle.getY()-docky-buffer;
-    var containery = this.nodes.container.getY();
-    var containerheight = containery-docky+this.nodes.container.get('offsetHeight');
-    panel.contentBody.setStyle('height', 'auto');
-    panel.removeClass('oversized_content');
-    var panelheight = panel.get('offsetHeight');
 
-    if (panelheight > screenheight) {
-        panel.setStyle('top', (buffer-containerheight)+'px');
-        panel.contentBody.setStyle('height', (screenheight-panel.contentHeader.get('offsetHeight'))+'px');
-        panel.addClass('oversized_content');
-    } else if (panelheight > (screenheight-(titletop-buffer))) {
-        var difference = panelheight - (screenheight-titletop);
-        panel.setStyle('top', (titletop-containerheight-difference+buffer)+'px');
-    } else {
-        panel.setStyle('top', (titletop-containerheight+buffer)+'px');
+    if (this.cfg.orientation=='vertical') {
+        var buffer = this.cfg.buffer;
+        var screenheight = parseInt(this.nodes.body.get('winHeight'))-(buffer*2);
+        var docky = this.nodes.dock.getY();
+        var titletop = item.nodes.docktitle.getY()-docky-buffer;
+        var containery = this.nodes.container.getY();
+        var containerheight = containery-docky+this.nodes.buttons.get('offsetHeight');
+        panel.contentBody.setStyle('height', 'auto');
+        panel.removeClass('oversized_content');
+        var panelheight = panel.get('offsetHeight');
+
+        if (this.Y.UA.ie > 0 && this.Y.UA.ie < 7) {
+            panel.setTop(item.nodes.docktitle.getY());
+        } else if (panelheight > screenheight) {
+            panel.setTop(buffer-containerheight);
+            panel.contentBody.setStyle('height', (screenheight-panel.contentHeader.get('offsetHeight'))+'px');
+            panel.addClass('oversized_content');
+        } else if (panelheight > (screenheight-(titletop-buffer))) {
+            var difference = panelheight - (screenheight-titletop);
+            panel.setTop(titletop-containerheight-difference+buffer);
+        } else {
+            panel.setTop(titletop-containerheight+buffer);
+        }
     }
+
+    if (this.cfg.position=='right') {
+        panel.setStyle('left', -panel.get('offsetWidth')+'px');
+
+    } else if (this.cfg.position=='top') {
+        var dockx = this.nodes.dock.getX();
+        var titleleft = item.nodes.docktitle.getX()-dockx;
+        panel.setStyle('left', titleleft+'px');
+    }
+
     this.fire('dock:resizepanelcomplete');
     return;
-}
+};
 /**
  * Returns the currently active dock item or false
  */
@@ -617,7 +667,7 @@ M.core_dock.getActiveItem = function() {
         }
     }
     return false;
-}
+};
 /**
  * This class represents a generic block
  * @class M.core_dock.genericblock
@@ -675,7 +725,7 @@ M.core_dock.genericblock.prototype = {
 
         // Move the block straight to the dock if required
         if (node.hasClass('dock_on_load')) {
-            node.removeClass('dock_on_load')
+            node.removeClass('dock_on_load');
             this.skipsetposition = true;
             this.move_to_dock(null, commands);
         }
@@ -693,7 +743,7 @@ M.core_dock.genericblock.prototype = {
         }
 
         var Y = this.Y;
-        var dock = M.core_dock
+        var dock = M.core_dock;
 
         var node = Y.one('#inst'+this.id);
         var blockcontent = node.one('.content');
@@ -710,6 +760,7 @@ M.core_dock.genericblock.prototype = {
         this.cachedcontentnode = node;
 
         node.replace(Y.Node.getDOMNode(Y.Node.create('<div id="content_placeholder_'+this.id+'" class="block_dock_placeholder"></div>')));
+        M.core_dock.holdingarea.append(node);
         node = null;
 
         var blocktitle = Y.Node.getDOMNode(this.cachedcontentnode.one('.title h2')).cloneNode(true);
@@ -738,12 +789,12 @@ M.core_dock.genericblock.prototype = {
             // check the contents block [editing=off]
             this.contents.all('.moveto').on('returntoblock|click', function(e){
                 e.halt();
-                dock.remove(this.id)
+                dock.remove(this.id);
             }, this);
             // check the commands block [editing=on]
             this.commands.all('.moveto').on('returntoblock|click', function(e){
                 e.halt();
-                dock.remove(this.id)
+                dock.remove(this.id);
             }, this);
             // Add a close icon
             // Must set the image src seperatly of we get an error with XML strict headers
@@ -794,7 +845,7 @@ M.core_dock.genericblock.prototype = {
         this.isdocked = false;
         return true;
     }
-}
+};
 
 /**
  * This class represents an item in the dock
@@ -831,12 +882,12 @@ M.core_dock.item = function(Y, uid, title, contents, commands, blockclass){
         this.commands = commands;
     }
     if (blockclass && this.blockclass==null) {
-        this.blockclass = blockclass
+        this.blockclass = blockclass;
     }
     this.nodes = (function(){
-        return {docktitle : null, dockitem : null, container: null}
+        return {docktitle : null, dockitem : null, container: null};
     })();
-}
+};
 /**
  *
  */
@@ -883,7 +934,7 @@ M.core_dock.item.prototype = {
         panel.setHeader(this.titlestring, this.commands);
         panel.setBody(Y.Node.create('<div class="'+this.blockclass+' block_docked"></div>').append(this.contents));
         panel.show();
-        
+
         this.active = true;
         // Add active item class first up
         this.nodes.docktitle.addClass(css.activeitem);
@@ -914,4 +965,4 @@ M.core_dock.item.prototype = {
         this.nodes.dockitem.remove();
         this.fire('dockeditem:itemremoved');
     }
-}
+};

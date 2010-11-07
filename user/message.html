@@ -23,7 +23,6 @@
         } else {
             choose_from_menu(format_text_menu(), "format", $format, "");
         }
-        echo $OUTPUT->old_help_icon("textformat", get_string("helpformatting"));
      ?>
     </td>
 </tr>
@@ -36,9 +35,7 @@
     if (count($SESSION->emailto[$id])) {
         foreach ($SESSION->emailto[$id] as $user) {
             echo '<tr><td>'.fullname($user,true).'</td><td>'.$user->email.'</td><td>';
-            if ($user->emailstop) {
-                $error = get_string('emaildisable');
-            } elseif (empty($user->email)) {
+            if (empty($user->email)) {
                 $error = get_string('emailempty');
             }
             if (!empty($error)) {

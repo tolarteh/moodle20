@@ -18,12 +18,13 @@
 /**
  * Cohort enrolment plugin settings and presets.
  *
- * @package   enrol_cohort
- * @copyright 2010 Petr Skoda {@link http://skodak.org}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage cohort
+ * @copyright  2010 Petr Skoda {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die;
+defined('MOODLE_INTERNAL') || die();
 
 if ($ADMIN->fulltree) {
 
@@ -36,9 +37,8 @@ if ($ADMIN->fulltree) {
         $options = get_default_enrol_roles(get_context_instance(CONTEXT_SYSTEM));
         $student = get_archetype_roles('student');
         $student = reset($student);
-        $settings->add(new admin_setting_configselect_with_advanced('enrol_cohort/roleid',
-            get_string('defaultrole', 'role'), '',
-            array('value'=>$student->id, 'adv'=>true), $options));
+        $settings->add(new admin_setting_configselect('enrol_cohort/roleid',
+            get_string('defaultrole', 'role'), '', $student->id, $options));
     }
 }
 

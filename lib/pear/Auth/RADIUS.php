@@ -30,7 +30,7 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 This code cannot simply be copied and put under the GNU Public License or
 any other GPL-like (LGPL, GPL2) License.
 
-    $Id: RADIUS.php,v 1.1 2008-12-12 04:44:53 jonathanharker Exp $
+    $Id: RADIUS.php,v 1.1 2008/12/12 04:44:53 jonathanharker Exp $
 */
 
 require_once 'PEAR.php';

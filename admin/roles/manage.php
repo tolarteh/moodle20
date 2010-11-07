@@ -28,7 +28,7 @@
  * For all but the first two of those, you also need a roleid parameter, and
  * possibly some other data.
  *
- * @package    moodlecore
+ * @package    core
  * @subpackage role
  * @copyright  1999 onwards Martin Dougiamas (http://dougiamas.com)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -72,7 +72,7 @@
                 // show confirmation
                 echo $OUTPUT->header();
                 $optionsyes = array('action'=>'delete', 'roleid'=>$roleid, 'sesskey'=>sesskey(), 'confirm'=>1);
-                $a = new object();
+                $a = new stdClass();
                 $a->id = $roleid;
                 $a->name = $roles[$roleid]->name;
                 $a->shortname = $roles[$roleid]->shortname;
@@ -142,15 +142,12 @@
             break;
 
         case 'reset':
-            if (isset($undeletableroles[$roleid])) {
-                print_error('cannotresetthisrole', '', $baseurl);
-            }
             if (!$confirmed) {
                 // show confirmation
                 echo $OUTPUT->header();
                 $optionsyes = array('action'=>'reset', 'roleid'=>$roleid, 'sesskey'=>sesskey(), 'confirm'=>1);
                 $optionsno  = array('action'=>'view', 'roleid'=>$roleid);
-                $a = new object();
+                $a = new stdClass();
                 $a->id = $roleid;
                 $a->name = $roles[$roleid]->name;
                 $a->shortname = $roles[$roleid]->shortname;
@@ -167,10 +164,12 @@
                 die;
             }
 
-            // Do the reset.
+            // Reset context levels for standard archetypes
             if ($roles[$roleid]->archetype) {
                 set_role_contextlevels($roleid, get_default_contextlevels($roles[$roleid]->archetype));
             }
+
+            //reset or delete the capabilities
             reset_role_capabilities($roleid);
 
             // Mark context dirty, log and redirect.

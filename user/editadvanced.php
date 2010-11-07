@@ -30,16 +30,13 @@ require_once($CFG->dirroot.'/user/editadvanced_form.php');
 require_once($CFG->dirroot.'/user/editlib.php');
 require_once($CFG->dirroot.'/user/profile/lib.php');
 
-httpsrequired();
+//HTTPS is required in this page when $CFG->loginhttps enabled
+$PAGE->https_required();
 
 $id     = optional_param('id', $USER->id, PARAM_INT);    // user id; -1 if creating new user
 $course = optional_param('course', SITEID, PARAM_INT);   // course id (defaults to Site)
 
-$url = new moodle_url('/user/editadvanced.php', array('course'=>$course));
-if ($id !== $USER->id) {
-    $url->param('id', $id);
-}
-$PAGE->set_url($url);
+$PAGE->set_url('/user/editadvanced.php', array('course'=>$course, 'id'=>$id));
 
 $course = $DB->get_record('course', array('id'=>$course), '*', MUST_EXIST);
 
@@ -60,7 +57,7 @@ $systemcontext = get_context_instance(CONTEXT_SYSTEM);
 
 if ($id == -1) {
     // creating new user
-    $user = new object();
+    $user = new stdClass();
     $user->id = -1;
     $user->auth = 'manual';
     $user->confirmed = 1;
@@ -72,7 +69,14 @@ if ($id == -1) {
     require_capability('moodle/user:update', $systemcontext);
     $user = $DB->get_record('user', array('id'=>$id), '*', MUST_EXIST);
     $PAGE->set_context(get_context_instance(CONTEXT_USER, $user->id));
-    $PAGE->navigation->extend_for_user($user);
+    if ($user->id == $USER->id) {
+        if ($course->id != SITEID && $node = $PAGE->navigation->find($course->id, navigation_node::TYPE_COURSE)) {
+            $node->make_active();
+            $PAGE->navbar->includesettingsbase = true;
+        }
+    } else {
+        $PAGE->navigation->extend_for_user($user);
+    }
 }
 
 // remote users cannot be edited
@@ -80,8 +84,8 @@ if ($user->id != -1 and is_mnet_remote_user($user)) {
     redirect($CFG->wwwroot . "/user/view.php?id=$id&course={$course->id}");
 }
 
-if ($user->id != $USER->id and is_primary_admin($user->id)) {  // Can't edit primary admin
-    print_error('adminprimarynoedit');
+if ($user->id != $USER->id and is_siteadmin($user) and !is_siteadmin($USER)) {  // Only admins may edit other admins
+    print_error('useradmineditadmin');
 }
 
 if (isguestuser($user->id)) { // the real guest user can not be edited
@@ -110,7 +114,7 @@ if (!empty($CFG->usetags)) {
 if ($user->id !== -1) {
     $usercontext = get_context_instance(CONTEXT_USER, $user->id);
     $editoroptions = array('maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$CFG->maxbytes, 'trusttext'=>false, 'forcehttps'=>false);
-    $user = file_prepare_standard_editor($user, 'description', $editoroptions, $usercontext, 'user_profile', $user->id);
+    $user = file_prepare_standard_editor($user, 'description', $editoroptions, $usercontext, 'user', 'profile', 0);
 } else {
     $usercontext = null;
     // This is a new user, we don't want to add files here
@@ -137,7 +141,7 @@ if ($usernew = $userform->get_data()) {
     if ($usernew->id == -1) {
         //TODO check out if it makes sense to create account with this auth plugin and what to do with the password
         unset($usernew->id);
-        $usernew = file_postupdate_standard_editor($usernew, 'description', $editoroptions, null, 'user_profile', null);
+        $usernew = file_postupdate_standard_editor($usernew, 'description', $editoroptions, null, 'user', 'profile', null);
         $usernew->mnethostid = $CFG->mnet_localhost_id; // always local user
         $usernew->confirmed  = 1;
         $usernew->timecreated = time();
@@ -146,7 +150,7 @@ if ($usernew = $userform->get_data()) {
         $usercreated = true;
 
     } else {
-        $usernew = file_postupdate_standard_editor($usernew, 'description', $editoroptions, $usercontext, 'user_profile', $usernew->id);
+        $usernew = file_postupdate_standard_editor($usernew, 'description', $editoroptions, $usercontext, 'user', 'profile', 0);
         $DB->update_record('user', $usernew);
         // pass a true $userold here
         if (! $authplugin->user_update($user, $userform->get_data())) {
@@ -209,6 +213,9 @@ if ($usernew = $userform->get_data()) {
         foreach ((array)$usernew as $variable => $value) {
             $USER->$variable = $value;
         }
+        // preload custom fields
+        profile_load_custom_fields($USER);
+
         if (!empty($USER->newadminuser)) {
             unset($USER->newadminuser);
             // apply defaults again - some of them might depend on admin user info, backup, roles, etc.
@@ -224,6 +231,9 @@ if ($usernew = $userform->get_data()) {
     }
     //never reached
 }
+
+// make sure we really are on the https page when https login required
+$PAGE->verify_https_required();
 
 
 /// Display page header

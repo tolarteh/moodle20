@@ -1,4 +1,28 @@
 <?php
+
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Assignment upload type implementation
+ *
+ * @package   mod-assignment
+ * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+require_once(dirname(__FILE__).'/upload_form.php');
 require_once($CFG->libdir . '/portfoliolib.php');
 require_once($CFG->dirroot . '/mod/assignment/lib.php');
 
@@ -37,9 +61,12 @@ class assignment_upload extends assignment_base {
 
         $this->view_dates();
 
-        if (has_capability('mod/assignment:submit', $this->context)) {
-            $filecount = $this->count_user_files($USER->id);
-            $submission = $this->get_submission($USER->id);
+        if (is_enrolled($this->context, $USER)) {
+            if ($submission = $this->get_submission($USER->id)) {
+                $filecount = $this->count_user_files($submission->id);
+            } else {
+                $filecount = 0;
+            }
 
             $this->view_feedback();
 
@@ -59,7 +86,9 @@ class assignment_upload extends assignment_base {
                 }
             }
 
-            $this->view_upload_form();
+            if (has_capability('mod/assignment:submit', $this->context)) {
+                $this->view_upload_form();
+            }
 
             if ($this->notes_allowed()) {
                 echo $OUTPUT->heading(get_string('notes', 'assignment'), 3);
@@ -152,7 +181,7 @@ class assignment_upload extends assignment_base {
 
 
     function view_upload_form() {
-        global $CFG, $USER;
+        global $CFG, $USER, $OUTPUT;
 
         $submission = $this->get_submission($USER->id);
 
@@ -162,12 +191,19 @@ class assignment_upload extends assignment_base {
         }
 
         if ($this->can_upload_file($submission)) {
-            $mform = new mod_assignment_upload_file_form('upload.php', $this);
-			echo "<div class=\"uploadbox\">";
-	        $mform->display();
-    	    echo "</div>";
+            $fs = get_file_storage();
+            // edit files in another page
+            if ($submission) {
+                if ($files = $fs->get_area_files($this->context->id, 'mod_assignment', 'submission', $submission->id, "timemodified", false)) {
+                    $str = get_string('editthesefiles', 'assignment');
+                } else {
+                    $str = get_string('uploadfiles', 'assignment');
+                }
+            } else {
+                $str = get_string('uploadfiles', 'assignment');
+            }
+            echo $OUTPUT->single_button(new moodle_url('/mod/assignment/type/upload/upload.php', array('contextid'=>$this->context->id, 'userid'=>$USER->id)), $str, 'get');
         }
-
     }
 
     function view_notes() {
@@ -175,7 +211,7 @@ class assignment_upload extends assignment_base {
 
         if ($submission = $this->get_submission($USER->id)
           and !empty($submission->data1)) {
-            echo $OUTPUT->box(format_text($submission->data1, FORMAT_HTML), 'generalbox boxaligncenter boxwidthwide');
+            echo $OUTPUT->box(format_text($submission->data1, FORMAT_HTML, array('overflowdiv'=>true)), 'generalbox boxaligncenter boxwidthwide');
         } else {
             echo $OUTPUT->box(get_string('notesempty', 'assignment'), 'generalbox boxaligncenter');
         }
@@ -229,42 +265,8 @@ class assignment_upload extends assignment_base {
         return ($this->assignment->var3 && (time() <= $this->assignment->timeavailable));
     }
 
-    function custom_feedbackform($submission, $return=false) {
-        global $CFG;
-
-        $mode         = optional_param('mode', '', PARAM_ALPHA);
-        $offset       = optional_param('offset', 0, PARAM_INT);
-        $forcerefresh = optional_param('forcerefresh', 0, PARAM_BOOL);
-
-        $mform = new mod_assignment_upload_response_form("$CFG->wwwroot/mod/assignment/upload.php", $this);
-
-        $mform->set_data(array('id'=>$this->cm->id, 'offset'=>$offset, 'forcerefresh'=>$forcerefresh, 'userid'=>$submission->userid, 'mode'=>$mode));
-
-        $output = get_string('responsefiles', 'assignment').': ';
-
-        ob_start();
-        $mform->display();
-        $output = ob_get_clean();
-
-        if ($forcerefresh) {
-            $output .= $this->update_main_listing($submission);
-        }
-
-        $responsefiles = $this->print_responsefiles($submission->userid, true);
-        if (!empty($responsefiles)) {
-            $output .= $responsefiles;
-        }
-
-        if ($return) {
-            return $output;
-        }
-        echo $output;
-        return;
-    }
-
-
     function print_student_answer($userid, $return=false){
-        global $CFG, $OUTPUT;
+        global $CFG, $OUTPUT, $PAGE;
 
         $submission = $this->get_submission($userid);
 
@@ -282,22 +284,11 @@ class assignment_upload extends assignment_base {
             $output .= '&nbsp;';
         }
 
-        $fs = get_file_storage();
-        $browser = get_file_browser();
 
-        if ($files = $fs->get_area_files($this->context->id, 'assignment_submission', $userid, "timemodified", false)) {
-
-            foreach ($files as $file) {
-                $filename = $file->get_filename();
-                $found = true;
-                $mimetype = $file->get_mimetype();
-                $path = file_encode_url($CFG->wwwroot.'/pluginfile.php', '/'.$this->context->id.'/assignment_submission/'.$userid.'/'.$filename);
-                $output .= '<a href="'.$path.'" ><img class="icon" src="'.$OUTPUT->pix_url(file_mimetype_icon($mimetype)).'" alt="'.$mimetype.'" />'.s($filename).'</a>&nbsp;';
-            }
-
-        }
-        $output = '<div class="files">'.$output.'</div>';
-        $output .= '<br />';
+        $renderer = $PAGE->get_renderer('mod_assignment');
+        $output = $OUTPUT->box_start('files').$output;
+        $output .= $renderer->assignment_files($this->context, $submission->id);
+        $output .= $OUTPUT->box_end();
 
         return $output;
     }
@@ -311,7 +302,7 @@ class assignment_upload extends assignment_base {
      * @return string optional
      */
     function print_user_files($userid=0, $return=false) {
-        global $CFG, $USER, $OUTPUT;
+        global $CFG, $USER, $OUTPUT, $PAGE;
 
         $mode    = optional_param('mode', '', PARAM_ALPHA);
         $offset  = optional_param('offset', 0, PARAM_INT);
@@ -323,14 +314,12 @@ class assignment_upload extends assignment_base {
             $userid = $USER->id;
         }
 
-        $output = '';
+        $output = $OUTPUT->box_start('files');
 
         $submission = $this->get_submission($userid);
 
-        $candelete = $this->can_delete_files($submission);
-        $strdelete   = get_string('delete');
-
-        if ($this->drafts_tracked() and $this->isopen() and !$this->is_finalized($submission) and !empty($mode)) {                 // only during grading
+        // only during grading
+        if ($this->drafts_tracked() and $this->isopen() and !$this->is_finalized($submission) and !empty($mode)) {
             $output .= '<strong>'.get_string('draft', 'assignment').':</strong><br />';
         }
 
@@ -341,49 +330,23 @@ class assignment_upload extends assignment_base {
 
         }
 
-        $fs = get_file_storage();
-        $browser = get_file_browser();
-
-        if ($files = $fs->get_area_files($this->context->id, 'assignment_submission', $userid, "timemodified", false)) {
-            $button = new portfolio_add_button();
-            foreach ($files as $file) {
-                $filename = $file->get_filename();
-                $mimetype = $file->get_mimetype();
-                $path = file_encode_url($CFG->wwwroot.'/pluginfile.php', '/'.$this->context->id.'/assignment_submission/'.$userid.'/'.$filename);
-                $output .= '<a href="'.$path.'" ><img src="'.$OUTPUT->pix_url(file_mimetype_icon($mimetype)).'" class="icon" alt="'.$mimetype.'" />'.s($filename).'</a>';
-
-                if ($candelete) {
-                    $delurl  = "$CFG->wwwroot/mod/assignment/delete.php?id={$this->cm->id}&amp;file=".rawurlencode($filename)."&amp;userid={$submission->userid}&amp;mode=$mode&amp;offset=$offset";
-
-                    $output .= '<a href="'.$delurl.'">&nbsp;'
-                              .'<img title="'.$strdelete.'" src="'.$OUTPUT->pix_url('t/delete') . '" class="iconsmall" alt="" /></a> ';
-                }
-
-                if (has_capability('mod/assignment:exportownsubmission', $this->context)) {
-                    $button->set_callback_options('assignment_portfolio_caller', array('id' => $this->cm->id, 'fileid' => $file->get_id()), '/mod/assignment/locallib.php');
-                    $button->set_format_by_file($file);
-                    $output .= $button->to_html(PORTFOLIO_ADD_ICON_LINK);
-                }
-                $output .= '<br />';
-            }
-            if (count($files) > 1 && has_capability('mod/assignment:exportownsubmission', $this->context)) {
-                $button->set_callback_options('assignment_portfolio_caller', array('id' => $this->cm->id), '/mod/assignment/locallib.php');
-                $button->reset_formats(); // reset what we set before, since it's multi-file
-                $output .= $button->to_html();
-            }
-        }
-
         if ($this->drafts_tracked() and $this->isopen() and has_capability('mod/assignment:grade', $this->context) and $mode != '') { // we do not want it on view.php page
             if ($this->can_unfinalize($submission)) {
-                $options = array ('id'=>$this->cm->id, 'userid'=>$userid, 'action'=>'unfinalize', 'mode'=>$mode, 'offset'=>$offset);
-                $output .= $OUTPUT->single_button(new moodle_url('upload.php', $options), get_string('unfinalize', 'assignment'));
+                //$options = array ('id'=>$this->cm->id, 'userid'=>$userid, 'action'=>'unfinalize', 'mode'=>$mode, 'offset'=>$offset);
+                $output .= '<br /><input type="submit" name="unfinalize" value="'.get_string('unfinalize', 'assignment').'" />';
+                $output .=  $OUTPUT->help_icon('unfinalize', 'assignment');
+
             } else if ($this->can_finalize($submission)) {
-                $options = array ('id'=>$this->cm->id, 'userid'=>$userid, 'action'=>'finalizeclose', 'mode'=>$mode, 'offset'=>$offset);
-                $output .= $OUTPUT->single_button(new moodle_url('upload.php', $options), get_string('finalize', 'assignment'));
+                //$options = array ('id'=>$this->cm->id, 'userid'=>$userid, 'action'=>'finalizeclose', 'mode'=>$mode, 'offset'=>$offset);
+                $output .= '<br /><input type="submit" name="finalize" value="'.get_string('finalize', 'assignment').'" />';
             }
         }
 
-        $output = '<div class="files">'.$output.'</div>';
+        if ($submission) {
+            $renderer = $PAGE->get_renderer('mod_assignment');
+            $output .= $renderer->assignment_files($this->context, $submission->id);
+        }
+        $output .= $OUTPUT->box_end();
 
         if ($return) {
             return $output;
@@ -391,13 +354,38 @@ class assignment_upload extends assignment_base {
         echo $output;
     }
 
+    function submissions($mode) {
+        // redirects out of form to process (un)finalizing.
+        $unfinalize = optional_param('unfinalize', FALSE, PARAM_TEXT);
+        $finalize = optional_param('finalize', FALSE, PARAM_TEXT);
+        if ($unfinalize) {
+            $this->unfinalize('single');
+        } else if ($finalize) {
+            $this->finalize('single');
+        }
+        if ($unfinalize || $finalize) {
+            $mode = 'singlenosave';
+        }
+        parent::submissions($mode);
+    }
+
+    function process_feedback() {
+        if (!$feedback = data_submitted() or !confirm_sesskey()) {      // No incoming data?
+            return false;
+        }
+        $userid = required_param('userid', PARAM_INT);
+        $offset = required_param('offset', PARAM_INT);
+        $mform = $this->display_submission($offset, $userid, false);
+        parent::process_feedback($mform);
+    }
+
     function print_responsefiles($userid, $return=false) {
-        global $CFG, $USER, $OUTPUT;
+        global $CFG, $USER, $OUTPUT, $PAGE;
 
         $mode    = optional_param('mode', '', PARAM_ALPHA);
         $offset  = optional_param('offset', 0, PARAM_INT);
 
-        $output = '';
+        $output = $OUTPUT->box_start('responsefiles');
 
         $candelete = $this->can_manage_responsefiles();
         $strdelete   = get_string('delete');
@@ -405,27 +393,11 @@ class assignment_upload extends assignment_base {
         $fs = get_file_storage();
         $browser = get_file_browser();
 
-        if ($files = $fs->get_area_files($this->context->id, 'assignment_response', $userid, "timemodified", false)) {
-            foreach ($files as $file) {
-                $filename = $file->get_filename();
-                $found = true;
-                $mimetype = $file->get_mimetype();
-                $path = file_encode_url($CFG->wwwroot.'/pluginfile.php', '/'.$this->context->id.'/assignment_response/'.$userid.'/'.$filename);
-
-                $output .= '<a href="'.$path.'" ><img src="'.$OUTPUT->pix_url(file_mimetype_icon($mimetype)).'" alt="'.$mimetype.'" />'.$filename.'</a>';
-
-                if ($candelete) {
-                    $delurl  = "$CFG->wwwroot/mod/assignment/delete.php?id={$this->cm->id}&amp;file=".rawurlencode($filename)."&amp;userid=$userid&amp;mode=$mode&amp;offset=$offset&amp;action=response";
-
-                    $output .= '<a href="'.$delurl.'">&nbsp;'
-                              .'<img title="'.$strdelete.'" src="'.$OUTPUT->pix_url('t/delete') . '" class="iconsmall" alt=""/></a> ';
-                }
-
-                $output .= '&nbsp;';
-            }
-
-            $output = '<div class="responsefiles">'.$output.'</div>';
+        if ($submission = $this->get_submission($userid)) {
+            $renderer = $PAGE->get_renderer('mod_assignment');
+            $output .= $renderer->assignment_files($this->context, $submission->id, 'response');
         }
+        $output .= $OUTPUT->box_end();
 
         if ($return) {
             return $output;
@@ -434,9 +406,14 @@ class assignment_upload extends assignment_base {
     }
 
 
-    function upload() {
+    /**
+     * Upload files
+     * upload_file function requires moodle form instance and file manager options
+     * @param object $mform
+     * @param array $options
+     */
+    function upload($mform = null, $filemanager_options = null) {
         $action = required_param('action', PARAM_ALPHA);
-
         switch ($action) {
             case 'finalize':
                 $this->finalize();
@@ -448,10 +425,10 @@ class assignment_upload extends assignment_base {
                 $this->unfinalize();
                 break;
             case 'uploadresponse':
-                $this->upload_responsefile();
+                $this->upload_responsefile($mform, $filemanager_options);
                 break;
             case 'uploadfile':
-                $this->upload_file();
+                $this->upload_file($mform, $filemanager_options);
             case 'savenotes':
             case 'editnotes':
                 $this->upload_notes();
@@ -465,11 +442,11 @@ class assignment_upload extends assignment_base {
 
         $action = required_param('action', PARAM_ALPHA);
 
-        $returnurl = 'view.php?id='.$this->cm->id;
+        $returnurl  = new moodle_url('/mod/assignment/view.php', array('id'=>$this->cm->id));
 
         $mform = new mod_assignment_upload_notes_form();
 
-        $defaults = new object();
+        $defaults = new stdClass();
         $defaults->id = $this->cm->id;
 
         if ($submission = $this->get_submission($USER->id)) {
@@ -481,7 +458,8 @@ class assignment_upload extends assignment_base {
         $mform->set_data($defaults);
 
         if ($mform->is_cancelled()) {
-            redirect('view.php?id='.$this->cm->id);
+            $returnurl  = new moodle_url('/mod/assignment/view.php', array('id'=>$this->cm->id));
+            redirect($returnurl);
         }
 
         if (!$this->can_update_notes($submission)) {
@@ -494,24 +472,16 @@ class assignment_upload extends assignment_base {
 
         if ($data = $mform->get_data() and $action == 'savenotes') {
             $submission = $this->get_submission($USER->id, true); // get or create submission
-            $updated = new object();
+            $updated = new stdClass();
             $updated->id           = $submission->id;
             $updated->timemodified = time();
             $updated->data1        = $data->text;
 
-            if ($DB->update_record('assignment_submissions', $updated)) {
-                add_to_log($this->course->id, 'assignment', 'upload', 'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
-                redirect($returnurl);
-                $submission = $this->get_submission($USER->id);
-                $this->update_grade($submission);
-
-            } else {
-                $this->view_header(get_string('notes', 'assignment'));
-                echo $OUTPUT->notification(get_string('notesupdateerror', 'assignment'));
-                echo $OUTPUT->continue_button($returnurl);
-                $this->view_footer();
-                die;
-            }
+            $DB->update_record('assignment_submissions', $updated);
+            add_to_log($this->course->id, 'assignment', 'upload', 'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
+            redirect($returnurl);
+            $submission = $this->get_submission($USER->id);
+            $this->update_grade($submission);
         }
 
         /// show notes edit form
@@ -525,42 +495,37 @@ class assignment_upload extends assignment_base {
         die;
     }
 
-    function upload_responsefile() {
+    function upload_responsefile($mform, $options) {
         global $CFG, $USER, $OUTPUT, $PAGE;
 
         $userid = required_param('userid', PARAM_INT);
         $mode   = required_param('mode', PARAM_ALPHA);
         $offset = required_param('offset', PARAM_INT);
 
-        $returnurl = "submissions.php?id={$this->cm->id}&amp;userid=$userid&amp;mode=$mode&amp;offset=$offset";
+        $returnurl = new moodle_url("submissions.php", array('id'=>$this->cm->id,'userid'=>$userid,'mode'=>$mode,'offset'=>$offset)); //not xhtml, just url.
 
-        $mform = new mod_assignment_upload_response_form(null, $this);
-        if ($mform->get_data() and $this->can_manage_responsefiles()) {
+        if ($formdata = $mform->get_data() and $this->can_manage_responsefiles()) {
             $fs = get_file_storage();
-            $filename = $mform->get_new_filename('newfile');
-            if ($filename !== false) {
-                if (!$fs->file_exists($this->context->id, 'assignment_response', $userid, '/', $filename)) {
-                    if ($file = $mform->save_stored_file('newfile', $this->context->id, 'assignment_response', $userid, '/', $filename, false, $USER->id)) {
-                        redirect($returnurl);
-                    }
-                }
+            $submission = $this->get_submission($userid, true, true);
+            if ($formdata = file_postupdate_standard_filemanager($formdata, 'files', $options, $this->context, 'mod_assignment', 'response', $submission->id)) {
+                $returnurl = new moodle_url("/mod/assignment/submissions.php", array('id'=>$this->cm->id,'userid'=>$formdata->userid,'mode'=>$formdata->mode,'offset'=>$formdata->offset));
+                redirect($returnurl->out(false));
             }
         }
         $PAGE->set_title(get_string('upload'));
         echo $OUTPUT->header();
         echo $OUTPUT->notification(get_string('uploaderror', 'assignment'));
-        echo $OUTPUT->continue_button($returnurl);
+        echo $OUTPUT->continue_button($returnurl->out(true));
         echo $OUTPUT->footer();
         die;
     }
 
-    function upload_file() {
+    function upload_file($mform, $options) {
         global $CFG, $USER, $DB, $OUTPUT;
 
-        $returnurl = 'view.php?id='.$this->cm->id;
-
-        $filecount = $this->count_user_files($USER->id);
+        $returnurl  = new moodle_url('/mod/assignment/view.php', array('id'=>$this->cm->id));
         $submission = $this->get_submission($USER->id);
+        $filecount = $this->count_user_files($submission->id);
 
         if (!$this->can_upload_file($submission)) {
             $this->view_header(get_string('upload'));
@@ -570,39 +535,37 @@ class assignment_upload extends assignment_base {
             die;
         }
 
-        $mform = new mod_assignment_upload_file_form('upload.php', $this);
-        if ($mform->get_data()) {
+        if ($formdata = $mform->get_data()) {
             $fs = get_file_storage();
-            $filename = $mform->get_new_filename('newfile');
-            if ($filename !== false) {
-                if (!$fs->file_exists($this->context->id, 'assignment_submission', $USER->id, '/', $filename)) {
-                    if ($file = $mform->save_stored_file('newfile', $this->context->id, 'assignment_submission', $USER->id, '/', $filename, false, $USER->id)) {
-                        $submission = $this->get_submission($USER->id, true); //create new submission if needed
-                        $submission->timemodified = time();
-                        if ($DB->update_record('assignment_submissions', $submission)) {
-                            add_to_log($this->course->id, 'assignment', 'upload',
-                                    'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
-                            $this->update_grade($submission);
-                            if (!$this->drafts_tracked()) {
-                                $this->email_teachers($submission);
-                            }
-                            //trigger event with information about this file.
-                            $eventdata = new object();
-                            $eventdata->component  = 'mod/assignment';
-                            $eventdata->course     = $this->course;
-                            $eventdata->assignment = $this->assignment;
-                            $eventdata->cm         = $this->cm;
-                            $eventdata->user       = $USER;
-                            $eventdata->file       = $file;
-                            events_trigger('assignment_file_sent', $eventdata);
-
-                            redirect('view.php?id='.$this->cm->id);
-                        } else {
-                            $file->delete();
-                        }
-                    }
-                }
+            $submission = $this->get_submission($USER->id, true); //create new submission if needed
+            $fs->delete_area_files($this->context->id, 'mod_assignment', 'submission', $submission->id);
+            $formdata = file_postupdate_standard_filemanager($formdata, 'files', $options, $this->context, 'mod_assignment', 'submission', $submission->id);
+            $updates = new stdClass();
+            $updates->id = $submission->id;
+            $updates->timemodified = time();
+            $DB->update_record('assignment_submissions', $updates);
+            add_to_log($this->course->id, 'assignment', 'upload',
+                    'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
+            $this->update_grade($submission);
+            if (!$this->drafts_tracked()) {
+                $this->email_teachers($submission);
             }
+
+            // send files to event system
+            $files = $fs->get_area_files($this->context->id, 'mod_assignment', 'submission', $submission->id);
+            // Let Moodle know that assessable files were  uploaded (eg for plagiarism detection)
+            $eventdata = new stdClass();
+            $eventdata->modulename   = 'assignment';
+            $eventdata->cmid         = $this->cm->id;
+            $eventdata->itemid       = $submission->id;
+            $eventdata->courseid     = $this->course->id;
+            $eventdata->userid       = $USER->id;
+            if ($files) {
+                $eventdata->files        = $files;
+            }
+            events_trigger('assessable_file_uploaded', $eventdata);
+            $returnurl  = new moodle_url('/mod/assignment/view.php', array('id'=>$this->cm->id));
+            redirect($returnurl);
         }
 
         $this->view_header(get_string('upload'));
@@ -618,82 +581,106 @@ class assignment_upload extends assignment_base {
 
         require_login($this->course, false, $this->cm);
 
-        $userid = (int)array_shift($args);
-        $relativepath = '/'.implode('/', $args);
-        $fullpath = $this->context->id.$filearea.$userid.$relativepath;
+        if ($filearea === 'submission') {
+            $submissionid = (int)array_shift($args);
 
-        $fs = get_file_storage();
-
-        if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
-            return false;
-        }
-
-        if ($filearea === 'assignment_submission') {
-            if ($USER->id != $userid and !has_capability('mod/assignment:grade', $this->context)) {
+            if (!$submission = $DB->get_record('assignment_submissions', array('assignment'=>$this->assignment->id, 'id'=>$submissionid))) {
                 return false;
             }
 
-        } else if ($filearea === 'assignment_response') {
-            if ($USER->id != $userid and !has_capability('mod/assignment:grade', $this->context)) {
+            if ($USER->id != $submission->userid and !has_capability('mod/assignment:grade', $this->context)) {
                 return false;
             }
 
-        } else {
-            return false;
+            $relativepath = implode('/', $args);
+            $fullpath = "/{$this->context->id}/mod_assignment/submission/$submission->id/$relativepath";
+
+            $fs = get_file_storage();
+            if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
+                return false;
+            }
+            send_stored_file($file, 0, 0, true); // download MUST be forced - security!
+
+        } else if ($filearea === 'response') {
+            $submissionid = (int)array_shift($args);
+
+            if (!$submission = $DB->get_record('assignment_submissions', array('assignment'=>$this->assignment->id, 'id'=>$submissionid))) {
+                return false;
+            }
+
+            if ($USER->id != $submission->userid and !has_capability('mod/assignment:grade', $this->context)) {
+                return false;
+            }
+
+            $relativepath = implode('/', $args);
+            $fullpath = "/{$this->context->id}/mod_assignment/response/$submission->id/$relativepath";
+
+            $fs = get_file_storage();
+            if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
+                return false;
+            }
+            send_stored_file($file, 0, 0, true);
         }
 
-        send_stored_file($file, 0, 0, true); // download MUST be forced - security!
+        return false;
     }
 
-    function finalize() {
+    function finalize($forcemode=null) {
         global $USER, $DB, $OUTPUT;
-
+        $userid = optional_param('userid', $USER->id, PARAM_INT);
+        $offset = optional_param('offset', 0, PARAM_INT);
         $confirm    = optional_param('confirm', 0, PARAM_BOOL);
-        $returnurl  = 'view.php?id='.$this->cm->id;
-        $submission = $this->get_submission($USER->id);
+        $returnurl  = new moodle_url('/mod/assignment/view.php', array('id'=>$this->cm->id));
+        $submission = $this->get_submission($userid);
+
+        if ($forcemode!=null) {
+            $returnurl  = new moodle_url('/mod/assignment/submissions.php',
+                array('id'=>$this->cm->id,
+                    'userid'=>$userid,
+                    'mode'=>$forcemode,
+                    'offset'=>$offset
+                ));
+        }
 
         if (!$this->can_finalize($submission)) {
-            redirect($returnurl); // probably already graded, redirect to assignment page, the reason should be obvious
+            redirect($returnurl->out(false)); // probably already graded, redirect to assignment page, the reason should be obvious
         }
 
-        if (!data_submitted() or !$confirm or !confirm_sesskey()) {
-            $optionsno = array('id'=>$this->cm->id);
-            $optionsyes = array ('id'=>$this->cm->id, 'confirm'=>1, 'action'=>'finalize', 'sesskey'=>sesskey());
-            $this->view_header(get_string('submitformarking', 'assignment'));
-            echo $OUTPUT->heading(get_string('submitformarking', 'assignment'));
-            echo $OUTPUT->confirm(get_string('onceassignmentsent', 'assignment'), new moodle_url('upload.php', $optionsyes),new moodle_url( 'view.php', $optionsno));
-            $this->view_footer();
-            die;
-
+        if ($forcemode==null) {
+            if (!data_submitted() or !$confirm or !confirm_sesskey()) {
+                $optionsno = array('id'=>$this->cm->id);
+                $optionsyes = array ('id'=>$this->cm->id, 'confirm'=>1, 'action'=>'finalize', 'sesskey'=>sesskey());
+                $this->view_header(get_string('submitformarking', 'assignment'));
+                echo $OUTPUT->heading(get_string('submitformarking', 'assignment'));
+                echo $OUTPUT->confirm(get_string('onceassignmentsent', 'assignment'), new moodle_url('upload.php', $optionsyes),new moodle_url( 'view.php', $optionsno));
+                $this->view_footer();
+                die;
+            }
         }
-        $updated = new object();
+        $updated = new stdClass();
         $updated->id           = $submission->id;
         $updated->data2        = ASSIGNMENT_STATUS_SUBMITTED;
         $updated->timemodified = time();
 
-        if ($DB->update_record('assignment_submissions', $updated)) {
-            add_to_log($this->course->id, 'assignment', 'upload', //TODO: add finalize action to log
-                    'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
-            $submission = $this->get_submission($USER->id);
-            $this->update_grade($submission);
-            $this->email_teachers($submission);
-        } else {
-            $this->view_header(get_string('submitformarking', 'assignment'));
-            echo $OUTPUT->notification(get_string('finalizeerror', 'assignment'));
-            echo $OUTPUT->continue_button($returnurl);
-            $this->view_footer();
-            die;
-        }
-        //trigger event with information about this file.
-        $eventdata = new object();
-        $eventdata->component  = 'mod/assignment';
-        $eventdata->course     = $this->course;
-        $eventdata->assignment = $this->assignment;
-        $eventdata->cm         = $this->cm;
-        $eventdata->user       = $USER;
-        events_trigger('assignment_finalize_sent', $eventdata);
+        $DB->update_record('assignment_submissions', $updated);
+        add_to_log($this->course->id, 'assignment', 'upload', //TODO: add finalize action to log
+                'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
+        $submission = $this->get_submission($userid);
+        $this->update_grade($submission);
+        $this->email_teachers($submission);
 
-        redirect($returnurl);
+        // Trigger assessable_files_done event to show files are complete
+        $eventdata = new stdClass();
+        $eventdata->modulename   = 'assignment';
+        $eventdata->cmid         = $this->cm->id;
+        $eventdata->itemid       = $submission->id;
+        $eventdata->courseid     = $this->course->id;
+        $eventdata->userid       = $userid;
+        events_trigger('assessable_files_done', $eventdata);
+
+        if ($forcemode==null) {
+            redirect($returnurl->out(false));
+        }
     }
 
     function finalizeclose() {
@@ -702,7 +689,7 @@ class assignment_upload extends assignment_base {
         $userid    = optional_param('userid', 0, PARAM_INT);
         $mode      = required_param('mode', PARAM_ALPHA);
         $offset    = required_param('offset', PARAM_INT);
-        $returnurl = "submissions.php?id={$this->cm->id}&amp;userid=$userid&amp;mode=$mode&amp;offset=$offset&amp;forcerefresh=1";
+        $returnurl  = new moodle_url('/mod/assignment/submissions.php', array('id'=>$this->cm->id, 'userid'=>$userid, 'mode'=>$mode, 'offset'=>$offset, 'forcerefresh'=>1));
 
         // create but do not add student submission date
         $submission = $this->get_submission($userid, true, true);
@@ -711,50 +698,47 @@ class assignment_upload extends assignment_base {
             redirect($returnurl); // probably closed already
         }
 
-        $updated = new object();
+        $updated = new stdClass();
         $updated->id    = $submission->id;
         $updated->data2 = ASSIGNMENT_STATUS_CLOSED;
 
-        if ($DB->update_record('assignment_submissions', $updated)) {
-            add_to_log($this->course->id, 'assignment', 'upload', //TODO: add finalize action to log
-                    'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
-            $submission = $this->get_submission($userid, false, true);
-            $this->update_grade($submission);
-        }
+        $DB->update_record('assignment_submissions', $updated);
+        add_to_log($this->course->id, 'assignment', 'upload', //TODO: add finalize action to log
+                'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
+        $submission = $this->get_submission($userid, false, true);
+        $this->update_grade($submission);
         redirect($returnurl);
     }
 
-    function unfinalize() {
+    function unfinalize($forcemode=null) {
         global $DB;
 
         $userid = required_param('userid', PARAM_INT);
         $mode   = required_param('mode', PARAM_ALPHA);
         $offset = required_param('offset', PARAM_INT);
 
-        $returnurl = "submissions.php?id={$this->cm->id}&amp;userid=$userid&amp;mode=$mode&amp;offset=$offset&amp;forcerefresh=1";
-
+        if ($forcemode!=null) {
+            $mode=$forcemode;
+        }
+        $returnurl = new moodle_url('/mod/assignment/submissions.php', array('id'=>$this->cm->id, 'userid'=>$userid, 'mode'=>$mode, 'offset'=>$offset, 'forcerefresh'=>1) );
         if (data_submitted()
           and $submission = $this->get_submission($userid)
           and $this->can_unfinalize($submission)
           and confirm_sesskey()) {
 
-            $updated = new object();
+            $updated = new stdClass();
             $updated->id = $submission->id;
             $updated->data2 = '';
-            if ($DB->update_record('assignment_submissions', $updated)) {
-                //TODO: add unfinalize action to log
-                add_to_log($this->course->id, 'assignment', 'view submission', 'submissions.php?id='.$this->assignment->id, $this->assignment->id, $this->cm->id);
-                $submission = $this->get_submission($userid);
-                $this->update_grade($submission);
-            } else {
-                $this->view_header(get_string('submitformarking', 'assignment'));
-                echo $OUTPUT->notification(get_string('unfinalizeerror', 'assignment'));
-                echo $OUTPUT->continue_button($returnurl);
-                $this->view_footer();
-                die;
-            }
+            $DB->update_record('assignment_submissions', $updated);
+            //TODO: add unfinalize action to log
+            add_to_log($this->course->id, 'assignment', 'view submission', 'submissions.php?id='.$this->assignment->id, $this->assignment->id, $this->cm->id);
+            $submission = $this->get_submission($userid);
+            $this->update_grade($submission);
         }
-        redirect($returnurl);
+
+        if ($forcemode==null) {
+            redirect($returnurl);
+        }
     }
 
 
@@ -781,7 +765,7 @@ class assignment_upload extends assignment_base {
         $offset   = required_param('offset', PARAM_INT);
         $confirm  = optional_param('confirm', 0, PARAM_BOOL);
 
-        $returnurl = "submissions.php?id={$this->cm->id}&userid=$userid&mode=$mode&offset=$offset";
+        $returnurl  = new moodle_url('/mod/assignment/submissions.php', array('id'=>$this->cm->id, 'userid'=>$userid, 'mode'=>$mode, 'offset'=>$offset));
 
         if (!$this->can_manage_responsefiles()) {
            redirect($returnurl);
@@ -800,21 +784,13 @@ class assignment_upload extends assignment_base {
             die;
         }
 
-        $fs = get_file_storage();
-        if ($file = $fs->get_file($this->context->id, 'assignment_submission', $userid, '/', $file)) {
-            if ($file->delete()) {
-                redirect($returnurl);
+        if ($submission = $this->get_submission($userid)) {
+            $fs = get_file_storage();
+            if ($file = $fs->get_file($this->context->id, 'mod_assignment', 'response', $submission->id, '/', $file)) {
+                $file->delete();
             }
         }
-
-        // print delete error
-        $PAGE->set_title(get_string('delete'));
-        echo $OUTPUT->header();
-        echo $OUTPUT->notification(get_string('deletefilefailed', 'assignment'));
-        echo $OUTPUT->continue_button($returnurl);
-        echo $OUTPUT->footer();
-        die;
-
+        redirect($returnurl);
     }
 
 
@@ -832,11 +808,11 @@ class assignment_upload extends assignment_base {
         if (empty($mode)) {
             $urlreturn = 'view.php';
             $optionsreturn = array('id'=>$this->cm->id);
-            $returnurl = 'view.php?id='.$this->cm->id;
+            $returnurl  = new moodle_url('/mod/assignment/view.php', array('id'=>$this->cm->id));
         } else {
             $urlreturn = 'submissions.php';
             $optionsreturn = array('id'=>$this->cm->id, 'offset'=>$offset, 'mode'=>$mode, 'userid'=>$userid);
-            $returnurl = "submissions.php?id={$this->cm->id}&offset=$offset&mode=$mode&userid=$userid";
+            $returnurl  = new moodle_url('/mod/assignment/submissions.php', array('id'=>$this->cm->id, 'offset'=>$offset, 'userid'=>$userid));
         }
 
         if (!$submission = $this->get_submission($userid) // incorrect submission
@@ -867,43 +843,24 @@ class assignment_upload extends assignment_base {
         }
 
         $fs = get_file_storage();
-        if ($file = $fs->get_file($this->context->id, 'assignment_submission', $userid, '/', $file)) {
-            if ($file->delete()) {
-                $submission->timemodified = time();
-                if ($DB->update_record('assignment_submissions', $submission)) {
-                    add_to_log($this->course->id, 'assignment', 'upload', //TODO: add delete action to log
-                            'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
-                    $this->update_grade($submission);
-                }
-                redirect($returnurl);
-            }
+        if ($file = $fs->get_file($this->context->id, 'mod_assignment', 'submission', $submission->id, '/', $file)) {
+            $file->delete();
+            $submission->timemodified = time();
+            $DB->update_record('assignment_submissions', $submission);
+            add_to_log($this->course->id, 'assignment', 'upload', //TODO: add delete action to log
+                    'view.php?a='.$this->assignment->id, $this->assignment->id, $this->cm->id);
+            $this->update_grade($submission);
         }
-
-        // print delete error
-        if (empty($mode)) {
-            $this->view_header(get_string('delete'));
-        } else {
-            $PAGE->set_title(get_string('delete'));
-            echo $OUTPUT->header();
-        }
-        echo $OUTPUT->notification(get_string('deletefilefailed', 'assignment'));
-        echo $OUTPUT->continue_button($returnurl);
-        if (empty($mode)) {
-            $this->view_footer();
-        } else {
-            echo $OUTPUT->footer();
-        }
-        die;
+        redirect($returnurl);
     }
 
 
     function can_upload_file($submission) {
         global $USER;
 
-        if (has_capability('mod/assignment:submit', $this->context)           // can submit
+        if (is_enrolled($this->context, $USER, 'mod/assignment:submit')
           and $this->isopen()                                                 // assignment not closed yet
-          and (empty($submission) or $submission->userid == $USER->id)        // his/her own submission
-          and $this->count_user_files($USER->id) < $this->assignment->var1    // file limit not reached
+          and (empty($submission) or ($submission->userid == $USER->id))        // his/her own submission
           and !$this->is_finalized($submission)) {                            // no uploading after final submission
             return true;
         } else {
@@ -926,7 +883,7 @@ class assignment_upload extends assignment_base {
             return true;
         }
 
-        if (has_capability('mod/assignment:submit', $this->context)
+        if (is_enrolled($this->context, $USER, 'mod/assignment:submit')
           and $this->isopen()                                      // assignment not closed yet
           and $this->assignment->resubmit                          // deleting allowed
           and $USER->id == $submission->userid                     // his/her own submission
@@ -987,11 +944,11 @@ class assignment_upload extends assignment_base {
         if (has_capability('mod/assignment:grade', $this->context)) {
             return true;
 
-        } else if (has_capability('mod/assignment:submit', $this->context)    // can submit
+        } else if (is_enrolled($this->context, $USER, 'mod/assignment:submit')
           and $this->isopen()                                                 // assignment not closed yet
           and !empty($submission)                                             // submission must exist
           and $submission->userid == $USER->id                                // his/her own submission
-          and ($this->count_user_files($USER->id)
+          and ($this->count_user_files($submission->id)
             or ($this->notes_allowed() and !empty($submission->data1)))) {    // something must be submitted
 
             return true;
@@ -1003,7 +960,7 @@ class assignment_upload extends assignment_base {
     function can_update_notes($submission) {
         global $USER;
 
-        if (has_capability('mod/assignment:submit', $this->context)
+        if (is_enrolled($this->context, $USER, 'mod/assignment:submit')
           and $this->notes_allowed()                                          // notesd must be allowed
           and $this->isopen()                                                 // assignment not closed yet
           and (empty($submission) or $USER->id == $submission->userid)        // his/her own submission
@@ -1019,9 +976,13 @@ class assignment_upload extends assignment_base {
     }
 
     function count_responsefiles($userid) {
-        $fs = get_file_storage();
-        $files = $fs->get_area_files($this->context->id, 'assignment_response', $userid, "id", false);
-        return count($files);
+        if ($submission = $this->get_submission($userid)) {
+            $fs = get_file_storage();
+            $files = $fs->get_area_files($this->context->id, 'mod_assignment', 'response', $submission->id, "id", false);
+            return count($files);
+        } else {
+            return 0;
+        }
     }
 
     function setup_elements(&$mform) {
@@ -1062,6 +1023,8 @@ class assignment_upload extends assignment_base {
         $mform->addHelpButton('var4', 'trackdrafts', 'assignment');
         $mform->setDefault('var4', 1);
 
+        $course_context = get_context_instance(CONTEXT_COURSE, $COURSE->id);
+        plagiarism_get_form_elements_module($mform, $course_context);
     }
 
     function portfolio_exportable() {
@@ -1073,7 +1036,7 @@ class assignment_upload extends assignment_base {
 
         // get users submission if there is one
         $submission = $this->get_submission();
-        if (has_capability('mod/assignment:submit', get_context_instance(CONTEXT_MODULE, $this->cm->id))) {
+        if (is_enrolled($this->context, $USER, 'mod/assignment:submit')) {
             $editable = $this->isopen() && (!$submission || $this->assignment->resubmit || !$submission->timemarked);
         } else {
             $editable = false;
@@ -1097,9 +1060,9 @@ class assignment_upload extends assignment_base {
         }
 
         // Check if the user has uploaded any files, if so we can add some more stuff to the settings nav
-        if ($submission && has_capability('mod/assignment:submit', $this->context) && $this->count_user_files($USER->id)) {
+        if ($submission && is_enrolled($this->context, $USER, 'mod/assignment:submit') && $this->count_user_files($submission->id)) {
             $fs = get_file_storage();
-            if ($files = $fs->get_area_files($this->context->id, 'assignment_submission', $USER->id, "timemodified", false)) {
+            if ($files = $fs->get_area_files($this->context->id, 'mod_assignment', 'submission', $submission->id, "timemodified", false)) {
                 if (!$this->drafts_tracked() or !$this->isopen() or $this->is_finalized($submission)) {
                     $filenode = $node->add(get_string('submission', 'assignment'));
                 } else {
@@ -1108,7 +1071,7 @@ class assignment_upload extends assignment_base {
                 foreach ($files as $file) {
                     $filename = $file->get_filename();
                     $mimetype = $file->get_mimetype();
-                    $link = file_encode_url($CFG->wwwroot.'/pluginfile.php', '/'.$this->context->id.'/assignment_submission/'.$USER->id.'/'.$filename);
+                    $link = file_encode_url($CFG->wwwroot.'/pluginfile.php', '/'.$this->context->id.'/mod_assignment/submission/'.$submission->id.'/'.$filename);
                     $filenode->add($filename, $link, navigation_node::TYPE_SETTING, null, null, new pix_icon(file_mimetype_icon($mimetype),''));
                 }
             }
@@ -1129,19 +1092,17 @@ class assignment_upload extends assignment_base {
         require_once($CFG->libdir.'/filelib.php');
         $submissions = $this->get_submissions('','');
         if (empty($submissions)) {
-            error("there are no submissions to download");
+            print_error('errornosubmissions', 'assignment');
         }
         $filesforzipping = array();
-        $filenewname = clean_filename($this->assignment->name); //create prefix of individual files
         $fs = get_file_storage();
 
-        $groupmode = groupmode($this->course,$this->cm);
+        $groupmode = groups_get_activity_groupmode($this->cm);
         $groupid = 0;   // All users
         $groupname = '';
-        if($groupmode) {
-            $group = get_current_group($this->course->id, true);
-            $groupid = $group->id;
-            $groupname = $group->name.'-';
+        if ($groupmode) {
+            $groupid = groups_get_activity_group($this->cm, true);
+            $groupname = groups_get_group_name($groupid).'-';
         }
         $filename = str_replace(' ', '_', clean_filename($this->course->shortname.'-'.$this->assignment->name.'-'.$groupname.$this->assignment->id.".zip")); //name of new zip file.
         foreach ($submissions as $submission) {
@@ -1149,11 +1110,13 @@ class assignment_upload extends assignment_base {
             if ((groups_is_member($groupid,$a_userid)or !$groupmode or !$groupid)) {
                 $a_assignid = $submission->assignment; //get name of this assignment for use in the file names.
                 $a_user = $DB->get_record("user", array("id"=>$a_userid),'id,username,firstname,lastname'); //get user firstname/lastname
-                
-                $files = $fs->get_area_files($this->context->id, 'assignment_submission', $a_userid, "timemodified", false);
+
+                $files = $fs->get_area_files($this->context->id, 'mod_assignment', 'submission', $submission->id, "timemodified", false);
                 foreach ($files as $file) {
                     //get files new name.
-                    $fileforzipname =  $a_user->username . "_" . $filenewname . "_" . $file->get_filename();
+                    $fileext = strstr($file->get_filename(), '.');
+                    $fileoriginal = str_replace($fileext, '', $file->get_filename());
+                    $fileforzipname =  clean_filename(fullname($a_user) . "_" . $fileoriginal."_".$a_userid.$fileext);
                     //save file name to array for zipping.
                     $filesforzipping[$fileforzipname] = $file;
                 }
@@ -1210,20 +1173,22 @@ class mod_assignment_upload_response_form extends moodleform {
         $instance = $this->_customdata;
 
         // visible elements
-        $mform->addElement('file', 'newfile', get_string('uploadafile'));
+        $mform->addElement('filemanager', 'files_filemanager', get_string('uploadafile'), null, $instance->options);
 
         // hidden params
         $mform->addElement('hidden', 'id', $instance->cm->id);
         $mform->setType('id', PARAM_INT);
+        $mform->addElement('hidden', 'contextid', $instance->contextid);
+        $mform->setType('contextid', PARAM_INT);
         $mform->addElement('hidden', 'action', 'uploadresponse');
         $mform->setType('action', PARAM_ALPHA);
-        $mform->addElement('hidden', 'mode');
+        $mform->addElement('hidden', 'mode', $instance->mode);
         $mform->setType('mode', PARAM_ALPHA);
-        $mform->addElement('hidden', 'offset');
+        $mform->addElement('hidden', 'offset', $instance->offset);
         $mform->setType('offset', PARAM_INT);
-        $mform->addElement('hidden', 'forcerefresh');
+        $mform->addElement('hidden', 'forcerefresh' , $instance->forcerefresh);
         $mform->setType('forcerefresh', PARAM_INT);
-        $mform->addElement('hidden', 'userid');
+        $mform->addElement('hidden', 'userid', $instance->userid);
         $mform->setType('userid', PARAM_INT);
 
         // buttons

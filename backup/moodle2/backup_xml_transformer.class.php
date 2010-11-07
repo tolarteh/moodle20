@@ -39,7 +39,7 @@ class backup_xml_transformer extends xml_contenttransformer {
         $this->absolute_links_encoders = array();
         $this->courseid = $courseid;
         // Check if we support unicode modifiers in regular expressions
-        $this->unicoderegexp = @preg_match('/\pL/u', 'a'); // This will fail silenty, returning false,
+        $this->unicoderegexp = @preg_match('/\pL/u', 'a'); // This will fail silently, returning false,
                                                            // if regexp libraries don't support unicode
         // Register all the available content link encoders
         $this->absolute_links_encoders = $this->register_link_encoders();
@@ -47,14 +47,29 @@ class backup_xml_transformer extends xml_contenttransformer {
 
     public function process($content) {
 
+        // Array or object, debug and try our best recursively, shouldn't happen but...
+        if (is_array($content)) {
+            debugging('Backup XML transformer should process arrays but plain content always', DEBUG_DEVELOPER);
+            foreach($content as $key => $plaincontent) {
+                $content[$key] = $this->process($plaincontent);
+            }
+            return $content;
+        } else if (is_object($content)) {
+            debugging('Backup XML transformer should not process objects but plain content always', DEBUG_DEVELOPER);
+            foreach((array)$content as $key => $plaincontent) {
+                $content[$key] = $this->process($plaincontent);
+            }
+            return (object)$content;
+        }
+
         if (is_null($content)) {  // Some cases we know we can skip complete processing
             return '$@NULL@$';
         } else if ($content === '') {
             return '';
         } else if (is_numeric($content)) {
             return $content;
-        } else if (strlen($content) < 36) { // Impossible to have one link in 36cc
-            return $content;                // (http://10.0.0.1/mod/url/view.php?id=)
+        } else if (strlen($content) < 32) { // Impossible to have one link in 32cc
+            return $content;                // (http://10.0.0.1/file.php/1/1.jpg, http://10.0.0.1/mod/url/view.php?id=)
         }
 
         $content = $this->process_filephp_links($content); // Replace all calls to file.php by $@FILEPHP@$ in a normalised way
@@ -65,6 +80,10 @@ class backup_xml_transformer extends xml_contenttransformer {
 
     private function process_filephp_links($content) {
         global $CFG;
+
+        if (strpos($content, 'file.php') === false) { // No file.php, nothing to convert
+            return $content;
+        }
 
         //First, we check for every call to file.php inside the course
         $search = array($CFG->wwwroot.'/file.php/' . $this->courseid,

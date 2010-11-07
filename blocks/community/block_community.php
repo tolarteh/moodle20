@@ -1,4 +1,5 @@
 <?PHP
+
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -22,17 +23,38 @@
  * @copyright  (C) 1999 onwards Martin Dougiamas  http://dougiamas.com
  *
  * The community block
-*/
+ */
 
 class block_community extends block_list {
+
     function init() {
         $this->title = get_string('pluginname', 'block_community');
-        $this->version = 2010042701;
+    }
+
+    function user_can_addto($page) {
+        // Don't allow people to add the block if they can't even use it
+        if (!has_capability('moodle/community:add', $page->context)) {
+            return false;
+        }
+
+        return parent::user_can_addto($page);
+    }
+
+    function user_can_edit() {
+        // Don't allow people to edit the block if they can't even use it
+        if (!has_capability('moodle/community:add',
+                        get_context_instance_by_id($this->instance->parentcontextid))) {
+            return false;
+        }
+        return parent::user_can_edit();
     }
 
     function get_content() {
         global $CFG, $OUTPUT, $USER;
-        if (!has_capability('moodle/community:add', get_context_instance(CONTEXT_USER, $USER->id))
+
+        $coursecontext = get_context_instance_by_id($this->instance->parentcontextid);
+
+        if (!has_capability('moodle/community:add', $coursecontext)
                 or $this->content !== NULL) {
             return $this->content;
         }
@@ -46,12 +68,13 @@ class block_community extends block_list {
             return $this->content;
         }
 
-        $searchlink = html_writer::tag('a', get_string('addcourse', 'block_community'),
-                array('href' => $CFG->wwwroot.'/blocks/community/communitycourse.php?add=true'));
-        $this->content->items[] = $searchlink;
         $icon = html_writer::empty_tag('img', array('src' => $OUTPUT->pix_url('i/group'),
-            'class' => 'icon', 'alt' => get_string('addcourse', 'block_community')));
-        $this->content->icons[] = $icon;
+                    'class' => 'icon', 'alt' => get_string('addcourse', 'block_community')));
+        $addcourseurl = new moodle_url('/blocks/community/communitycourse.php',
+                        array('add' => true, 'courseid' => $coursecontext->instanceid));
+        $searchlink = html_writer::tag('a', $icon . '&nbsp;' . get_string('addcourse', 'block_community'),
+                        array('href' => $addcourseurl->out(false)));
+        $this->content->items[] = $searchlink;
 
         require_once($CFG->dirroot . '/blocks/community/locallib.php');
         $communitymanager = new block_community_manager();
@@ -63,16 +86,18 @@ class block_community extends block_list {
             $this->content->icons[] = '';
             foreach ($courses as $course) {
                 //delete link
-                $deleteicon = html_writer::empty_tag('img', 
-                        array('src' => $OUTPUT->pix_url('i/cross_red_small'), 
-                            'alt' => get_string('removecommunitycourse', 'block_community')));
-                $deleteurl = new moodle_url($CFG->wwwroot.'/blocks/community/communitycourse.php',
-                        array('remove'=>true, 'communityid'=> $course->id, 'sesskey' => sesskey()));
+                $deleteicon = html_writer::empty_tag('img',
+                                array('src' => $OUTPUT->pix_url('t/delete'),
+                                    'alt' => get_string('removecommunitycourse', 'block_community')));
+                $deleteurl = new moodle_url('/blocks/community/communitycourse.php',
+                                array('remove' => true,
+                                    'courseid' => $coursecontext->instanceid,
+                                    'communityid' => $course->id, 'sesskey' => sesskey()));
                 $deleteatag = html_writer::tag('a', $deleteicon, array('href' => $deleteurl));
 
                 $courselink = html_writer::tag('a', $course->coursename,
-                array('href' => $course->courseurl));
-                $this->content->items[] = $courselink .$deleteatag;
+                                array('href' => $course->courseurl));
+                $this->content->items[] = $courselink . ' ' . $deleteatag;
                 $this->content->icons[] = '';
             }
         }

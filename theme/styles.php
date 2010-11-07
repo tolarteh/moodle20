@@ -77,8 +77,8 @@ require_once('Minify.php');
 $theme = theme_config::load($themename);
 
 if ($type === 'editor') {
-    $css = $theme->editor_css_content();
-    store_css($candidatesheet, $css);
+    $files = $theme->editor_css_files();
+    store_css($theme, $candidatesheet, $files);
 } else {
     $css = $theme->css_files();
     $allfiles = array();
@@ -109,7 +109,7 @@ send_cached_css($candidatesheet, $rev);
 
 function store_css(theme_config $theme, $csspath, $cssfiles) {
     $css = $theme->post_process(minify($cssfiles));
-    check_dir_exists(dirname($csspath), true, true);
+    check_dir_exists(dirname($csspath));
     $fp = fopen($csspath, 'w');
     fwrite($fp, $css);
     fclose($fp);

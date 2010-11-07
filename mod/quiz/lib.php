@@ -104,6 +104,7 @@ define("QUIZ_MAX_EVENT_LENGTH", 5*24*60*60);   // 5 days maximum
  */
 function quiz_add_instance($quiz) {
     global $DB;
+    $cmid = $quiz->coursemodule;
 
     // Process the options from the form.
     $quiz->created = time();
@@ -259,7 +260,7 @@ function quiz_update_effective_access($quiz, $userid) {
     $override = $DB->get_record('quiz_overrides', array('quiz' => $quiz->id, 'userid' => $userid));
 
     if (!$override) {
-        $override = new stdclass;
+        $override = new stdClass();
         $override->timeopen = null;
         $override->timeclose = null;
         $override->timelimit = null;
@@ -577,7 +578,7 @@ function quiz_update_grades($quiz, $userid=0, $nullifnone=true) {
         quiz_grade_item_update($quiz, $grades);
 
     } else if ($userid and $nullifnone) {
-        $grade = new object();
+        $grade = new stdClass();
         $grade->userid   = $userid;
         $grade->rawgrade = NULL;
         quiz_grade_item_update($quiz, $grade);
@@ -821,10 +822,9 @@ function quiz_get_recent_mod_activity(&$activities, &$index, $timestart,
         $groupjoin   = '';
     }
 
-    $params = array(
-        'timestart' => $timestart,
-        'quizid' => $quiz->id
-    );
+    $params['timestart'] = $timestart;
+    $params['quizid'] = $quiz->id;
+
     if (!$attempts = $DB->get_records_sql("
               SELECT qa.*,
                      u.firstname, u.lastname, u.email, u.picture, u.imagealt
@@ -895,12 +895,13 @@ function quiz_get_recent_mod_activity(&$activities, &$index, $timestart,
             $tmpactivity->content->maxgrade  = null;
         }
 
-        $tmpactivity->user->id   = $attempt->id;
+        $tmpactivity->user->id        = $attempt->userid;
         $tmpactivity->user->firstname = $attempt->firstname;
         $tmpactivity->user->lastname = $attempt->lastname;
         $tmpactivity->user->fullname = fullname($attempt, $viewfullnames);
         $tmpactivity->user->picture  = $attempt->picture;
         $tmpactivity->user->imagealt = $attempt->imagealt;
+        $tmpactivity->user->email = $attempt->email;
 
         $activities[$index++] = $tmpactivity;
     }
@@ -982,10 +983,10 @@ function quiz_process_options(&$quiz) {
     if (isset($quiz->feedbacktext)) {
         // Clean up the boundary text.
         for ($i = 0; $i < count($quiz->feedbacktext); $i += 1) {
-            if (empty($quiz->feedbacktext[$i])) {
-                $quiz->feedbacktext[$i] = '';
+            if (empty($quiz->feedbacktext[$i]['text'])) {
+                $quiz->feedbacktext[$i]['text'] = '';
             } else {
-                $quiz->feedbacktext[$i] = trim($quiz->feedbacktext[$i]);
+                $quiz->feedbacktext[$i]['text'] = trim($quiz->feedbacktext[$i]['text']);
             }
         }
 
@@ -1023,7 +1024,7 @@ function quiz_process_options(&$quiz) {
             }
         }
         for ($i = $numboundaries + 1; $i < count($quiz->feedbacktext); $i += 1) {
-            if (!empty($quiz->feedbacktext[$i]) && trim($quiz->feedbacktext[$i]) != '') {
+            if (!empty($quiz->feedbacktext[$i]['text']) && trim($quiz->feedbacktext[$i]['text']) != '') {
                 return get_string('feedbackerrorjunkinfeedback', 'quiz', $i + 1);
             }
         }
@@ -1145,17 +1146,25 @@ function quiz_process_options(&$quiz) {
  */
 function quiz_after_add_or_update($quiz) {
     global $DB;
+    $cmid = $quiz->coursemodule;
+
+    // we need to use context now, so we need to make sure all needed info is already in db
+    $DB->set_field('course_modules', 'instance', $quiz->id, array('id'=>$cmid));
+    $context = get_context_instance(CONTEXT_MODULE, $cmid);
 
     // Save the feedback
     $DB->delete_records('quiz_feedback', array('quizid' => $quiz->id));
 
-    for ($i = 0; $i <= $quiz->feedbackboundarycount; $i += 1) {
+    for ($i = 0; $i <= $quiz->feedbackboundarycount; $i++) {
         $feedback = new stdClass;
         $feedback->quizid = $quiz->id;
-        $feedback->feedbacktext = $quiz->feedbacktext[$i];
+        $feedback->feedbacktext = $quiz->feedbacktext[$i]['text'];
+        $feedback->feedbacktextformat = $quiz->feedbacktext[$i]['format'];
         $feedback->mingrade = $quiz->feedbackboundaries[$i];
         $feedback->maxgrade = $quiz->feedbackboundaries[$i - 1];
-        $DB->insert_record('quiz_feedback', $feedback, false);
+        $feedback->id = $DB->insert_record('quiz_feedback', $feedback);
+        $feedbacktext = file_save_draft_area_files((int)$quiz->feedbacktext[$i]['itemid'], $context->id, 'mod_quiz', 'feedback', $feedback->id, array('subdirs'=>false, 'maxfiles'=>-1, 'maxbytes'=>0), $quiz->feedbacktext[$i]['text']);
+        $DB->set_field('quiz_feedback', 'feedbacktext', $feedbacktext, array('id'=>$feedback->id));
     }
 
     // Update the events relating to this quiz.
@@ -1369,7 +1378,7 @@ function quiz_reset_gradebook($courseid, $type='') {
 }
 
 /**
- * Actual implementation of the rest coures functionality, delete all the
+ * Actual implementation of the reset course functionality, delete all the
  * quiz attempts for course $data->courseid, if $data->reset_quiz_attempts is
  * set and true.
  *
@@ -1421,23 +1430,44 @@ function quiz_reset_userdata($data) {
  * @param int $questionid int question id
  * @return boolean to indicate access granted or denied
  */
-function quiz_check_file_access($attemptuniqueid, $questionid) {
-    global $USER, $DB;
+function quiz_check_file_access($attemptuniqueid, $questionid, $context = null) {
+    global $USER, $DB, $CFG;
+    require_once(dirname(__FILE__).'/attemptlib.php');
+    require_once(dirname(__FILE__).'/locallib.php');
 
     $attempt = $DB->get_record('quiz_attempts', array('uniqueid' => $attemptuniqueid));
-    $quiz = $DB->get_record('quiz', array('id' => $attempt->quiz));
-    $context = get_context_instance(CONTEXT_COURSE, $quiz->course);
+    $attemptobj = quiz_attempt::create($attempt->id);
 
-    // access granted if the current user submitted this file
-    if ($attempt->userid == $USER->id) {
-        return true;
-    // access granted if the current user has permission to grade quizzes in this course
-    } else if (has_capability('mod/quiz:viewreports', $context) || has_capability('mod/quiz:grade', $context)) {
-        return true;
+    // does question exist?
+    if (!$question = $DB->get_record('question', array('id' => $questionid))) {
+        return false;
     }
 
-    // otherwise, this user does not have permission
-    return false;
+    if ($context === null) {
+        $quiz = $DB->get_record('quiz', array('id' => $attempt->quiz));
+        $cm = get_coursemodule_from_id('quiz', $quiz->id);
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+    }
+
+    // Load those questions and the associated states.
+    $attemptobj->load_questions(array($questionid));
+    $attemptobj->load_question_states(array($questionid));
+
+    // obtain state
+    $state = $attemptobj->get_question_state($questionid);
+    // obtain questoin
+    $question = $attemptobj->get_question($questionid);
+
+    // access granted if the current user submitted this file
+    if ($attempt->userid != $USER->id) {
+        return false;
+    // access granted if the current user has permission to grade quizzes in this course
+    }
+    if (!(has_capability('mod/quiz:viewreports', $context) || has_capability('mod/quiz:grade', $context))) {
+        return false;
+    }
+
+    return array($question, $state, array());
 }
 
 /**
@@ -1510,9 +1540,6 @@ function quiz_print_overview($courses, &$htmlarray) {
  * Return a textual summary of the number of attemtps that have been made at a particular quiz,
  * returns '' if no attemtps have been made yet, unless $returnzero is passed as true.
  *
- * @global stdClass
- * @global object
- * @global object
  * @param object $quiz the quiz object. Only $quiz->id is used at the moment.
  * @param object $cm the cm object. Only $cm->course, $cm->groupmode and $cm->groupingid fields are used at the moment.
  * @param boolean $returnzero if false (default), when no attempts have been made '' is returned instead of 'Attempts: 0'.
@@ -1522,7 +1549,7 @@ function quiz_print_overview($courses, &$htmlarray) {
  *          "Attemtps 123 (45 from this group)".
  */
 function quiz_num_attempt_summary($quiz, $cm, $returnzero = false, $currentgroup = 0) {
-    global $CFG, $USER, $DB;
+    global $DB, $USER;
     $numattempts = $DB->count_records('quiz_attempts', array('quiz'=> $quiz->id, 'preview'=>0));
     if ($numattempts || $returnzero) {
         if (groups_get_activity_groupmode($cm)) {
@@ -1549,13 +1576,31 @@ function quiz_num_attempt_summary($quiz, $cm, $returnzero = false, $currentgroup
 }
 
 /**
- * @uses FEATURE_GROUPS
- * @uses FEATURE_GROUPINGS
- * @uses FEATURE_GROUPMEMBERSONLY
- * @uses FEATURE_MOD_INTRO
- * @uses FEATURE_COMPLETION_TRACKS_VIEWS
- * @uses FEATURE_GRADE_HAS_GRADE
- * @uses FEATURE_GRADE_OUTCOMES
+ * Returns the same as {@link quiz_num_attempt_summary()} but wrapped in a link
+ * to the quiz reports.
+ *
+ * @param object $quiz the quiz object. Only $quiz->id is used at the moment.
+ * @param object $cm the cm object. Only $cm->course, $cm->groupmode and $cm->groupingid fields are used at the moment.
+ * @param object $context the quiz context.
+ * @param boolean $returnzero if false (default), when no attempts have been made '' is returned instead of 'Attempts: 0'.
+ * @param int $currentgroup if there is a concept of current group where this method is being called
+ *         (e.g. a report) pass it in here. Default 0 which means no current group.
+ * @return string HTML fragment for the link.
+ */
+function quiz_attempt_summary_link_to_reports($quiz, $cm, $context, $returnzero = false, $currentgroup = 0) {
+    global $CFG;
+    $summary = quiz_num_attempt_summary($quiz, $cm, $returnzero, $currentgroup);
+    if (!$summary) {
+        return '';
+    }
+
+    require_once($CFG->dirroot . '/mod/quiz/report/reportlib.php');
+    $url = new moodle_url('/mod/quiz/report.php', array(
+            'id' => $cm->id, 'mode' => quiz_report_default_report($context)));
+    return html_writer::link($url, $summary);
+}
+
+/**
  * @param string $feature FEATURE_xx constant for requested feature
  * @return bool True if quiz supports feature
  */
@@ -1568,6 +1613,7 @@ function quiz_supports($feature) {
         case FEATURE_COMPLETION_TRACKS_VIEWS: return true;
         case FEATURE_GRADE_HAS_GRADE:         return true;
         case FEATURE_GRADE_OUTCOMES:          return true;
+        case FEATURE_BACKUP_MOODLE2:          return true;
 
         default: return null;
     }
@@ -1589,7 +1635,7 @@ function quiz_get_extra_capabilities() {
 }
 
 /**
- * This fucntion extends the global navigaiton for the site.
+ * This fucntion extends the global navigation for the site.
  * It is important to note that you should not rely on PAGE objects within this
  * body of code as there is no guarantee that during an AJAX request they are
  * available
@@ -1597,7 +1643,7 @@ function quiz_get_extra_capabilities() {
  * @param navigation_node $quiznode The quiz node within the global navigation
  * @param stdClass $course The course object returned from the DB
  * @param stdClass $module The module object returned from the DB
- * @param stdClass $cm The course module isntance returned from the DB
+ * @param stdClass $cm The course module instance returned from the DB
  */
 function quiz_extend_navigation($quiznode, $course, $module, $cm) {
     global $CFG;
@@ -1606,22 +1652,22 @@ function quiz_extend_navigation($quiznode, $course, $module, $cm) {
 
     if (has_capability('mod/quiz:view', $context)) {
         $url = new moodle_url('/mod/quiz/view.php', array('id'=>$cm->id));
-        $quiznode->add(get_string('info', 'quiz'), $url, navigation_node::TYPE_SETTING, null, null, new pix_icon('i/info', ''));
+        $quiznode->add(get_string('info', 'quiz'), $url, navigation_node::TYPE_SETTING,
+                null, null, new pix_icon('i/info', ''));
     }
 
     if (has_capability('mod/quiz:viewreports', $context)) {
-        $url = new moodle_url('/mod/quiz/report.php', array('q'=>$cm->instance));
-        $reportnode = $quiznode->add(get_string('results', 'quiz'), $url, navigation_node::TYPE_SETTING, null, null, new pix_icon('i/report', ''));
-
         require_once($CFG->dirroot.'/mod/quiz/report/reportlib.php');
         $reportlist = quiz_report_list($context);
+
+        $url = new moodle_url('/mod/quiz/report.php', array('id' => $cm->id, 'mode' => reset($reportlist)));
+        $reportnode = $quiznode->add(get_string('results', 'quiz'), $url, navigation_node::TYPE_SETTING,
+                null, null, new pix_icon('i/report', ''));
+
         foreach ($reportlist as $report) {
-            if ($report != 'overview') {
-                $url = new moodle_url('/mod/quiz/report.php', array('q'=>$cm->instance, 'mode'=>$report));
-            } else {
-                $url = new moodle_url('/mod/quiz/report.php', array('q'=>$cm->instance));
-            }
-            $reportnode->add(get_string($report, 'quiz_'.$report), $url, navigation_node::TYPE_SETTING, null, null, new pix_icon('i/item', ''));
+            $url = new moodle_url('/mod/quiz/report.php', array('id' => $cm->id, 'mode' => $report));
+            $reportnode->add(get_string($report, 'quiz_'.$report), $url, navigation_node::TYPE_SETTING,
+                    null, 'quiz_report_' . $report, new pix_icon('i/item', ''));
         }
     }
 }
@@ -1645,28 +1691,120 @@ function quiz_extend_settings_navigation($settings, $quiznode) {
     require_once($CFG->libdir . '/questionlib.php');
 
     if (has_capability('mod/quiz:manageoverrides', $PAGE->cm->context)) {
-        $overrides = $quiznode->add(get_string('settingsoverrides', 'quiz'), null, navigation_node::TYPE_CONTAINER, null, 'overrides');
-
         $url = new moodle_url('/mod/quiz/overrides.php', array('cmid'=>$PAGE->cm->id));
-        $overrides->add(get_string('groupoverrides', 'quiz'), $url, navigation_node::TYPE_SETTING, null, 'groupoverrides');
-        $overrides->add(get_string('useroverrides', 'quiz'), new moodle_url($url, array('mode'=>'user')), navigation_node::TYPE_SETTING, null, 'useroverrides');
+        $quiznode->add(get_string('groupoverrides', 'quiz'), new moodle_url($url, array('mode'=>'group')),
+                navigation_node::TYPE_SETTING, null, 'groupoverrides');
+        $quiznode->add(get_string('useroverrides', 'quiz'), new moodle_url($url, array('mode'=>'user')),
+                navigation_node::TYPE_SETTING, null, 'useroverrides');
     }
 
     if (has_capability('mod/quiz:manage', $PAGE->cm->context)) {
-        $editnode = $quiznode->add(get_string('edit'), null, navigation_node::TYPE_CONTAINER, null, 'quizedit');
-        
         $url = new moodle_url('/mod/quiz/edit.php', array('cmid'=>$PAGE->cm->id));
-        $text = get_string("editinga", "moodle", get_string('modulename', 'quiz'));
-        $editnode->add($text, $url, navigation_node::TYPE_SETTING, null, 'edit', new pix_icon('t/edit', ''));
-
-        $url = new moodle_url('/mod/quiz/edit.php', array('cmid'=>$PAGE->cm->id, 'reordertool'=>'1'));
-        $editnode->add(get_string('orderandpaging','quiz'), $url, navigation_node::TYPE_SETTING, null, 'reorder', new pix_icon('t/edit', ''));
+        $text = get_string('editquiz', 'quiz');
+        $quiznode->add($text, $url, navigation_node::TYPE_SETTING, null,
+                'mod_quiz_edit', new pix_icon('t/edit', ''));
     }
 
     if (has_capability('mod/quiz:preview', $PAGE->cm->context)) {
         $url = new moodle_url('/mod/quiz/startattempt.php', array('cmid'=>$PAGE->cm->id, 'sesskey'=>sesskey()));
-        $quiznode->add(get_string('preview', 'quiz'), $url, navigation_node::TYPE_SETTING, null, 'preview', new pix_icon('t/preview', ''));
+        $quiznode->add(get_string('preview', 'quiz'), $url, navigation_node::TYPE_SETTING,
+                null, 'mod_quiz_preview', new pix_icon('t/preview', ''));
     }
 
-    question_extend_settings_navigation($quiznode, $PAGE->context)->trim_if_empty();
+    question_extend_settings_navigation($quiznode, $PAGE->cm->context)->trim_if_empty();
+}
+
+/**
+ * Serves the quiz files.
+ *
+ * @param object $course
+ * @param object $cm
+ * @param object $context
+ * @param string $filearea
+ * @param array $args
+ * @param bool $forcedownload
+ * @return bool false if file not found, does not return if found - justsend the file
+ */
+function quiz_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload) {
+    global $CFG, $DB;
+
+    if ($context->contextlevel != CONTEXT_MODULE) {
+        return false;
+    }
+
+    require_login($course, false, $cm);
+
+    if (!$quiz = $DB->get_record('quiz', array('id'=>$cm->instance))) {
+        return false;
+    }
+
+    // 'intro' area is served by pluginfile.php
+    $fileareas = array('feedback');
+    if (!in_array($filearea, $fileareas)) {
+        return false;
+    }
+
+    $feedbackid = (int)array_shift($args);
+    if (!$feedback = $DB->get_record('quiz_feedback', array('id'=>$feedbackid))) {
+        return false;
+    }
+
+    $fs = get_file_storage();
+    $relativepath = implode('/', $args);
+    $fullpath = "/$context->id/mod_quiz/$filearea/$feedbackid/$relativepath";
+    if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
+        return false;
+    }
+    send_stored_file($file, 0, 0, true);
+}
+
+/**
+ * Called via pluginfile.php -> question_pluginfile to serve files belonging to
+ * a question in a question_attempt when that attempt is a quiz attempt.
+ *
+ * @param object $course course settings object
+ * @param object $context context object
+ * @param string $component the name of the component we are serving files for.
+ * @param string $filearea the name of the file area.
+ * @param array $args the remaining bits of the file path.
+ * @param bool $forcedownload whether the user must be forced to download the file.
+ * @return bool false if file not found, does not return if found - justsend the file
+ */
+function quiz_question_pluginfile($course, $context, $component,
+        $filearea, $attemptid, $questionid, $args, $forcedownload) {
+    global $USER, $CFG;
+    require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+
+    $attemptobj = quiz_attempt::create($attemptid);
+    require_login($attemptobj->get_courseid(), false, $attemptobj->get_cm());
+    $questionids = array($questionid);
+    $attemptobj->load_questions($questionids);
+    $attemptobj->load_question_states($questionids);
+
+    if ($attemptobj->is_own_attempt() && !$attemptobj->is_finished()) {
+        // In the middle of an attempt.
+        if (!$attemptobj->is_preview_user()) {
+            $attemptobj->require_capability('mod/quiz:attempt');
+        }
+        $isreviewing = false;
+
+    } else {
+        // Reviewing an attempt.
+        $attemptobj->check_review_capability();
+        $isreviewing = true;
+    }
+
+    if (!$attemptobj->check_file_access($questionid, $isreviewing, $context->id,
+            $component, $filearea, $args, $forcedownload)) {
+        send_file_not_found();
+    }
+
+    $fs = get_file_storage();
+    $relativepath = implode('/', $args);
+    $fullpath = "/$context->id/$component/$filearea/$relativepath";
+    if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
+        send_file_not_found();
+    }
+
+    send_stored_file($file, 0, 0, $forcedownload);
 }

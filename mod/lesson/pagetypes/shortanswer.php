@@ -18,10 +18,13 @@
 /**
  * Short answer
  *
- * @package   lesson
- * @copyright 2009 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage lesson
+ * @copyright  2009 Sam Hemelryk
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  **/
+
+defined('MOODLE_INTERNAL') || die();
 
  /** Short answer question type */
 define("LESSON_PAGE_SHORTANSWER",   "1");
@@ -93,7 +96,7 @@ class lesson_page_type_shortanswer extends lesson_page {
                 $expectedanswer = str_replace('#####', '.*', $expectedanswer);
             }
             // see if user typed in any of the correct answers
-            if ((!$this->lesson->custom && $this->lesson->jumpto_is_correct($pageid, $answer->jumpto)) or ($this->lesson->custom && $answer->score > 0) ) {
+            if ((!$this->lesson->custom && $this->lesson->jumpto_is_correct($this->properties->id, $answer->jumpto)) or ($this->lesson->custom && $answer->score > 0) ) {
                 if (!$useregexp) { // we are using 'normal analysis', which ignores case
                     if (preg_match('/^'.$expectedanswer.'$/i',$studentanswer)) {
                         $ismatch = true;
@@ -190,12 +193,12 @@ class lesson_page_type_shortanswer extends lesson_page {
             } else {
                 $cells[] = '<span class="labelcorrect">'.get_string("answer", "lesson")." $i</span>: \n";
             }
-            $cells[] = format_text($answer->answer, FORMAT_MOODLE, $options);
+            $cells[] = format_text($answer->answer, $answer->answerformat, $options);
             $table->data[] = new html_table_row($cells);
 
             $cells = array();
             $cells[] = "<span class=\"label\">".get_string("response", "lesson")." $i</span>";
-            $cells[] = format_text($answer->response, FORMAT_MOODLE, $options);
+            $cells[] = format_text($answer->response, $answer->responseformat, $options);
             $table->data[] = new html_table_row($cells);
 
             $cells = array();
@@ -307,15 +310,15 @@ class lesson_add_page_form_shortanswer extends lesson_add_page_form_base {
 
     public function custom_definition() {
 
-        $this->_form->addElement('checkbox', 'qoption', get_string('options', 'lesson'), get_string('casesensitive', 'lesson'));
-        $this->_form->setDefault('qoption', true);
+        $this->_form->addElement('checkbox', 'qoption', get_string('options', 'lesson'), get_string('casesensitive', 'lesson')); //oh my, this is a regex option!
+        $this->_form->setDefault('qoption', 0);
         $this->_form->addHelpButton('qoption', 'casesensitive', 'lesson');
 
         for ($i = 0; $i < $this->_customdata['lesson']->maxanswers; $i++) {
             $this->_form->addElement('header', 'answertitle'.$i, get_string('answer').' '.($i+1));
             $this->add_answer($i);
             $this->add_response($i);
-            $this->add_jumpto($i);
+            $this->add_jumpto($i, NULL, ($i == 0 ? LESSON_NEXTPAGE : LESSON_THISPAGE));
             $this->add_score($i, null, ($i===0)?1:0);
         }
     }

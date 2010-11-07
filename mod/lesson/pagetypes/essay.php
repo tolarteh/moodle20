@@ -18,12 +18,15 @@
 /**
  * Essay
  *
- * @package   lesson
- * @copyright 2009 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage lesson
+ * @copyright  2009 Sam Hemelryk
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  **/
 
- /** Essay question type */
+defined('MOODLE_INTERNAL') || die();
+
+/** Essay question type */
 define("LESSON_PAGE_ESSAY", "10");
 
 class lesson_page_type_essay extends lesson_page {
@@ -46,7 +49,7 @@ class lesson_page_type_essay extends lesson_page {
         return $this->typeidstring;
     }
     public function display($renderer, $attempt) {
-        global $PAGE, $CFG;
+        global $PAGE, $CFG, $USER;
 
         $mform = new lesson_display_answer_form_essay($CFG->wwwroot.'/mod/lesson/continue.php', array('contents'=>$this->get_contents()));
 
@@ -120,7 +123,7 @@ class lesson_page_type_essay extends lesson_page {
         $answers  = $this->get_answers();
         $properties->id = $this->properties->id;
         $properties->lessonid = $this->lesson->id;
-        $properties = file_postupdate_standard_editor($properties, 'contents', array('noclean'=>true, 'maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$PAGE->course->maxbytes), get_context_instance(CONTEXT_MODULE, $PAGE->cm->id), 'lesson_page_contents', $properties->id);
+        $properties = file_postupdate_standard_editor($properties, 'contents', array('noclean'=>true, 'maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$PAGE->course->maxbytes), get_context_instance(CONTEXT_MODULE, $PAGE->cm->id), 'mod_lesson', 'page_contents', $properties->id);
         $DB->update_record("lesson_pages", $properties);
 
         if (!array_key_exists(0, $this->answers)) {
@@ -215,7 +218,7 @@ class lesson_page_type_essay extends lesson_page {
     }
     public function is_unanswered($nretakes) {
         global $DB, $USER;
-        if (!$DB->count_records("lesson_attempts", array('pageid'=>$thispage->id, 'userid'=>$USER->id, 'retry'=>$nretakes))) {
+        if (!$DB->count_records("lesson_attempts", array('pageid'=>$this->properties->id, 'userid'=>$USER->id, 'retry'=>$nretakes))) {
             return true;
         }
         return false;
@@ -262,7 +265,7 @@ class lesson_display_answer_form_essay extends moodleform {
         $mform->setType('pageid', PARAM_INT);
 
         $mform->addElement('editor', 'answer', get_string('youranswer', 'lesson'), null, null);
-        $mform->setType('answer', PARAM_CLEANHTML);
+        $mform->setType('answer', PARAM_RAW);
 
         $this->add_action_buttons(null, get_string("pleaseenteryouranswerinthebox", "lesson"));
     }

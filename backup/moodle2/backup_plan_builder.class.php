@@ -22,6 +22,8 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
+
 require_once($CFG->dirroot . '/backup/moodle2/backup_root_task.class.php');
 require_once($CFG->dirroot . '/backup/moodle2/backup_activity_task.class.php');
 require_once($CFG->dirroot . '/backup/moodle2/backup_section_task.class.php');
@@ -30,6 +32,9 @@ require_once($CFG->dirroot . '/backup/moodle2/backup_final_task.class.php');
 require_once($CFG->dirroot . '/backup/moodle2/backup_block_task.class.php');
 require_once($CFG->dirroot . '/backup/moodle2/backup_default_block_task.class.php');
 require_once($CFG->dirroot . '/backup/moodle2/backup_xml_transformer.class.php');
+require_once($CFG->dirroot . '/backup/moodle2/backup_plugin.class.php');
+require_once($CFG->dirroot . '/backup/moodle2/backup_qtype_plugin.class.php');
+require_once($CFG->dirroot . '/backup/moodle2/backup_subplugin.class.php');
 require_once($CFG->dirroot . '/backup/moodle2/backup_settingslib.php');
 require_once($CFG->dirroot . '/backup/moodle2/backup_stepslib.php');
 require_once($CFG->dirroot . '/backup/moodle2/backup_custom_fields.php');
@@ -37,8 +42,11 @@ require_once($CFG->dirroot . '/backup/moodle2/backup_custom_fields.php');
 // Load all the activity tasks for moodle2 format
 $mods = get_plugin_list('mod');
 foreach ($mods as $mod => $moddir) {
+    $taskpath = $moddir . '/backup/moodle2/backup_' . $mod . '_activity_task.class.php';
     if (plugin_supports('mod', $mod, FEATURE_BACKUP_MOODLE2)) {
-        require_once($moddir . '/backup/moodle2/backup_' . $mod . '_activity_task.class.php');
+        if (file_exists($taskpath)) {
+            require_once($taskpath);
+        }
     }
 }
 
@@ -82,7 +90,7 @@ abstract class backup_plan_builder {
                 break;
         }
 
-        // Add the final task, responsible for outputing
+        // Add the final task, responsible for outputting
         // all the global xml files (groups, users,
         // gradebook, questions, roles, files...) and
         // the main moodle_backup.xml file
@@ -107,7 +115,7 @@ abstract class backup_plan_builder {
 
         $plan = $controller->get_plan();
 
-        // Add the activity task, responsible for outputing
+        // Add the activity task, responsible for outputting
         // all the module related information
         $plan->add_task(backup_factory::get_backup_activity_task($controller->get_format(), $id));
 
@@ -125,7 +133,7 @@ abstract class backup_plan_builder {
 
         $plan = $controller->get_plan();
 
-        // Add the section task, responsible for outputing
+        // Add the section task, responsible for outputting
         // all the section related information
         $plan->add_task(backup_factory::get_backup_section_task($controller->get_format(), $id));
 
@@ -147,7 +155,7 @@ abstract class backup_plan_builder {
 
         $plan = $controller->get_plan();
 
-        // Add the course task, responsible for outputing
+        // Add the course task, responsible for outputting
         // all the course related information
         $plan->add_task(backup_factory::get_backup_course_task($controller->get_format(), $id));
 

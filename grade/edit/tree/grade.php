@@ -41,6 +41,7 @@ if (!$course = $DB->get_record('course', array('id' => $courseid))) {
     print_error('nocourseid');
 }
 
+$PAGE->set_pagelayout('incourse');
 require_login($course);
 $context = get_context_instance(CONTEXT_COURSE, $course->id);
 if (!has_capability('moodle/grade:manage', $context)) {
@@ -103,7 +104,7 @@ if ($grade = $DB->get_record('grade_grades', array('itemid' => $grade_item->id, 
         if (empty($grade->feedback)) {
             $grade->feedback  = '';
         } else {
-            $options = new object();
+            $options = new stdClass();
             $options->smiley  = false;
             $options->filter  = false;
             $options->noclean = false;
@@ -181,12 +182,12 @@ if ($mform->is_cancelled()) {
         $data->finalgrade = unformat_float($data->finalgrade);
 
     } else {
-        //this shoul not happen
+        //this should not happen
         $data->finalgrade = $old_grade_grade->finalgrade;
     }
 
     // the overriding of feedback is tricky - we have to care about external items only
-    if (!array_key_exists('feedback', $data) or $data->feedback == $data->oldfeedback) {
+    if (!property_exists($data, 'feedback') or $data->feedback == $data->oldfeedback) {
         $data->feedback       = $old_grade_grade->feedback;
         $data->feedbackformat = $old_grade_grade->feedbackformat;
     }
@@ -253,7 +254,7 @@ if ($mform->is_cancelled()) {
         $parent = $grade_item->get_parent_category();
         $parent->force_regrading();
 
-    } else if ($old_grade_grade->overridden != $grade_grade->overridden and empty($grade_grade->overridden)) { // only when unoverriding
+    } else if ($old_grade_grade->overridden != $grade_grade->overridden and empty($grade_grade->overridden)) { // only when unoverridding
         $grade_item->force_regrading();
 
     } else if ($old_grade_grade->locktime != $grade_grade->locktime) {

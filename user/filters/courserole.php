@@ -47,7 +47,6 @@ class user_filter_courserole extends user_filter_type {
         $objs[] =& $mform->createElement('select', $this->_name .'_ct', null, $this->get_course_categories());
         $objs[] =& $mform->createElement('text', $this->_name, null);
         $grp =& $mform->addElement('group', $this->_name.'_grp', $this->_label, $objs, '', false);
-        $mform->setHelpButton($this->_name.'_grp', array('courserole', $this->_label, 'filters'));
         if ($this->_advanced) {
             $mform->setAdvanced($this->_name.'_grp');
         }
@@ -86,8 +85,8 @@ class user_filter_courserole extends user_filter_type {
         $name = 'ex_courserole'.$counter++;
 
         $value      = $data['value'];
-        $roleid     = (int)$data['roleid'];
-        $categoryid = (int)$data['categoryid'];
+        $roleid     = $data['roleid'];
+        $categoryid = $data['categoryid'];
 
         $params = array();
 
@@ -95,16 +94,18 @@ class user_filter_courserole extends user_filter_type {
             return array('', $params);
         }
 
-        $timenow = round(time(), 100); // rounding - enable sql caching
-        $where = "b.contextlevel=50 AND a.timestart<$timenow AND (a.timeend=0 OR a.timeend>$timenow)";
+        $where = "b.contextlevel=50";
         if ($roleid) {
-            $where .= " AND a.roleid=$roleid";
+            $where .= " AND a.roleid = :roleid";
+            $params['roleid'] = $roleid;
+
         }
         if ($categoryid) {
-            $where .= " AND c.category=$categoryid";
+            $where .= " AND c.category = :categoryid";
+            $params['categoryid'] = $categoryid;
         }
         if ($value) {
-            $where .= " AND c.shortname ".$DB->sql_ilike()." :$name";
+            $where .= " AND c.shortname = :$name";
             $params[$name] = $value;
         }
         return array("id IN (SELECT userid
@@ -126,7 +127,7 @@ class user_filter_courserole extends user_filter_type {
         $roleid     = $data['roleid'];
         $categoryid = $data['categoryid'];
 
-        $a = new object();
+        $a = new stdClass();
         $a->label = $this->_label;
 
         if ($roleid) {

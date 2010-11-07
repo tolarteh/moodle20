@@ -12,7 +12,7 @@ require_once($CFG->dirroot . '/mod/quiz/locallib.php');
 
 $attemptid = required_param('attempt', PARAM_INT); // The attempt to summarise.
 
-$PAGE->set_url('/mod/quiz/summary.php', array('attempt'=>$attemptid));
+$PAGE->set_url('/mod/quiz/summary.php', array('attempt' => $attemptid));
 
 $attemptobj = quiz_attempt::create($attemptid);
 
@@ -27,6 +27,10 @@ if ($attemptobj->get_userid() != $USER->id) {
 /// If the attempt is alreadyuj closed, redirect them to the review page.
 if ($attemptobj->is_finished()) {
     redirect($attemptobj->review_url());
+}
+
+if ($attemptobj->is_preview_user()) {
+    navigation_node::override_active_url($attemptobj->start_attempt_url());
 }
 
 /// Check access.
@@ -51,7 +55,6 @@ if (empty($attemptobj->get_quiz()->showblocks)) {
 }
 
 /// Print the page header
-$PAGE->requires->js('/mod/quiz/quiz.js');
 $title = get_string('summaryofattempt', 'quiz');
 if ($accessmanager->securewindow_required($attemptobj->is_preview_user())) {
     $accessmanager->setup_secure_page($attemptobj->get_course()->shortname . ': ' .
@@ -81,7 +84,8 @@ $table->attributes['class'] = 'generaltable quizsummaryofattempt boxaligncenter'
 $table->head = array(get_string('question', 'quiz'), get_string('status', 'quiz'));
 $table->align = array('left', 'left');
 $table->size = array('', '');
-$scorescolumn = $attemptobj->get_review_options()->scores;
+$scorescolumn = $attemptobj->get_review_options()->scores &&
+        ($attemptobj->get_quiz()->optionflags & QUESTION_ADAPTIVE);
 if ($scorescolumn) {
     $table->head[] = get_string('marks', 'quiz');
     $table->align[] = 'left';
@@ -124,11 +128,13 @@ $options = array(
     'sesskey' => sesskey(),
 );
 
-$button = new single_button(new moodle_url($attemptobj->processattempt_url(), $options), get_string('finishattempt', 'quiz'));
+$button = new single_button(new moodle_url($attemptobj->processattempt_url(), $options), get_string('submitallandfinish', 'quiz'));
 $button->id = 'responseform';
 $button->add_confirm_action(get_string('confirmclose', 'quiz'));
 
+echo $OUTPUT->container_start('controls');
 echo $OUTPUT->render($button);
+echo $OUTPUT->container_end();
 echo $OUTPUT->container_end();
 
 /// Finish the page

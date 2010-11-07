@@ -23,19 +23,16 @@
  *   - lib.php/modulename_install() post installation hook
  *   - partially defaults.php
  *
- * @package   mod-folder
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage folder
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 function xmldb_folder_install() {
     global $CFG;
-
-    // Install logging support
-    update_log_display_entry('folder', 'view', 'folder', 'name');
-    update_log_display_entry('folder', 'view all', 'folder', 'name');
-    update_log_display_entry('folder', 'update', 'folder', 'name');
-    update_log_display_entry('folder', 'add', 'folder', 'name');
 
     // Upgrade from old resource module type if needed
     require_once("$CFG->dirroot/mod/folder/db/upgradelib.php");

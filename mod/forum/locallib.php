@@ -97,8 +97,8 @@ class forum_portfolio_caller extends portfolio_module_caller_base {
             if ($this->attachment) {
                 $this->set_file_and_format_data($this->attachment);
             } else {
-                $attach = $fs->get_area_files($this->modcontext->id, 'forum_attachment', $this->post->id, 'timemodified', false);
-                $embed  = $fs->get_area_files($this->modcontext->id, 'forum_post', $this->post->id, 'timemodified', false);
+                $attach = $fs->get_area_files($this->modcontext->id, 'mod_forum', 'attachment', $this->post->id, 'timemodified', false);
+                $embed  = $fs->get_area_files($this->modcontext->id, 'mod_forum', 'post', $this->post->id, 'timemodified', false);
                 $files = array_merge($attach, $embed);
                 $this->set_file_and_format_data($files);
             }
@@ -112,8 +112,8 @@ class forum_portfolio_caller extends portfolio_module_caller_base {
             $this->posts = forum_get_all_discussion_posts($this->discussion->id, 'p.created ASC');
             $this->multifiles = array();
             foreach ($this->posts as $post) {
-                $attach = $fs->get_area_files($this->modcontext->id, 'forum_attachment', $post->id, 'timemodified', false);
-                $embed  = $fs->get_area_files($this->modcontext->id, 'forum_post', $post->id, 'timemodified', false);
+                $attach = $fs->get_area_files($this->modcontext->id, 'mod_forum', 'attachment', $post->id, 'timemodified', false);
+                $embed  = $fs->get_area_files($this->modcontext->id, 'mod_forum', 'post', $post->id, 'timemodified', false);
                 $files = array_merge($attach, $embed);
                 if ($files) {
                     $this->keyedfiles[$post->id] = $files;
@@ -181,11 +181,7 @@ class forum_portfolio_caller extends portfolio_module_caller_base {
         if ($this->attachment) { // simplest case first - single file attachment
             $this->copy_files(array($this->singlefile), $this->attachment);
             if ($writingleap) { // if we're writing leap, make the manifest to go along with the file
-                $entry = new portfolio_format_leap2a_entry('forumattachment' . $this->singlefile->get_id(),
-                    $this->singlefile->get_filename(), 'resource',  $this->singlefile);
-                $entry->published = $this->singlefile->get_timecreated();
-                $entry->updated = $this->singlefile->get_timemodified();
-                $entry->add_category('offline', 'resource_type');
+                $entry = new portfolio_format_leap2a_file($this->singlefile->get_filename(), $this->singlefile);
                 $leapwriter->add_entry($entry);
                 return $this->exporter->write_new_file($leapwriter->to_xml(), $this->exporter->get('format')->manifest_name(), true);
             }
@@ -251,10 +247,7 @@ class forum_portfolio_caller extends portfolio_module_caller_base {
         $entry->updated = $post->modified;
         $entry->author = $post->author;
         if (is_array($this->keyedfiles) && array_key_exists($post->id, $this->keyedfiles) && is_array($this->keyedfiles[$post->id])) {
-            foreach ($this->keyedfiles[$post->id] as $file) {
-                // copying the file into the package area is handled elsewhere
-                $entry->add_attachment($file);
-            }
+            $leapwriter->link_files($entry, $this->keyedfiles[$post->id], 'forumpost' . $post->id . 'attachment');
         }
         $entry->add_category('web', 'resource_type');
         $leapwriter->add_entry($entry);
@@ -300,11 +293,11 @@ class forum_portfolio_caller extends portfolio_module_caller_base {
         $post->author = $users[$post->userid];
         $viewfullnames = true;
         // format the post body
-        $options = new object();
+        $options = new stdClass();
         $options->para = true;
         $format = $this->get('exporter')->get('format');
         $formattedtext = format_text($post->message, $post->messageformat, $options, $this->get('course')->id);
-        $formattedtext = portfolio_rewrite_pluginfile_urls($formattedtext, $this->modcontext->id, 'forum_post', $post->id, $format);
+        $formattedtext = portfolio_rewrite_pluginfile_urls($formattedtext, $this->modcontext->id, 'mod_forum', 'post', $post->id, $format);
 
         $output = '<table border="0" cellpadding="3" cellspacing="0" class="forumpost">';
 
@@ -319,7 +312,7 @@ class forum_portfolio_caller extends portfolio_module_caller_base {
         $output .= '<div class="subject">'.format_string($post->subject).'</div>';
 
         $fullname = fullname($users[$post->userid], $viewfullnames);
-        $by = new object();
+        $by = new stdClass();
         $by->name = $fullname;
         $by->date = userdate($post->modified, '', $this->user->timezone);
         $output .= '<div class="author">'.get_string('bynameondate', 'forum', $by).'</div>';

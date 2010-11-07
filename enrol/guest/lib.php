@@ -21,16 +21,39 @@
  * This plugin does not add any entries into the user_enrolments table,
  * the access control is granted on the fly via the tricks in require_login().
  *
- * @package   enrol_guest
- * @copyright 2010 Petr Skoda  {@link http://skodak.org}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage guest
+ * @copyright  2010 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die;
+defined('MOODLE_INTERNAL') || die();
 
 class enrol_guest_plugin extends enrol_plugin {
 
-    public function enrol_user(stdClass $instance, $userid, $roleid = null, $timestart = 0, $timeend = 0) {
+    /**
+     * Returns optional enrolment information icons.
+     *
+     * This is used in course list for quick overview of enrolment options.
+     *
+     * We are not using single instance parameter because sometimes
+     * we might want to prevent icon repetition when multiple instances
+     * of one type exist. One instance may also produce several icons.
+     *
+     * @param array $instances all enrol instances of this type in one course
+     * @return array of pix_icon
+     */
+    public function get_info_icons(array $instances) {
+        foreach ($instances as $instance) {
+            if ($instance->password) {
+                return array(new pix_icon('withpassword', get_string('pluginname', 'enrol_guest'), 'enrol_guest'));
+            } else {
+                return array(new pix_icon('withoutpassword', get_string('pluginname', 'enrol_guest'), 'enrol_guest'));
+            }
+        }
+    }
+
+    public function enrol_user(stdClass $instance, $userid, $roleid = NULL, $timestart = 0, $timeend = 0, $status = NULL) {
         // no real enrolments here!
         return;
     }
@@ -66,10 +89,12 @@ class enrol_guest_plugin extends enrol_plugin {
      * @param int $courseid
      * @return moodle_url page url
      */
-    public function get_candidate_link($courseid) {
+    public function get_newinstance_link($courseid) {
         global $DB;
 
-        if (!has_capability('moodle/course:enrolconfig', get_context_instance(CONTEXT_COURSE, $courseid, MUST_EXIST))) {
+        $context = get_context_instance(CONTEXT_COURSE, $courseid, MUST_EXIST);
+
+        if (!has_capability('moodle/course:enrolconfig', $context) or !has_capability('enrol/guest:config', $context)) {
             return NULL;
         }
 
@@ -148,6 +173,7 @@ class enrol_guest_plugin extends enrol_plugin {
         $options = array(ENROL_INSTANCE_ENABLED  => get_string('yes'),
                          ENROL_INSTANCE_DISABLED => get_string('no'));
         $mform->addElement('select', 'enrol_guest_status_'.$i, get_string('status', 'enrol_guest'), $options);
+        $mform->addHelpButton('enrol_guest_status_'.$i, 'status', 'enrol_guest');
         $mform->setDefault('enrol_guest_status_'.$i, $this->get_config('status'));
         $mform->setAdvanced('enrol_guest_status_'.$i, $this->get_config('status_adv'));
         if (!$config) {
@@ -155,6 +181,7 @@ class enrol_guest_plugin extends enrol_plugin {
         }
 
         $mform->addElement('passwordunmask', 'enrol_guest_password_'.$i, get_string('password', 'enrol_guest'));
+        $mform->addHelpButton('enrol_guest_password_'.$i, 'password', 'enrol_guest');
         if (!$config) {
             $mform->hardFreeze('enrol_guest_password_'.$i);
         } else {
@@ -289,3 +316,16 @@ class enrol_guest_plugin extends enrol_plugin {
 
 }
 
+/**
+ * Indicates API features that the enrol plugin supports.
+ *
+ * @param string $feature
+ * @return mixed True if yes (some features may use other values)
+ */
+function enrol_guest_supports($feature) {
+    switch($feature) {
+        case ENROL_RESTORE_TYPE: return ENROL_RESTORE_NOUSERS;
+
+        default: return null;
+    }
+}

@@ -169,7 +169,7 @@
                     }
                 }
                 if (!empty($val)) {
-                    $search_array[$field->id] = new object();
+                    $search_array[$field->id] = new stdClass();
                     list($search_array[$field->id]->sql, $search_array[$field->id]->params) = $searchfield->generate_sql('c'.$field->id, $val);
                     $search_array[$field->id]->data = $val;
                     $vals[] = $val;
@@ -189,7 +189,7 @@
             $ln = isset($search_array[DATA_LASTNAME]) ? $search_array[DATA_LASTNAME]->data : '';
         }
         if (!empty($fn)) {
-            $search_array[DATA_FIRSTNAME] = new object();
+            $search_array[DATA_FIRSTNAME] = new stdClass();
             $search_array[DATA_FIRSTNAME]->sql    = '';
             $search_array[DATA_FIRSTNAME]->params = array();
             $search_array[DATA_FIRSTNAME]->field  = 'u.firstname';
@@ -199,9 +199,9 @@
             unset($search_array[DATA_FIRSTNAME]);
         }
         if (!empty($ln)) {
-            $search_array[DATA_LASTNAME] = new object();
+            $search_array[DATA_LASTNAME] = new stdClass();
             $search_array[DATA_LASTNAME]->sql     = '';
-            $search_array[DATA_FIRSTNAME]->params = array();
+            $search_array[DATA_LASTNAME]->params = array();
             $search_array[DATA_LASTNAME]->field   = 'u.lastname';
             $search_array[DATA_LASTNAME]->data    = $ln;
             $vals[] = $ln;
@@ -267,7 +267,7 @@
     $meta = '';
     if (!empty($CFG->enablerssfeeds) && !empty($CFG->data_enablerssfeeds) && $data->rssarticles > 0) {
         $rsstitle = format_string($course->shortname) . ': %fullname%';
-        rss_add_http_header($context, 'data', $data, $rsstitle);
+        rss_add_http_header($context, 'mod_data', $data, $rsstitle);
     }
     if ($data->csstemplate) {
         $PAGE->requires->css('/mod/data/css.php?d='.$data->id);
@@ -281,7 +281,7 @@
     // The code will be much nicer than this eventually.
     $title = $course->shortname.': ' . format_string($data->name);
 
-    if ($PAGE->user_allowed_editing() && !empty($CFG->showblocksonmodpages)) {
+    if ($PAGE->user_allowed_editing()) {
         $buttons = '<table><tr><td><form method="get" action="view.php"><div>'.
             '<input type="hidden" name="id" value="'.$cm->id.'" />'.
             '<input type="hidden" name="edit" value="'.($PAGE->user_is_editing()?'off':'on').'" />'.
@@ -295,7 +295,7 @@
 
     $PAGE->set_title($title);
     $PAGE->set_heading($course->fullname);
-    
+
     echo $OUTPUT->header();
 
 /// Check to see if groups are being used here
@@ -304,7 +304,7 @@
     $currentgroup = groups_get_activity_group($cm);
     $groupmode = groups_get_activity_groupmode($cm);
 
-    // deletect entries not approved yet and show hint instead of not found error
+    // detect entries not approved yet and show hint instead of not found error
     if ($record and $data->approval and !$record->approved and $record->userid != $USER->id and !has_capability('mod/data:manageentries', $context)) {
         if (!$currentgroup or $record->groupid == $currentgroup or $record->groupid == 0) {
             print_error('notapproved', 'data');
@@ -317,13 +317,13 @@
     //this links has been Settings (database activity administration) block
     /*if (!empty($CFG->enablerssfeeds) && !empty($CFG->data_enablerssfeeds) && $data->rssarticles > 0) {
         echo '<div style="float:right;">';
-        rss_print_link($context->id, $USER->id, 'data', $data->id, get_string('rsstype'));
+        rss_print_link($context->id, $USER->id, 'mod_data', $data->id, get_string('rsstype'));
         echo '</div>';
         echo '<div style="clear:both;"></div>';
     }*/
 
     if ($data->intro and empty($page) and empty($record) and $mode != 'single') {
-        $options = new object();
+        $options = new stdClass();
         $options->noclean = true;
         echo $OUTPUT->box(format_module_intro('data', $data, $cm->id), 'generalbox', 'intro');
     }
@@ -353,9 +353,9 @@
         } else {   // Print a confirmation page
             if ($deleterecord = $DB->get_record('data_records', array('id'=>$delete))) {   // Need to check this is valid
                 if ($deleterecord->dataid == $data->id) {                       // Must be from this database
+                    $deletebutton = new single_button(new moodle_url('/mod/data/view.php?d='.$data->id.'&delete='.$delete.'&confirm=1'), get_string('delete'), 'post');
                     echo $OUTPUT->confirm(get_string('confirmdeleterecord','data'),
-                            'view.php?d='.$data->id.'&delete='.$delete.'&confirm=1',
-                            'view.php?d='.$data->id);
+                            $deletebutton, 'view.php?d='.$data->id);
 
                     $records[] = $deleterecord;
                     echo data_print_template('singletemplate', $records, $data, '', 0, true);
@@ -368,9 +368,21 @@
     }
 
 
+//if data activity closed dont let students in
+$showactivity = true;
+if (!has_capability('mod/data:manageentries', $context)) {
+    $timenow = time();
+    if (!empty($data->timeavailablefrom) && $data->timeavailablefrom > $timenow) {
+        echo $OUTPUT->notification(get_string('notopenyet', 'data', userdate($data->timeavailablefrom)));
+        $showactivity = false;
+    } else if (!empty($data->timeavailableto) && $timenow > $data->timeavailableto) {
+        echo $OUTPUT->notification(get_string('expired', 'data', userdate($data->timeavailableto)));
+        $showactivity = false;
+    }
+}
 
-/// Print the tabs
-
+if ($showactivity) {
+    // Print the tabs
     if ($record or $mode == 'single') {
         $currenttab = 'single';
     } elseif($mode == 'asearch') {
@@ -393,11 +405,11 @@
         if ($approve && confirm_sesskey() && $approvecap) {
             if ($approverecord = $DB->get_record('data_records', array('id'=>$approve))) {   // Need to check this is valid
                 if ($approverecord->dataid == $data->id) {                       // Must be from this database
+                    $newrecord = new stdClass();
                     $newrecord->id = $approverecord->id;
                     $newrecord->approved = 1;
-                    if ($DB->update_record('data_records', $newrecord)) {
-                        echo $OUTPUT->notification(get_string('recordapproved','data'), 'notifysuccess');
-                    }
+                    $DB->update_record('data_records', $newrecord);
+                    echo $OUTPUT->notification(get_string('recordapproved','data'), 'notifysuccess');
                 }
             }
         }
@@ -437,8 +449,6 @@
         } else {
             $groupselect = ' ';
         }
-
-        $ilike = $DB->sql_ilike(); //Be case-insensitive
 
         // Init some variables to be used by advanced search
         $advsearchselect = '';
@@ -490,7 +500,7 @@
                 foreach($search_array as $key => $val) {                              //what does $search_array hold?
                     if ($key == DATA_FIRSTNAME or $key == DATA_LASTNAME) {
                         $i++;
-                        $searchselect .= " AND $val->field $ilike :search_flname_$i";
+                        $searchselect .= " AND ".$DB->sql_like($val->field, ":search_flname_$i", false);
                         $params['search_flname_'.$i] = "%$val->data%";
                         continue;
                     }
@@ -500,7 +510,7 @@
                     $advparams = array_merge($advparams, $val->params);
                 }
             } else if ($search) {
-                $searchselect = " AND (cs.content $ilike :search1 OR u.firstname $ilike :search2 OR u.lastname $ilike :search3 ) ";
+                $searchselect = " AND (".$DB->sql_like('cs.content', ':search1', false)." OR ".$DB->sql_like('u.firstname', ':search2', false)." OR ".$DB->sql_like('u.lastname', ':search3', false)." ) ";
                 $params['search1'] = "%$search%";
                 $params['search2'] = "%$search%";
                 $params['search3'] = "%$search%";
@@ -536,7 +546,7 @@
                 foreach($search_array as $key => $val) {                              //what does $search_array hold?
                     if ($key == DATA_FIRSTNAME or $key == DATA_LASTNAME) {
                         $i++;
-                        $searchselect .= " AND $val->field $ilike :search_flname_$i";
+                        $searchselect .= " AND ".$DB->sql_like($val->field, ":search_flname_$i", false);
                         $params['search_flname_'.$i] = "%$val->data%";
                         continue;
                     }
@@ -546,7 +556,7 @@
                     $advparams = array_merge($advparams, $val->params);
                 }
             } else if ($search) {
-                $searchselect = " AND (cs.content $ilike :search1 OR u.firstname $ilike :search2 OR u.lastname $ilike :search3 ) ";
+                $searchselect = " AND (".$DB->sql_like('cs.content', ':search1', false)." OR ".$DB->sql_like('u.firstname', ':search2', false)." OR ".$DB->sql_like('u.lastname', ':search3', false)." ) ";
                 $params['search1'] = "%$search%";
                 $params['search2'] = "%$search%";
                 $params['search3'] = "%$search%";
@@ -609,7 +619,7 @@
 
         if (empty($records)) {
             if ($maxcount){
-                $a = new object();
+                $a = new stdClass();
                 $a->max = $maxcount;
                 $a->reseturl = "view.php?id=$cm->id&amp;mode=$mode&amp;search=&amp;advanced=0";
                 echo $OUTPUT->notification(get_string('foundnorecords','data', $a));
@@ -620,7 +630,7 @@
         } else { //  We have some records to print
 
             if ($maxcount != $totalcount) {
-                $a = new object();
+                $a = new stdClass();
                 $a->num = $totalcount;
                 $a->max = $maxcount;
                 $a->reseturl = "view.php?id=$cm->id&amp;mode=$mode&amp;search=&amp;advanced=0";
@@ -712,6 +722,7 @@
 /// Mark as viewed
     $completion=new completion_info($course);
     $completion->set_module_viewed($cm);
+}
 
-    echo $OUTPUT->footer();
+echo $OUTPUT->footer();
 

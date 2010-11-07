@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @package    moodle
+ * @package    core
  * @subpackage portfolio
  * @author     Penny Leach <penny@catalyst.net.nz>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL
@@ -25,6 +25,8 @@
  *
  * This file contains all the form definitions used by the portfolio code.
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 // make sure we include moodleform first!
 require_once ($CFG->libdir.'/formslib.php');
@@ -125,6 +127,9 @@ final class portfolio_admin_form extends moodleform {
 
     protected $instance;
     protected $plugin;
+    protected $portfolio;
+    protected $action;
+    protected $visible;
 
     public function definition() {
         global $CFG;
@@ -132,14 +137,19 @@ final class portfolio_admin_form extends moodleform {
         $this->instance = (isset($this->_customdata['instance'])
                 && is_subclass_of($this->_customdata['instance'], 'portfolio_plugin_base'))
             ? $this->_customdata['instance'] : null;
+        $this->portfolio = $this->_customdata['portfolio'];
+        $this->action = $this->_customdata['action'];
+        $this->visible = $this->_customdata['visible'];
 
         $mform =& $this->_form;
         $strrequired = get_string('required');
 
-        $mform->addElement('hidden', 'edit',  ($this->instance) ? $this->instance->get('id') : 0);
-        $mform->setType('edit', PARAM_INT);
-        $mform->addElement('hidden', 'new',   $this->plugin);
-        $mform->setType('new', PARAM_INT);
+        $mform->addElement('hidden', 'pf', $this->portfolio);
+        $mform->setType('pf', PARAM_ALPHA);
+        $mform->addElement('hidden', 'action', $this->action);
+        $mform->setType('action', PARAM_ALPHA);
+        $mform->addElement('hidden', 'visible', $this->visible);
+        $mform->setType('visible', PARAM_INT);
         $mform->addElement('hidden', 'plugin', $this->plugin);
         $mform->setType('plugin', PARAM_SAFEDIR);
 
@@ -224,7 +234,7 @@ final class portfolio_user_form extends moodleform {
         $this->userid = $this->_customdata['userid'];
 
         $this->_form->addElement('hidden', 'config', $this->instance->get('id'));
-        $mform->setType('config', PARAM_INT);
+        $this->_form->setType('config', PARAM_INT);
 
         $this->instance->user_config_form($this->_form, $this->userid);
 

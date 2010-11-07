@@ -139,9 +139,7 @@ function quiz_add_quiz_question($id, &$quiz, $page = 0) {
 
     // Save new questionslist in database
     $quiz->questions = implode(',', $questions);
-    if (!$DB->set_field('quiz', 'questions', $quiz->questions, array('id' => $quiz->id))) {
-        print_error('cannotsavequestion', 'quiz');
-    }
+    $DB->set_field('quiz', 'questions', $quiz->questions, array('id' => $quiz->id));
 
     // update question grades
     $quiz->grades[$id] = $DB->get_field('question', 'defaultgrade', array('id' => $id));
@@ -394,7 +392,7 @@ function quiz_print_question_list($quiz, $pageurl, $allowdelete = true,
 
     $pageopen = false;
 
-    $returnurl = $pageurl->out();
+    $returnurl = str_replace($CFG->wwwroot, '', $pageurl->out(false));
     $questiontotalcount = count($order);
 
     foreach ($order as $i => $qnum) {
@@ -410,7 +408,6 @@ function quiz_print_question_list($quiz, $pageurl, $allowdelete = true,
         if ($qnum && !array_key_exists($questions[$qnum]->qtype, $QTYPES)) {
             $questions[$qnum]->qtype = 'missingtype';
         }
-        $deletex = "delete.gif";
         if ($qnum != 0 || ($qnum == 0 && !$pageopen)) {
             //this is either a question or a page break after another
             //        (no page is currently open)
@@ -427,7 +424,7 @@ function quiz_print_question_list($quiz, $pageurl, $allowdelete = true,
                 echo '<div class="pagestatus">';
                 print_string('noquestionsonpage', 'quiz');
                 echo '</div>';
-                if ($allowdelete && !$quiz->questionsperpage) {
+                if ($allowdelete) {
                     echo '<div class="quizpagedelete">';
                     echo '<a title="' . get_string('removeemptypage', 'quiz') . '" href="' .
                             $pageurl->out(true, array('deleteemptypage' => $i - 1, 'sesskey'=>sesskey())) .
@@ -437,11 +434,13 @@ function quiz_print_question_list($quiz, $pageurl, $allowdelete = true,
                 }
             }
 
-            if ($qnum!=0) {
+            if ($qnum != 0) {
                 $question = $questions[$qnum];
-                $questionparams = array('returnurl' => $returnurl,
-                        'cmid' => $quiz->cmid, 'id' => $question->id);
-                $questionurl = new moodle_url("$CFG->wwwroot/question/question.php",
+                $questionparams = array(
+                        'returnurl' => $returnurl,
+                        'cmid' => $quiz->cmid,
+                        'id' => $question->id);
+                $questionurl = new moodle_url('/question/question.php',
                         $questionparams);
                 $questioncount++;
                 //this is an actual question
@@ -644,10 +643,11 @@ function quiz_print_pagecontrols($quiz, $pageurl, $page, $hasattempts) {
     $defaultcategory = question_make_default_categories($contexts->all());
 
     // Create the url the question page will return to
-    $returnurl_addtoquiz = new moodle_url($pageurl->out_omit_querystring(), array('addonpage' => $page));
+    $returnurladdtoquiz = new moodle_url($pageurl, array('addonpage' => $page));
 
     // Print a button linking to the choose question type page.
-    $newquestionparams = array('returnurl' => $returnurl_addtoquiz->out(),
+    $returnurladdtoquiz = str_replace($CFG->wwwroot, '', $returnurladdtoquiz->out(false));
+    $newquestionparams = array('returnurl' => $returnurladdtoquiz,
             'cmid' => $quiz->cmid, 'appendqnumstring' => 'addquestion');
     create_new_question_button($defaultcategory->id, $newquestionparams, get_string('addaquestion', 'quiz'),
             get_string('createquestionandadd', 'quiz'), $hasattempts);
@@ -664,12 +664,12 @@ function quiz_print_pagecontrols($quiz, $pageurl, $page, $hasattempts) {
                 <input type="hidden" class="addonpage_formelement" name="addonpage_form" value="<?php echo $page; ?>" />
                 <input type="hidden" name="cmid" value="<?php echo $quiz->cmid; ?>" />
                 <input type="hidden" name="courseid" value="<?php echo $quiz->course; ?>" />
-                <input type="hidden" name="returnurl" value="<?php echo urlencode($pageurl->out_omit_querystring()); ?>" />
+                <input type="hidden" name="returnurl" value="<?php echo s($pageurl->out(false)); ?>" />
                 <input type="submit" id="addrandomdialoglaunch_<?php echo $randombuttoncount; ?>" value="<?php echo get_string('addarandomquestion', 'quiz'); ?>" <?php echo " $disabled"; ?> />
             </div>
         </form>
     </div>
-    <?php echo $OUTPUT->old_help_icon('random', get_string('random', 'quiz'), 'quiz'); ?>
+    <?php echo $OUTPUT->help_icon('addarandomquestion', 'quiz'); ?>
     <?php
     echo "\n</div>";
 }
@@ -1139,7 +1139,6 @@ function quiz_print_grading_form($quiz, $pageurl, $tabindex) {
     echo '<label for="inputmaxgrade">' . get_string('maximumgradex', '', $a) . "</label>";
     echo '<input type="hidden" name="savechanges" value="save" />';
     echo '<input type="submit" value="' . $strsave . '" />';
-    echo $OUTPUT->old_help_icon('maxgrade', get_string('maximumgrade'), 'quiz');
     echo '</fieldset>';
     echo "</div></form>\n";
     return $tabindex + 1;

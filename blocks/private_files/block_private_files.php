@@ -19,24 +19,20 @@
 /**
  * Manage user private area files
  *
- * @package    moodlecore
- * @subpackage repository
+ * @package    block_private_files
  * @copyright  2010 Dongsheng Cai <dongsheng@moodle.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-
-require_once($CFG->dirroot. '/repository/lib.php');
-
 class block_private_files extends block_base {
 
     function init() {
-        $this->title = get_string('areauserpersonal', 'repository');
-        $this->version = 2010030100;
+        $this->title = get_string('myfiles');
     }
 
     function specialization() {
     }
+
     function applicable_formats() {
         return array('all' => true);
     }
@@ -47,30 +43,26 @@ class block_private_files extends block_base {
 
     function get_content() {
         global $CFG, $USER, $PAGE, $OUTPUT;
+
         if ($this->content !== NULL) {
             return $this->content;
         }
         if (empty($this->instance)) {
             return null;
         }
+
         $this->content->text = '';
         $this->content->footer = '';
         if (isloggedin() && !isguestuser()) {   // Show the block
+            $this->content = new stdClass();
 
-            $options = new stdclass;
-            $options->maxbytes  = -1;
-            $options->maxfiles  = -1;
-            $options->filearea  = 'user_private';
-            $options->itemid    = 0;
-            $options->subdirs   = true;
-            $options->accepted_types = '*';
-            $options->return_types = FILE_INTERNAL;
-            $options->context   = $PAGE->context;
-            $options->disable_types = array('user');
+            //TODO: add capability check here!
 
-            $this->content = new stdClass;
-            $this->content->text = $OUTPUT->file_manager($options);
-;
+            $renderer = $this->page->get_renderer('block_private_files');
+            $this->content->text = $renderer->private_files_tree();
+            if (has_capability('moodle/user:manageownfiles', $this->context)) {
+                $this->content->text .= $OUTPUT->single_button(new moodle_url('/user/filesedit.php', array('returnurl'=>$PAGE->url->out())), get_string('myfilesmanage'), 'get');
+            }
             $this->content->footer = '';
 
         }

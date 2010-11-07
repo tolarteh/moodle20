@@ -152,7 +152,7 @@ function survey_user_outline($course, $user, $mod, $survey) {
     if ($answers = $DB->get_records("survey_answers", array('survey'=>$survey->id, 'userid'=>$user->id))) {
         $lastanswer = array_pop($answers);
 
-        $result = new object();
+        $result = new stdClass();
         $result->info = get_string("done", "survey");
         $result->time = $lastanswer->time;
         return $result;
@@ -333,12 +333,13 @@ function survey_get_responses($surveyid, $groupid, $groupingid) {
         $groupsjoin = "";
     }
 
-    return $DB->get_records_sql("SELECT u.id, u.firstname, u.lastname, u.picture, MAX(a.time) as time
+    $userfields = user_picture::fields('u');
+    return $DB->get_records_sql("SELECT $userfields, MAX(a.time) as time
                                    FROM {survey_answers} a
                                    JOIN {user} u ON a.userid = u.id
                             $groupsjoin
                                   WHERE a.survey = :surveyid
-                               GROUP BY u.id, u.firstname, u.lastname, u.picture
+                               GROUP BY $userfields
                                ORDER BY time ASC", $params);
 }
 
@@ -381,16 +382,20 @@ function survey_update_analysis($survey, $user, $notes) {
 function survey_get_user_answers($surveyid, $questionid, $groupid, $sort="sa.answer1,sa.answer2 ASC") {
     global $DB;
 
-    $params = array('surveyid'=>$surveyid, 'questionid'=>$questionid, 'groupid'=>$groupid);
+    $params = array('surveyid'=>$surveyid, 'questionid'=>$questionid);
 
     if ($groupid) {
-        $groupsql = "AND gm.groupid = :groupid AND u.id = gm.userid";
+        $groupfrom = ', {groups_members} gm';
+        $groupsql  = 'AND gm.groupid = :groupid AND u.id = gm.userid';
+        $params['groupid'] = $groupid;
     } else {
-        $groupsql = "";
+        $groupfrom = '';
+        $groupsql  = '';
     }
 
-    return $DB->get_records_sql("SELECT sa.*,u.firstname,u.lastname,u.picture
-                                   FROM {survey_answers} sa,  {user} u, {groups_members} gm
+    $userfields = user_picture::fields('u');
+    return $DB->get_records_sql("SELECT sa.*, $userfields
+                                   FROM {survey_answers} sa,  {user} u $groupfrom
                                   WHERE sa.survey = :surveyid
                                         AND sa.question = :questionid
                                         AND u.id = sa.userid $groupsql
@@ -425,7 +430,7 @@ function survey_get_user_answer($surveyid, $questionid, $userid) {
 function survey_add_analysis($survey, $user, $notes) {
     global $DB;
 
-    $record = new object();
+    $record = new stdClass();
     $record->survey = $survey;
     $record->userid = $user;
     $record->notes = $notes;
@@ -520,7 +525,7 @@ function survey_shorten_name ($name, $numwords) {
  * @param object $question
  */
 function survey_print_multi($question) {
-    global $USER, $DB, $qnum, $checklist, $DB, $OUTPUT;
+    global $USER, $DB, $qnum, $checklist, $DB, $OUTPUT; //TODO: this is sloppy globals abuse
 
     $stripreferthat = get_string("ipreferthat", "survey");
     $strifoundthat = get_string("ifoundthat", "survey");
@@ -534,11 +539,6 @@ function survey_print_multi($question) {
     $numoptions = count($options);
 
     $oneanswer = ($question->type == 1 || $question->type == 2) ? true : false;
-    if ($question->type == 2) {
-        $P = "P";
-    } else {
-        $P = "";
-    }
 
     echo "<tr class=\"smalltext\"><th scope=\"row\">$strresponses</th>";
     echo "<th scope=\"col\" class=\"hresponse\">". get_string('notyetanswered', 'survey'). "</th>";
@@ -562,6 +562,13 @@ function survey_print_multi($question) {
             $q->text = get_string($q->text, "survey");
         }
 
+        $oneanswer = ($q->type == 1 || $q->type == 2) ? true : false;
+        if ($q->type == 2) {
+            $P = "P";
+        } else {
+            $P = "";
+        }
+
         echo "<tr class=\"$rowclass rblock\">";
         if ($oneanswer) {
             echo "<th scope=\"row\" class=\"optioncell\">";
@@ -575,10 +582,10 @@ function survey_print_multi($question) {
                 $hiddentext = get_accesshide($options[$i-1]);
                 $id = "q$P" . $q->id . "_$i";
                 echo "<td><label for=\"$id\"><input type=\"radio\" name=\"q$P$q->id\" id=\"$id\" value=\"$i\" />$hiddentext</label></td>";
-            }            
-            $checklist["q$P$q->id"] = 0; 
+            }
+            $checklist["q$P$q->id"] = 0;
 
-        } else { 
+        } else {
             // yu : fix for MDL-7501, possibly need to use user flag as this is quite ugly.
             echo "<th scope=\"row\" class=\"optioncell\">";
             echo "<b class=\"qnumtopcell\">$qnum</b> &nbsp; ";
@@ -605,13 +612,13 @@ function survey_print_multi($question) {
 
             $default = get_accesshide($strdefault);
             echo '<td class="whitecell"><label for="q'. $q->id .'"><input type="radio" name="q'.$q->id. '" id="q'. $q->id .'" value="0" checked="checked" />'.$default.'</label></td>';
-          
+
             for ($i=1;$i<=$numoptions;$i++) {
                 $hiddentext = get_accesshide($options[$i-1]);
                 $id = "q" . $q->id . "_$i";
                 echo "<td><label for=\"$id\"><input type=\"radio\" name=\"q$q->id\" id=\"$id\" value=\"$i\" />$hiddentext</label></td>";
             }
-            
+
             $checklist["qP$q->id"] = 0;
             $checklist["q$q->id"] = 0;
         }
@@ -733,7 +740,7 @@ function survey_reset_course_form_defaults($course) {
 }
 
 /**
- * Actual implementation of the rest coures functionality, delete all the
+ * Actual implementation of the reset course functionality, delete all the
  * survey responses for course $data->courseid.
  *
  * @global object
@@ -793,8 +800,8 @@ function survey_supports($feature) {
         case FEATURE_GROUPMEMBERSONLY:        return true;
         case FEATURE_MOD_INTRO:               return true;
         case FEATURE_COMPLETION_TRACKS_VIEWS: return true;
-        case FEATURE_GRADE_HAS_GRADE:         return true;
-        case FEATURE_GRADE_OUTCOMES:          return true;
+        case FEATURE_GRADE_HAS_GRADE:         return false;
+        case FEATURE_GRADE_OUTCOMES:          return false;
         case FEATURE_BACKUP_MOODLE2:          return true;
 
         default: return null;
@@ -802,7 +809,7 @@ function survey_supports($feature) {
 }
 
 /**
- * This fucntion extends the global navigaiton for the site.
+ * This fucntion extends the global navigation for the site.
  * It is important to note that you should not rely on PAGE objects within this
  * body of code as there is no guarantee that during an AJAX request they are
  * available
@@ -810,7 +817,7 @@ function survey_supports($feature) {
  * @param navigation_node $navigation The quiz node within the global navigation
  * @param stdClass $course The course object returned from the DB
  * @param stdClass $module The module object returned from the DB
- * @param stdClass $cm The course module isntance returned from the DB
+ * @param stdClass $cm The course module instance returned from the DB
  */
 function survey_extend_navigation($navigation, $course, $module, $cm) {
     /**

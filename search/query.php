@@ -45,7 +45,7 @@
         print_error('globalsearchdisabled', 'search');
     }
 
-    $adv = new Object();
+    $adv = new stdClass();
 
 /// check for php5, but don't die yet (see line 52)
 
@@ -54,7 +54,7 @@
     $page_number  = optional_param('page', -1, PARAM_INT);
     $pages        = ($page_number == -1) ? false : true;
     $advanced     = (optional_param('a', '0', PARAM_INT) == '1') ? true : false;
-    $query_string = stripslashes(optional_param('query_string', '', PARAM_CLEAN));
+    $query_string = optional_param('query_string', '', PARAM_CLEAN);
 
     $url = new moodle_url('/search/query.php');
     if ($page_number !== -1) {
@@ -165,7 +165,7 @@
 
     // print the header
     $site = get_site();
-
+    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
     $PAGE->navbar->add($strsearch, new moodle_url('/search/index.php'));
     $PAGE->navbar->add($strquery, new moodle_url('/search/stats.php'));
     $PAGE->set_title($strsearch);
@@ -186,8 +186,8 @@
     if (isset($vars)) {
         foreach ($vars as $key => $value) {
             // htmlentities breaks non-ascii chars ??
-            $adv->key = stripslashes($value);
-            //$adv->$key = stripslashes(htmlentities($value));
+            $adv->key = $value;
+            //$adv->$key = htmlentities($value);
         }
     }
     ?>

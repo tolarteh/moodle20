@@ -3,6 +3,7 @@
 /// This page prints a particular instance of glossary
 require_once("../../config.php");
 require_once("lib.php");
+require_once($CFG->libdir . '/completionlib.php');
 require_once("$CFG->libdir/rsslib.php");
 
 $id = optional_param('id', 0, PARAM_INT);           // Course Module ID
@@ -224,7 +225,6 @@ $strglossary = get_string("modulename", "glossary");
 $strallcategories = get_string("allcategories", "glossary");
 $straddentry = get_string("addentry", "glossary");
 $strnoentries = get_string("noentries", "glossary");
-$strsearchconcept = get_string("searchconcept", "glossary");
 $strsearchindefinition = get_string("searchindefinition", "glossary");
 $strsearch = get_string("search");
 $strwaitingapproval = get_string('waitingapproval', 'glossary');
@@ -242,7 +242,7 @@ if (!empty($CFG->enablerssfeeds) && !empty($CFG->glossary_enablerssfeeds)
     && $glossary->rsstype && $glossary->rssarticles) {
 
     $rsstitle = format_string($course->shortname) . ': %fullname%';
-    rss_add_http_header($context, 'glossary', $glossary, $rsstitle);
+    rss_add_http_header($context, 'mod_glossary', $glossary, $rsstitle);
 }
 
 if ($tab == GLOSSARY_APPROVAL_VIEW) {
@@ -300,23 +300,6 @@ if ($showcommonelements) {
 //        print_box_start('glossarycontrol clearfix');
     echo '<div class="glossarycontrol" style="text-align: right">';
     echo $availableoptions;
-
-/// If rss are activated at site and glossary level and this glossary has rss defined, show link
-    /*if (!empty($CFG->enablerssfeeds) && !empty($CFG->glossary_enablerssfeeds)
-        && $glossary->rsstype && $glossary->rssarticles) {
-
-        $tooltiptext = get_string("rsssubscriberss",'glossary',format_string($glossary->name,true));
-        if (!isloggedin()) {
-            $userid = 0;
-        } else {
-            $userid = $USER->id;
-        }
-//            print_box_start('rsslink');
-        echo '<span class="wrap rsslink">';
-        rss_print_link($context->id, $userid, "glossary", $glossary->id, $tooltiptext);
-        echo '</span>';
-//            print_box_end();
-    }*/
 
 /// The print icon
     if ( $showcommonelements and $mode != 'search') {

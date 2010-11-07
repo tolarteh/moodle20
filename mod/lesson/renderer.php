@@ -18,10 +18,13 @@
 /**
  * Moodle renderer used to display special elements of the lesson module
  *
- * @package   lesson
- * @copyright 2009 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage lesson
+ * @copyright  2009 Sam Hemelryk
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  **/
+
+defined('MOODLE_INTERNAL') || die();
 
 class mod_lesson_renderer extends plugin_renderer_base {
     /**
@@ -111,8 +114,8 @@ class mod_lesson_renderer extends plugin_renderer_base {
         }
         $output .= get_string('passwordprotectedlesson', 'lesson', format_string($lesson->name)).'<br /><br />';
         $output .= get_string('enterpassword', 'lesson')." <input type=\"password\" name=\"userpassword\" /><br /><br />";
-        $output .= '<div class="lessonbutton standardbutton"><a href="'.$CFG->wwwroot.'/course/view.php?id='. $this->page->course->id .'">'. get_string('cancel', 'lesson') .'</a></div> ';
         $output .= "<div class='lessonbutton standardbutton submitbutton'><input type='submit' value='".get_string('continue', 'lesson')."' /></div>";
+        $output .= " <div class='lessonbutton standardbutton submitbutton'><input type='submit' name='backtocourse' value='".get_string('cancel', 'lesson')."' /></div>";
         $output .=  '</fieldset></form>';
         $output .=  $this->output->box_end();
         $output .=  $this->output->box_end();
@@ -281,7 +284,7 @@ class mod_lesson_renderer extends plugin_renderer_base {
             $cell = new html_table_cell();
             $cell->colspan = 2;
             $cell->style = 'text-align:center';
-            $cell->text = format_text($page->contents, FORMAT_MOODLE, $options);
+            $cell->text = $page->contents;
             $pagetable->data[] = new html_table_row(array($cell));
 
             $cell = new html_table_cell();
@@ -513,7 +516,7 @@ class mod_lesson_renderer extends plugin_renderer_base {
             }
 
             // collect all of the branch tables viewed
-            if ($viewedbranches = $DB->get_records_select("lesson_branch", array ("lessonid"=>$lesson->id, "userid"=>$USER->id, "retry"=>$ntries), 'timeseen DESC', 'pageid, id')) {
+            if ($viewedbranches = $DB->get_records("lesson_branch", array ("lessonid"=>$lesson->id, "userid"=>$USER->id, "retry"=>$ntries), 'timeseen DESC', 'id, pageid')) {
                 $viewedpageids = array_merge($viewedpageids, array_keys($viewedbranches));
             }
 

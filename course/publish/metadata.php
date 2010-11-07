@@ -32,23 +32,39 @@
 
 require_once('../../config.php');
 require_once($CFG->dirroot . '/course/publish/forms.php');
-require_once($CFG->dirroot . '/admin/registration/lib.php');
+require_once($CFG->dirroot . '/' . $CFG->admin . '/registration/lib.php');
 require_once($CFG->dirroot . '/course/publish/lib.php');
-require_once($CFG->dirroot . '/lib/filelib.php');
+require_once($CFG->libdir . '/filelib.php');
 
 
 //check user access capability to this page
 $id = optional_param('id', 0, PARAM_INT);
+
+if (empty($id)) {
+    throw new moodle_exception('wrongurlformat', 'hub');
+}
+
 $course = $DB->get_record('course', array('id' => $id), '*', MUST_EXIST);
 require_login($course);
 
-if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE, $id))) {
+//page settings
+$PAGE->set_url('/course/publish/metadata.php', array('id' => $course->id));
+$PAGE->set_pagelayout('course');
+$PAGE->set_title(get_string('course') . ': ' . $course->fullname);
+$PAGE->set_heading($course->fullname);
 
-    //page settings
-    $PAGE->set_url('/course/publish/metadata.php', array('id' => $course->id));
-    $PAGE->set_pagelayout('course');
-    $PAGE->set_title(get_string('course') . ': ' . $course->fullname);
-    $PAGE->set_heading($course->fullname);
+//check that the PHP xmlrpc extension is enabled
+if (!extension_loaded('xmlrpc')) {
+    $errornotification = $OUTPUT->doc_link('admin/environment/php_extension/xmlrpc', '');
+    $errornotification .= get_string('xmlrpcdisabledpublish', 'hub');
+    echo $OUTPUT->header();
+    echo $OUTPUT->heading(get_string('publishcourse', 'hub', $course->shortname), 3, 'main');
+    echo $OUTPUT->notification($errornotification);
+    echo $OUTPUT->footer();
+    die();
+}
+
+if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE, $id))) {
 
     //retrieve hub name and hub url
     $huburl = optional_param('huburl', '', PARAM_URL);
@@ -63,7 +79,7 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
     $coursepublicationform = new course_publication_form('',
                     array('huburl' => $huburl, 'hubname' => $hubname, 'sesskey' => sesskey(),
                         'course' => $course, 'advertise' => $advertise, 'share' => $share,
-                        'id' => $id));
+                        'id' => $id, 'page' => $PAGE));
     $fromform = $coursepublicationform->get_data();
 
     if (!empty($fromform)) {
@@ -98,6 +114,17 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
         } else {
             $courseinfo->courseurl = $fromform->courseurl;
             $courseinfo->enrollable = true;
+        }
+
+        //retrieve the outcomes of this course
+        require_once($CFG->libdir . '/grade/grade_outcome.php');
+        $outcomes = grade_outcome::fetch_all_available($id);
+        if (!empty($outcomes)) {
+            foreach ($outcomes as $outcome) {
+                $sentoutcome = new stdClass();
+                $sentoutcome->fullname = $outcome->fullname;
+                $courseinfo->outcomes[] = $sentoutcome;
+            }
         }
 
         //retrieve the content information from the course
@@ -135,7 +162,7 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
 
         //save into screenshots field the references to the screenshot content hash
         //(it will be like a unique id from the hub perspective)
-        if (!empty($fromform->deletescreenshots)) {
+        if (!empty($fromform->deletescreenshots) or $share) {
             $courseinfo->screenshots = 0;
         } else {
             $courseinfo->screenshots = $fromform->existingscreenshotnumber;
@@ -143,7 +170,7 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
         if (!empty($fromform->screenshots)) {
             $screenshots = $fromform->screenshots;
             $fs = get_file_storage();
-            $files = $fs->get_area_files(get_context_instance(CONTEXT_USER, $USER->id)->id, 'user_draft', $screenshots);
+            $files = $fs->get_area_files(get_context_instance(CONTEXT_USER, $USER->id)->id, 'user', 'draft', $screenshots);
             if (!empty($files)) {
                 $courseinfo->screenshots = $courseinfo->screenshots + count($files) - 1; //minus the ./ directory
             }
@@ -156,14 +183,14 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
 
         //publish the course information
         $function = 'hub_register_courses';
-        $params = array(array($courseinfo));
+        $params = array('courses' => array($courseinfo));
         $serverurl = $huburl . "/local/hub/webservice/webservices.php";
         require_once($CFG->dirroot . "/webservice/xmlrpc/lib.php");
-        $xmlrpcclient = new webservice_xmlrpc_client();
+        $xmlrpcclient = new webservice_xmlrpc_client($serverurl, $registeredhub->token);
         try {
-            $courseids = $xmlrpcclient->call($serverurl, $registeredhub->token, $function, $params);
+            $courseids = $xmlrpcclient->call($function, $params);
         } catch (Exception $e) {
-            throw new moodle_exception('errorcoursepublish', 'hub', 
+            throw new moodle_exception('errorcoursepublish', 'hub',
                     new moodle_url('/course/view.php', array('id' => $id)), $e->getMessage());
         }
 
@@ -172,10 +199,10 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
         }
 
         //save the record into the published course table
-        $publication = $publicationmanager->get_publication($courseids[0]);
+        $publication = $publicationmanager->get_publication($courseids[0], $huburl);
         if (empty($publication)) {
             //if never been published or if we share, we need to save this new publication record
-            $publicationmanager->add_course_publication($registeredhub->id, $course->id, !$share, $courseids[0]);
+            $publicationmanager->add_course_publication($registeredhub->huburl, $course->id, !$share, $courseids[0]);
         } else {
             //if we update the enrollable course publication we update the publication record
             $publicationmanager->update_enrollable_course_publication($publication->id);
@@ -186,9 +213,8 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
 
         // send screenshots
         if (!empty($fromform->screenshots)) {
-            require_once($CFG->dirroot . "/lib/filelib.php");
 
-            if (!empty($fromform->deletescreenshots)) {
+            if (!empty($fromform->deletescreenshots) or $share) {
                 $screenshotnumber = 0;
             } else {
                 $screenshotnumber = $fromform->existingscreenshotnumber;
@@ -217,7 +243,7 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
         } else {
             //redirect to the index publis page
             redirect(new moodle_url('/course/publish/index.php',
-                            array('sesskey' => sesskey(), 'id' => $id, 'published' => true, 
+                            array('sesskey' => sesskey(), 'id' => $id, 'published' => true,
                                 'hubname' => $hubname, 'huburl' => $huburl)));
         }
     }

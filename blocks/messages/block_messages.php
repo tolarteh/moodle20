@@ -3,7 +3,6 @@
 class block_messages extends block_base {
     function init() {
         $this->title = get_string('pluginname', 'block_messages');
-        $this->version = 2007101509;
     }
 
     function get_content() {
@@ -30,14 +29,14 @@ class block_messages extends block_base {
         }
 
         $link = '/message/index.php';
-        $action = new popup_action('click', $link, 'message');
+        $action = null; //this was using popup_action() but popping up a fullsize window seems wrong
         $this->content->footer = $OUTPUT->action_link($link, get_string('messages', 'message'), $action);
 
-        $users = $DB->get_records_sql("SELECT m.useridfrom AS id, COUNT(m.useridfrom) AS count,
-                                              u.firstname, u.lastname, u.picture, u.imagealt, u.lastaccess
+        $ufields = user_picture::fields('u', array('lastaccess'));
+        $users = $DB->get_records_sql("SELECT $ufields, COUNT(m.useridfrom) AS count
                                          FROM {user} u, {message} m
-                                        WHERE m.useridto = ? AND u.id = m.useridfrom
-                                     GROUP BY m.useridfrom, u.firstname,u.lastname,u.picture,u.lastaccess,u.imagealt", array($USER->id));
+                                        WHERE m.useridto = ? AND u.id = m.useridfrom AND m.notification = 0
+                                     GROUP BY $ufields", array($USER->id));
 
 
         //Now, we have in users, the list of users to show
@@ -50,10 +49,10 @@ class block_messages extends block_base {
                 $this->content->text .= $OUTPUT->user_picture($user, array('courseid'=>SITEID)); //TODO: user might not have capability to view frontpage profile :-(
                 $this->content->text .= fullname($user).'</a></div>';
 
-                $link = '/message/discussion.php?id='.$user->id;
+                $link = '/message/index.php?usergroup=unread&id='.$user->id;
                 $anchortagcontents = '<img class="iconsmall" src="'.$OUTPUT->pix_url('t/message') . '" alt="" />&nbsp;'.$user->count;
-                
-                $action = new popup_action('click', $link, 'message_'.$user->id);
+
+                $action = null; // popup is gone now
                 $anchortag = $OUTPUT->action_link($link, $anchortagcontents, $action);
 
                 $this->content->text .= '<div class="message">'.$anchortag.'</div></li>';

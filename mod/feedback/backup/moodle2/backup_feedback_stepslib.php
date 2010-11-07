@@ -51,7 +51,8 @@ class backup_feedback_activity_structure_step extends backup_activity_structure_
                                                 'publish_stats',
                                                 'timeopen',
                                                 'timeclose',
-                                                'timemodified'));
+                                                'timemodified',
+                                                'completionsubmit'));
 
 
         $completeds = new backup_nested_element('completeds');
@@ -73,6 +74,8 @@ class backup_feedback_activity_structure_step extends backup_activity_structure_
                                                 'hasvalue',
                                                 'position',
                                                 'required',
+                                                'dependitem',
+                                                'dependvalue',
                                                 'options'));
 
         $trackings = new backup_nested_element('trackings');
@@ -91,20 +94,22 @@ class backup_feedback_activity_structure_step extends backup_activity_structure_
 
 
         // Build the tree
+        $feedback->add_child($items);
+        $items->add_child($item);
+
         $feedback->add_child($completeds);
         $completeds->add_child($completed);
 
         $completed->add_child($values);
         $values->add_child($value);
 
-        $feedback->add_child($items);
-        $items->add_child($item);
-
         $feedback->add_child($trackings);
         $trackings->add_child($tracking);
 
         // Define sources
         $feedback->set_source_table('feedback', array('id' => backup::VAR_ACTIVITYID));
+
+        $item->set_source_table('feedback_item', array('feedback' => backup::VAR_PARENTID));
 
         // All these source definitions only happen if we are including user info
         if ($userinfo) {
@@ -113,8 +118,6 @@ class backup_feedback_activity_structure_step extends backup_activity_structure_
                   FROM {feedback_completed}
                  WHERE feedback = ?',
                 array(backup::VAR_PARENTID));
-
-            $item->set_source_table('feedback_item', array('feedback' => backup::VAR_PARENTID));
 
             $value->set_source_table('feedback_value', array('completed' => backup::VAR_PARENTID));
 
@@ -129,9 +132,9 @@ class backup_feedback_activity_structure_step extends backup_activity_structure_
 
         // Define file annotations
 
-        $feedback->annotate_files(array('feedback_intro'), null); // This file area hasn't itemid
+        $feedback->annotate_files('mod_feedback', 'intro', null); // This file area hasn't itemid
 
-        $item->annotate_files(array('feedback_item'), 'id');
+        $item->annotate_files('mod_feedback', 'item', 'id');
 
         // Return the root element (feedback), wrapped into standard activity structure
         return $this->prepare_activity_structure($feedback);

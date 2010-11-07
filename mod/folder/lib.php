@@ -18,10 +18,13 @@
 /**
  * Mandatory public API of folder module
  *
- * @package   mod-folder
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage folder
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * List of features supported in Folder module
@@ -97,7 +100,7 @@ function folder_add_instance($data, $mform) {
     $context = get_context_instance(CONTEXT_MODULE, $cmid);
 
     if ($draftitemid) {
-        file_save_draft_area_files($draftitemid, $context->id, 'folder_content', 0, array('subdirs'=>true));
+        file_save_draft_area_files($draftitemid, $context->id, 'mod_folder', 'content', 0, array('subdirs'=>true));
     }
 
     return $data->id;
@@ -123,7 +126,7 @@ function folder_update_instance($data, $mform) {
 
     $context = get_context_instance(CONTEXT_MODULE, $cmid);
     if ($draftitemid = file_get_submitted_draft_itemid('files')) {
-        file_save_draft_area_files($draftitemid, $context->id, 'folder_content', 0, array('subdirs'=>true));
+        file_save_draft_area_files($draftitemid, $context->id, 'mod_folder', 'content', 0, array('subdirs'=>true));
     }
 
     return true;
@@ -165,7 +168,7 @@ function folder_user_outline($course, $user, $mod, $folder) {
         $numviews = count($logs);
         $lastlog = array_pop($logs);
 
-        $result = new object();
+        $result = new stdClass();
         $result->info = get_string('numviews', '', $numviews);
         $result->time = $lastlog->time;
 
@@ -218,14 +221,13 @@ function folder_get_participants($folderid) {
  */
 function folder_get_file_areas($course, $cm, $context) {
     $areas = array();
-    if (has_capability('moodle/course:managefiles', $context)) {
-        $areas['folder_content'] = get_string('foldercontent', 'folder');
-    }
+    $areas['content'] = get_string('foldercontent', 'folder');
+
     return $areas;
 }
 
 /**
- * File browsing support for folder module ontent area.
+ * File browsing support for folder module content area.
  * @param object $browser
  * @param object $areas
  * @param object $course
@@ -240,24 +242,29 @@ function folder_get_file_areas($course, $cm, $context) {
 function folder_get_file_info($browser, $areas, $course, $cm, $context, $filearea, $itemid, $filepath, $filename) {
     global $CFG;
 
-    $canwrite = has_capability('moodle/course:managefiles', $context);
 
-    $fs = get_file_storage();
+    if ($filearea === 'content') {
+        if (!has_capability('mod/folder:view', $context)) {
+            return NULL;
+        }
+        $fs = get_file_storage();
 
-    if ($filearea === 'folder_content') {
         $filepath = is_null($filepath) ? '/' : $filepath;
         $filename = is_null($filename) ? '.' : $filename;
-
-        $urlbase = $CFG->wwwroot.'/pluginfile.php';
-        if (!$storedfile = $fs->get_file($context->id, $filearea, 0, $filepath, $filename)) {
+        if (!$storedfile = $fs->get_file($context->id, 'mod_folder', 'content', 0, $filepath, $filename)) {
             if ($filepath === '/' and $filename === '.') {
-                $storedfile = new virtual_root_file($context->id, $filearea, 0);
+                $storedfile = new virtual_root_file($context->id, 'mod_folder', 'content', 0);
             } else {
                 // not found
                 return null;
             }
         }
+
         require_once("$CFG->dirroot/mod/folder/locallib.php");
+        $urlbase = $CFG->wwwroot.'/pluginfile.php';
+
+        // students may read files here
+        $canwrite = has_capability('mod/folder:managefiles', $context);
         return new folder_content_file_info($browser, $context, $storedfile, $urlbase, $areas[$filearea], true, true, $canwrite, false);
     }
 
@@ -270,46 +277,46 @@ function folder_get_file_info($browser, $areas, $course, $cm, $context, $fileare
  * Serves the folder files.
  *
  * @param object $course
- * @param object $cminfo
+ * @param object $cm
  * @param object $context
  * @param string $filearea
  * @param array $args
  * @param bool $forcedownload
- * @return bool false if file not found, does not return if found - justsend the file
+ * @return bool false if file not found, does not return if found - just send the file
  */
-function folder_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedownload) {
+function folder_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload) {
     global $CFG, $DB;
 
-    if (!$cminfo->uservisible) {
-        return false;
-    }
-
-    if ($filearea !== 'folder_content') {
-        // intro is handled automatically in pluginfile.php
-        return false;
-    }
-
-    if (!$cm = get_coursemodule_from_instance('folder', $cminfo->instance, $course->id)) {
+    if ($context->contextlevel != CONTEXT_MODULE) {
         return false;
     }
 
     require_course_login($course, true, $cm);
+    if (!has_capability('mod/folder:view', $context)) {
+        return false;
+    }
+
+    if ($filearea !== 'content') {
+        // intro is handled automatically in pluginfile.php
+        return false;
+    }
 
     array_shift($args); // ignore revision - designed to prevent caching problems only
 
     $fs = get_file_storage();
-    $relativepath = '/'.implode('/', $args);
-    $fullpath = $context->id.$filearea.'0'.$relativepath;
+    $relativepath = implode('/', $args);
+    $fullpath = "/$context->id/mod_folder/content/0/$relativepath";
     if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
         return false;
     }
 
     // finally send the file
-    send_stored_file($file, 86400, 0, $forcedownload);
+    // for folder module, we force download file all the time
+    send_stored_file($file, 86400, 0, true);
 }
 
 /**
- * This function extends the global navigaiton for the site.
+ * This function extends the global navigation for the site.
  * It is important to note that you should not rely on PAGE objects within this
  * body of code as there is no guarantee that during an AJAX request they are
  * available
@@ -317,7 +324,7 @@ function folder_pluginfile($course, $cminfo, $context, $filearea, $args, $forced
  * @param navigation_node $navigation The folder node within the global navigation
  * @param stdClass $course The course object returned from the DB
  * @param stdClass $module The module object returned from the DB
- * @param stdClass $cm The course module isntance returned from the DB
+ * @param stdClass $cm The course module instance returned from the DB
  */
 function folder_extend_navigation($navigation, $course, $module, $cm) {
     /**

@@ -40,13 +40,25 @@ class backup_final_task extends backup_task {
         $coursectxid = get_context_instance(CONTEXT_COURSE, $this->get_courseid())->id;
         $this->add_setting(new backup_activity_generic_setting(backup::VAR_CONTEXTID, base_setting::IS_INTEGER, $coursectxid));
 
-        //TODO: MDL-22793 add enrol instances of enabled enrol plugins in course,
+        // Set the backup::VAR_COURSEID setting to course, we'll need that in some steps
+        $courseid = $this->get_courseid();
+        $this->add_setting(new backup_activity_generic_setting(backup::VAR_COURSEID, base_setting::IS_INTEGER, $courseid));
 
         // Generate the groups file with the final annotated groups and groupings
         // including membership based on setting
         $this->add_step(new backup_groups_structure_step('groups', 'groups.xml'));
 
-        // Annotate all the user files (conditionally) (private files, and profile)
+        // Generate the questions file with the final annotated question_categories
+        $this->add_step(new backup_questions_structure_step('questions', 'questions.xml'));
+
+        // Annotate all the question files for the already annotated question
+        // categories (this is performed here and not in the structure step because
+        // it involves multiple contexts and as far as we are always backup-ing
+        // complete question banks we don't need to restrict at all and can be
+        // done in a single pass
+        $this->add_step(new backup_annotate_all_question_files('question_files'));
+
+        // Annotate all the user files (conditionally) (private, profile and icon files)
         // Because each user has its own context, we need a separate/specialised step here
         // This step also ensures that the contexts for all the users exist, so next
         // step can be safely executed (join between users and contexts)
@@ -55,7 +67,7 @@ class backup_final_task extends backup_task {
             $this->add_step(new backup_annotate_all_user_files('user_files'));
         }
 
-        // Generate the users file (conditonally) with the final annotated users
+        // Generate the users file (conditionally) with the final annotated users
         // including custom profile fields, preferences, tags, role assignments and
         // overrides
         if ($this->get_setting_value('users')) {
@@ -67,10 +79,17 @@ class backup_final_task extends backup_task {
         // the list of role definitions (no assignments nor permissions)
         $this->add_step(new backup_final_roles_structure_step('roleslist', 'roles.xml'));
 
-        // Generate the scales file with all the annotated scales
+        // Generate the gradebook file with categories and course grade items. Do it conditionally, using
+        // execute_condition() so only will be excuted if ALL module grade_items in course have been exported
+        $this->add_step(new backup_gradebook_structure_step('course_gradebook','gradebook.xml'));
+
+        // Generate the course completion
+        $this->add_step(new backup_course_completion_structure_step('course_completion', 'completion.xml'));
+
+        // Generate the scales file with all the (final) annotated scales
         $this->add_step(new backup_final_scales_structure_step('scaleslist', 'scales.xml'));
 
-        // Generate the outcomes file with all the annotated outcomes
+        // Generate the outcomes file with all the (final) annotated outcomes
         $this->add_step(new backup_final_outcomes_structure_step('outcomeslist', 'outcomes.xml'));
 
         // Migrate the pending annotations to final (prev steps may have added some files)
@@ -86,14 +105,20 @@ class backup_final_task extends backup_task {
         // to the backup, settings, license, versions and other useful information
         $this->add_step(new backup_main_structure_step('mainfile', 'moodle_backup.xml'));
 
-        // Generate the zip file
-        $this->add_step(new backup_zip_contents('zip_contents'));
+        // On backup::MODE_IMPORT, we don't have to zip nor store the the file, skip these steps
+        if ($this->plan->get_mode() != backup::MODE_IMPORT) {
+            // Generate the zip file (mbz extension)
+            $this->add_step(new backup_zip_contents('zip_contents'));
 
-        // Copy the generated zip file to final destination
-        $this->add_step(new backup_store_backup_file('save_backupfile'));
+            // Copy the generated zip (.mbz) file to final destination
+            $this->add_step(new backup_store_backup_file('save_backupfile'));
+        }
 
-        // Clean the temp dir (conditionaly) and drop temp table
-        $this->add_step(new drop_and_clean_temp_stuff('drop_and_clean_temp_stuff'));
+        // Clean the temp dir (conditionally) and drop temp tables
+        $cleanstep = new drop_and_clean_temp_stuff('drop_and_clean_temp_stuff');
+        // Decide about to delete the temp dir (based on backup::MODE_IMPORT)
+        $cleanstep->skip_cleaning_temp_dir($this->plan->get_mode() == backup::MODE_IMPORT);
+        $this->add_step($cleanstep);
 
         $this->built = true;
     }

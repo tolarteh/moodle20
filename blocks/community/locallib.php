@@ -67,46 +67,68 @@ class block_community_manager {
      */
     public function block_community_get_course($courseurl, $userid) {
         global $DB;
-        return $DB->get_record('block_community', array('courseurl' => $courseurl, 'userid' => $userid));
+        return $DB->get_record('block_community',
+                array('courseurl' => $courseurl, 'userid' => $userid));
     }
 
     /**
      * Download the community course backup and save it in file API
      * @param integer $courseid
      * @param string $huburl
+     * @return array 'privatefile' the file name saved in private area
+     *               'tmpfile' the file name saved in the moodledata temp dir (for restore)
      */
     public function block_community_download_course_backup($course) {
         global $CFG, $USER;
-        require_once($CFG->dirroot. "/lib/filelib.php");
+        require_once($CFG->libdir . "/filelib.php");
         require_once($CFG->dirroot. "/course/publish/lib.php");
-        //$curl = new curl();
+             
         $params['courseid'] = $course->id;
         $params['filetype'] = HUB_BACKUP_FILE_TYPE;
 
-        if (!file_exists($CFG->dataroot.'/temp/communitydownload')) {
-            mkdir($CFG->dataroot.'/temp/communitydownload/', 0777, true);
-        }
+        make_upload_directory('temp/backup');
+
+        $filename = md5(time() . '-' . $course->id . '-'. $USER->id . '-'. random_string(20));
 
         $url  = new moodle_url($course->huburl.'/local/hub/webservice/download.php', $params);
-        $path = $CFG->dataroot.'/temp/communitydownload/'.'backup_'.$course->fullname."_".$course->id.".zip";
+        $path = $CFG->dataroot.'/temp/backup/'.$filename.".mbz";
         $fp = fopen($path, 'w');
-        $ch = curl_init($course->huburl.'/local/hub/webservice/download.php?filetype='.HUB_BACKUP_FILE_TYPE.'&courseid='.$course->id);
+        $curlurl = $course->huburl.'/local/hub/webservice/download.php?filetype='
+                .HUB_BACKUP_FILE_TYPE.'&courseid='.$course->id;
+
+        //send an identification token if the site is registered on the hub
+        require_once($CFG->dirroot . '/' . $CFG->admin . '/registration/lib.php');
+        $registrationmanager = new registration_manager();
+        $registeredhub = $registrationmanager->get_registeredhub($course->huburl);
+        if (!empty($registeredhub)) {
+            $token = $registeredhub->token;
+            $curlurl .= '&token='.$token;
+        }
+        
+        $ch = curl_init($curlurl);
         curl_setopt($ch, CURLOPT_FILE, $fp);
         $data = curl_exec($ch);
         curl_close($ch);
         fclose($fp);
 
         $fs = get_file_storage();
+        $record = new stdClass();
         $record->contextid = get_context_instance(CONTEXT_USER, $USER->id)->id;
-        $record->filearea = 'user_backup';
+        $record->component = 'user';
+        $record->filearea = 'private';
         $record->itemid = 0;
-        $record->filename = 'backup_'.$course->fullname."_".$course->id.".zip";
-        $record->filepath = '/';
-        if (!$fs->file_exists($record->contextid, $record->filearea, 0, $record->filepath, $record->filename)) {
-            $fs->create_file_from_pathname($record, $CFG->dataroot.'/temp/communitydownload/'.'backup_'.$course->fullname."_".$course->id.".zip");
+        $record->filename = urlencode($course->fullname)."_".time().".mbz";
+        $record->filepath = '/downloaded_backup/';
+        if (!$fs->file_exists($record->contextid, $record->component,
+                $record->filearea, 0, $record->filepath, $record->filename)) {
+            $fs->create_file_from_pathname($record,
+                    $CFG->dataroot.'/temp/backup/'.$filename.".mbz");
         }
-        //delete temp file
-        unlink($path);
+
+        $filenames = array();
+        $filenames['privatefile'] = $record->filename;
+        $filenames['tmpfile'] = $filename;
+        return $filenames;
     }
 
     /**
@@ -117,7 +139,8 @@ class block_community_manager {
      */
     public function block_community_remove_course($communityid, $userid) {
         global $DB, $USER;
-        return $DB->delete_records('block_community', array('userid' => $userid, 'id' => $communityid));
+        return $DB->delete_records('block_community',
+                array('userid' => $userid, 'id' => $communityid));
     }
 
 }

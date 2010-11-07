@@ -1,5 +1,5 @@
 /** Course formats **/
-.course-content ul.weeks li.section {border:1px solid #DDD;background-color:#FFF;}
+.course-content ul.weeks li.section {border:1px solid #DDD;}
 .course-content ul.weeks li.section .content {background-color:#FAFAFA;padding:5px 10px;}
 .course-content ul.weeks li.section .content h3 {margin:0;color:#777;font-weight: normal;}
 .course-content ul.weeks li.section .left {padding:5px 0;}
@@ -71,10 +71,10 @@
 
 #page-course-report #content {padding-top:15px;padding-bottom:15px;}
 
-#page-course-report p,
-#page-course-report-log-index .info,
-#page-course-report-log-indexlive .info,
-#page-course-report-stats-index .graph {text-align: center;}
+#page-course-report #region-main p,
+#page-course-report-log-index #region-main .info,
+#page-course-report-log-indexlive #region-main .info,
+#page-course-report-stats-index #region-main .graph {text-align: center;}
 
 #page-course-report .logselectform,
 #page-course-report .participationselectform,
@@ -96,9 +96,14 @@
 .course_category_tree .category_label {padding-left:13px;}
 .course_category_tree .category_link {display:block;margin:5px;font-size:120%;font-weight:bold;}
 .course_category_tree .category .courses {background-color:inherit;}
-.course_category_tree .category .courses .course_link {margin:5px;}
+.course_category_tree .category .courses .course_link {margin:5px;margin-right:100px;}
 .course_category_tree .category .course {border:1px solid #f9f9f9;border-bottom-color: #eee;border-right-width:0;}
 .course_category_tree .category .course:last-child {border-bottom-color:#f6f6f6;}
 .course_category_tree .category .course.even {background-color:#f6f6f6;border-color:#eee;border-top-color: #f9f9f9;}
 .course_category_tree .category .course_info {right:3px;top:3px;}
 .course_category_tree .category .course:hover {background-color:#eee;}
+
+/* Publication */
+#page-course-publish-metadata .metadatatext {width: 400px;}
+#page-course-publish-backup .courseuploadtextinfo {text-align: center;}
+#page-course-publish-backup .sharecoursecontinue  {text-align: center;}

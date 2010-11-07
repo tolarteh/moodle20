@@ -38,7 +38,7 @@ $parts = trim($parts, '&');
 // find out what we are serving - only one type per request
 $content = '';
 if (substr($parts, -3) === '.js') {
-    $mimetype = 'application/x-javascript';
+    $mimetype = 'application/javascript';
 } else if (substr($parts, -4) === '.css') {
     $mimetype = 'text/css';
 } else {
@@ -46,6 +46,7 @@ if (substr($parts, -3) === '.js') {
 }
 
 $parts = explode('&', $parts);
+$cache = true;
 
 foreach ($parts as $part) {
     if (empty($part)) {
@@ -57,12 +58,33 @@ foreach ($parts as $part) {
         $content .= "\n// Wrong combo resource $part!\n";
         continue;
     }
-    $version = $bits[0];
-    if ($version != $CFG->yui3version and $version != $CFG->yui2version and $version != 'gallery') {
-        $content .= "\n// Wrong yui version $part!\n";
-        continue;
+    //debug($bits);
+    $version = array_shift($bits);
+    if ($version == 'moodle') {
+        //TODO: this is a ugly hack because we should not load any libs here!
+        define('MOODLE_INTERNAL', true);
+        require_once($CFG->libdir.'/moodlelib.php');
+        $revision = (int)array_shift($bits);
+        if ($revision === -1) {
+            // Revision -1 says please don't cache the JS
+            $cache = false;
+        }
+        $frankenstyle = array_shift($bits);
+        $filename = array_pop($bits);
+        $dir = get_component_directory($frankenstyle);
+        if ($mimetype == 'text/css') {
+            $bits[] = 'assets';
+            $bits[] = 'skins';
+            $bits[] = 'sam';
+        }
+        $contentfile = $dir.'/yui/'.join('/', $bits).'/'.$filename;
+    } else {
+        if ($version != $CFG->yui3version and $version != $CFG->yui2version and $version != 'gallery') {
+            $content .= "\n// Wrong yui version $part!\n";
+            continue;
+        }
+        $contentfile = "$CFG->libdir/yui/$part";
     }
-    $contentfile = "$CFG->libdir/yui/$part";
     if (!file_exists($contentfile) or !is_file($contentfile)) {
         $content .= "\n// Combo resource $part not found!\n";
         continue;
@@ -70,10 +92,17 @@ foreach ($parts as $part) {
     $filecontent = file_get_contents($contentfile);
 
     if ($mimetype === 'text/css') {
-        if ($version == 'gallery') {
+        if ($version == 'moodle') {
+            $filecontent = preg_replace('/([a-z_-]+)\.(png|gif)/', 'yui_image.php?file='.$version.'/'.$frankenstyle.'/'.array_shift($bits).'/$1.$2', $filecontent);
+        } else if ($version == 'gallery') {
             // search for all images in gallery module CSS and serve them through the yui_image.php script
-            $filecontent = preg_replace('/([a-z_-]+)\.(png|gif)/', 'yui_image.php?file='.$version.'/'.$bits[1].'/'.$bits[2].'/$1.$2', $filecontent);
+            $filecontent = preg_replace('/([a-z_-]+)\.(png|gif)/', 'yui_image.php?file='.$version.'/'.$bits[0].'/'.$bits[1].'/$1.$2', $filecontent);
         } else {
+            // First we need to remove relative paths to images. These are used by YUI modules to make use of global assets.
+            // I've added this as a separate regex so it can be easily removed once
+            // YUI standardise there CSS methods
+            $filecontent = preg_replace('#(\.\./\.\./\.\./\.\./assets/skins/sam/)?([a-z_-]+)\.(png|gif)#', '$2.$3', $filecontent);
+
             // search for all images in yui2 CSS and serve them through the yui_image.php script
             $filecontent = preg_replace('/([a-z_-]+)\.(png|gif)/', 'yui_image.php?file='.$version.'/$1.$2', $filecontent);
         }
@@ -82,11 +111,18 @@ foreach ($parts as $part) {
     $content .= $filecontent;
 }
 
+if ($cache) {
+    combo_send_cached($content, $mimetype);
+} else {
+    combo_send_uncached($content, $mimetype);
+}
 
-combo_send_cached($content, $mimetype);
 
-
-
+/**
+ * Send the JavaScript cached
+ * @param string $content
+ * @param string $mimetype
+ */
 function combo_send_cached($content, $mimetype) {
     $lifetime = 60*60*24*300; // 300 days === forever
 
@@ -95,6 +131,26 @@ function combo_send_cached($content, $mimetype) {
     header('Expires: '. gmdate('D, d M Y H:i:s', time() + $lifetime) .' GMT');
     header('Pragma: ');
     header('Cache-Control: max-age=315360000');
+    header('Accept-Ranges: none');
+    header('Content-Type: '.$mimetype);
+    if (!min_enable_zlib_compression()) {
+        header('Content-Length: '.strlen($content));
+    }
+
+    echo $content;
+    die;
+}
+
+/**
+ * Send the JavaScript uncached
+ * @param string $content
+ * @param string $mimetype
+ */
+function combo_send_uncached($content, $mimetype) {
+    header('Content-Disposition: inline; filename="combo"');
+    header('Last-Modified: '. gmdate('D, d M Y H:i:s', time()) .' GMT');
+    header('Expires: '. gmdate('D, d M Y H:i:s', time() + 2) .' GMT');
+    header('Pragma: ');
     header('Accept-Ranges: none');
     header('Content-Type: '.$mimetype);
     if (!min_enable_zlib_compression()) {

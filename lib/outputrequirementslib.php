@@ -19,10 +19,13 @@
 /**
  * Library functions to facilitate the use of JavaScript in Moodle.
  *
- * @package   moodlecore
- * @copyright 2009 Tim Hunt, 2010 Petr Skoda
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  2009 Tim Hunt, 2010 Petr Skoda
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 // note: you can find history of this file in lib/ajax/ajaxlib.php
 
@@ -142,6 +145,14 @@ class page_requirements_manager {
         $this->yui3loader->combine = !empty($CFG->yuicomboloading);
         $this->yui2loader->combine = !empty($CFG->yuicomboloading);
 
+        if (empty($CFG->cachejs)) {
+            $jsrev = -1;
+        } else if (empty($CFG->jsrev)) {
+            $jsrev = 1;
+        } else {
+            $jsrev = $CFG->jsrev;
+        }
+
         // set up JS YUI loader helper object
         $this->M_yui_loader = new stdClass();
         $this->M_yui_loader->base         = $this->yui3loader->base;
@@ -150,26 +161,40 @@ class page_requirements_manager {
         $this->M_yui_loader->filter       = ($this->yui3loader->filter == YUI_DEBUG) ? 'debug' : '';
         $this->M_yui_loader->insertBefore = 'firstthemesheet';
         $this->M_yui_loader->modules      = array();
-        if (empty($CFG->useexternalyui) || true) {
-            $this->M_yui_loader->groups = array(
-                'local' => array(
-                    'name' => 'gallery',
-                    'base' => $CFG->wwwroot.'/lib/yui/gallery/',
-                    'comboBase' => $this->yui3loader->comboBase,
-                    'combine' => $this->yui3loader->combine,
-                    'filter' => $this->M_yui_loader->filter,
-                    'ext' => false,
-                    'root' => 'gallery/',
-                    'patterns' => array(
-                        'gallery-' => array(
-                            'group' => 'gallery',
-                            'configFn' => '@GALLERYCONFIGFN@',
-                        ),
-                        'root' => 'gallery'
+        $this->M_yui_loader->groups       = array(
+            'moodle' => array(
+                'name' => 'moodle',
+                'base' => $CFG->httpswwwroot . '/theme/yui_combo.php?moodle/'.$jsrev.'/',
+                'comboBase' => $CFG->httpswwwroot . '/theme/yui_combo.php?',
+                'combine' => $this->yui3loader->combine,
+                'filter' => '',
+                'ext' => false,
+                'root' => 'moodle/'.$jsrev.'/', // Add the rev to the root path so that we can control caching
+                'patterns' => array(
+                    'moodle-' => array(
+                        'group' => 'moodle',
+                        'configFn' => '@MOODLECONFIGFN@'
                     ),
+                    'root' => 'moodle'
                 )
-            );
-        }
+            ),
+            'local' => array(
+                'name' => 'gallery',
+                'base' => $CFG->wwwroot.'/lib/yui/gallery/',
+                'comboBase' => $CFG->httpswwwroot . '/theme/yui_combo.php?',
+                'combine' => $this->yui3loader->combine,
+                'filter' => $this->M_yui_loader->filter,
+                'ext' => false,
+                'root' => 'gallery/',
+                'patterns' => array(
+                    'gallery-' => array(
+                        'group' => 'gallery',
+                        'configFn' => '@GALLERYCONFIGFN@',
+                    ),
+                    'root' => 'gallery'
+                )
+            )
+        );
         $this->add_yui2_modules(); // adds loading info for all YUI2 modules
         $this->js_module($this->find_module('core_filepicker'));
         $this->js_module($this->find_module('core_dock'));
@@ -335,10 +360,10 @@ class page_requirements_manager {
             if (debugging()) {
                 // check file existence only when in debug mode
                 if (!file_exists($CFG->dirroot . strtok($url, '?'))) {
-                    throw new coding_exception('Attept to require a JavaScript file that does not exist.', $url);
+                    throw new coding_exception('Attempt to require a JavaScript file that does not exist.', $url);
                 }
             }
-            if (!empty($CFG->cachejs) and !empty($CFG->jsrev) and strpos($url, '/lib/editor/') != 0) {
+            if (!empty($CFG->cachejs) and !empty($CFG->jsrev) and strpos($url, '/lib/editor/') !== 0) {
                 return new moodle_url($CFG->httpswwwroot.'/lib/javascript.php', array('file'=>$url, 'rev'=>$CFG->jsrev));
             } else {
                 return new moodle_url($CFG->httpswwwroot.$url);
@@ -379,7 +404,9 @@ class page_requirements_manager {
                                                         array('submit', 'repository'), array('sync', 'repository'), array('title', 'repository'), array('upload', 'repository'),
                                                         array('uploading', 'repository'), array('xhtmlerror', 'repository'),
                                                         array('xhtml', 'quiz'), array('cancel'), array('chooselicense', 'repository'), array('author', 'repository'),
-                                                        array('ok', 'moodle'), array('error', 'moodle'), array('info', 'moodle'), array('norepositoriesavailable', 'repository'), array('norepositoriesexternalavailable', 'repository')
+                                                        array('ok', 'moodle'), array('error', 'moodle'), array('info', 'moodle'), array('norepositoriesavailable', 'repository'), array('norepositoriesexternalavailable', 'repository'),
+                                                        array('nofilesattached', 'repository'), array('filepicker', 'repository'),
+                                                        array('nofilesavailable', 'repository')
                                                     ));
                     break;
                 case 'core_comment':
@@ -391,7 +418,8 @@ class page_requirements_manager {
                     break;
                 case 'core_role':
                     $module = array('name'     => 'core_role',
-                                    'fullpath' => '/admin/roles/module.js');
+                                    'fullpath' => '/admin/roles/module.js',
+                                    'requires' => array('node', 'cookie'));
                     break;
                 case 'core_completion':
                     $module = array('name'     => 'core_completion',
@@ -402,11 +430,6 @@ class page_requirements_manager {
                                     'fullpath' => '/blocks/dock.js',
                                     'requires' => array('base', 'node', 'event-custom', 'event-mouseenter', 'event-resize'),
                                     'strings' => array(array('addtodock', 'block'),array('undockitem', 'block'),array('undockall', 'block'),array('thisdirectionvertical', 'langconfig')));
-                    break;
-                case 'core_calendar':
-                    $module = array('name'     => 'core_calendar',
-                                    'fullpath' => '/calendar/calendar.js',
-                                    'requires' => array('dom', 'event', 'node', 'yui2-container', 'event-mouseenter'));
                     break;
                 case 'core_message':
                     $module = array('name'     => 'core_message',
@@ -421,6 +444,11 @@ class page_requirements_manager {
                     $module = array('name'     => 'core_group',
                                     'fullpath' => '/group/module.js',
                                     'requires' => array('node', 'overlay', 'event-mouseenter'));
+                    break;
+                case 'core_question_engine':
+                    $module = array('name'     => 'core_question_engine',
+                                    'fullpath' => '/question/qengine.js',
+                                    'requires' => array('node', 'event'));
                     break;
                 case 'core_rating':
                     $module = array('name'     => 'core_rating',
@@ -470,7 +498,6 @@ class page_requirements_manager {
         }
 
         $module['fullpath'] = $this->js_fix_url($module['fullpath'])->out(false);
-
         // add all needed strings
         if (!empty($module['strings'])) {
             foreach ($module['strings'] as $string) {
@@ -591,13 +618,9 @@ class page_requirements_manager {
     }
 
     /**
-     * Adds a call to make use of a YUI gallery module.
+     * Adds a call to make use of a YUI gallery module. DEPRECATED DO NOT USE!!!
      *
-     * This function adds code to the page footer that will tell a YUI instance to
-     * use the requested gallery module(s) and then call the desired function.
-     *
-     * @todo Once YUI support loading skins from the gallery the if to use
-     * external yui libs should be fixed so that it calls;
+     * @deprecated DO NOT USE
      *
      * @param string|array $modules One or more gallery modules to require
      * @param string $version
@@ -607,15 +630,37 @@ class page_requirements_manager {
      */
     public function js_gallery_module($modules, $version, $function, array $arguments = null, $ondomready = false) {
         global $CFG;
+        debugging('This function will be removed before 2.0 is released please change it from js_gallery_module to yui_module', DEBUG_DEVELOPER);
+        $this->yui_module($modules, $function, $arguments, $version, $ondomready);
+    }
+
+    /**
+     * Creates a JavaScript function call that requires one or more modules to be loaded
+     *
+     * This function can be used to include all of the standard YUI module types within JavaScript:
+     *     - YUI3 modules    [node, event, io]
+     *     - YUI2 modules    [yui2-*]
+     *     - Moodle modules  [moodle-*]
+     *     - Gallery modules [gallery-*]
+     *
+     * @param array|string $modules One or more modules
+     * @param string $function The function to call once modules have been loaded
+     * @param array $arguments An array of arguments to pass to the function
+     * @param string $galleryversion The gallery version to use
+     * @param bool $ondomready
+     */
+    public function yui_module($modules, $function, array $arguments = null, $galleryversion = '2010.04.08-12-35', $ondomready = false) {
+        global $CFG;
+
         if (!is_array($modules)) {
             $modules = array($modules);
         }
         if (empty($CFG->useexternalyui) || true) {
             // We need to set the M.yui.galleryversion to the correct version
-            $jscode = 'M.yui.galleryversion='.json_encode($version).';';
+            $jscode = 'M.yui.galleryversion='.json_encode($galleryversion).';';
         } else {
             // Set Y's config.gallery to the version
-            $jscode = 'Y.config.gallery='.json_encode($version).';';
+            $jscode = 'Y.config.gallery='.json_encode($galleryversion).';';
         }
         $jscode .= 'Y.use('.join(',', array_map('json_encode', $modules)).',function() {'.js_writer::function_call($function, $arguments).'})';
         if ($ondomready) {
@@ -684,14 +729,41 @@ class page_requirements_manager {
      * equivalent in the current language.
      *
      * The arguments to this function are just like the arguments to get_string
-     * except that $component is not optional, and there are limitations on how you
-     * use $a. Because each string is only stored once in the JavaScript (based
-     * on $identifier and $module) you cannot get the same string with two different
-     * values of $a. If you try, an exception will be thrown.
+     * except that $component is not optional, and there are some aspects to consider
+     * when the string contains {$a} placeholder.
      *
-     * If you do need the same string expanded with different $a values, then
-     * the solution is to put them in your own data structure (e.g. and array)
-     * that you pass to JavaScript with {@link data_for_js()}.
+     * If the string does not contain any {$a} placeholder, you can simply use
+     * M.str.component.identifier to obtain it. If you prefer, you can call
+     * M.util.get_string(identifier, component) to get the same result.
+     *
+     * If you need to use {$a} placeholders, there are two options. Either the
+     * placeholder should be substituted in PHP on server side or it should
+     * be substituted in Javascript at client side.
+     *
+     * To substitute the placeholder at server side, just provide the required
+     * value for the placeholder when you require the string. Because each string
+     * is only stored once in the JavaScript (based on $identifier and $module)
+     * you cannot get the same string with two different values of $a. If you try,
+     * an exception will be thrown. Once the placeholder is substituted, you can
+     * use M.str or M.util.get_string() as shown above:
+     *
+     *     // require the string in PHP and replace the placeholder
+     *     $PAGE->requires->string_for_js('fullnamedisplay', 'moodle', $USER);
+     *     // use the result of the substitution in Javascript
+     *     alert(M.str.moodle.fullnamedisplay);
+     *
+     * To substitute the placeholder at client side, use M.util.get_string()
+     * function. It implements the same logic as {@see get_string()}:
+     *
+     *     // require the string in PHP but keep {$a} as it is
+     *     $PAGE->requires->string_for_js('fullnamedisplay', 'moodle');
+     *     // provide the values on the fly in Javascript
+     *     user = { firstname : 'Harry', lastname : 'Potter' }
+     *     alert(M.util.get_string('fullnamedisplay', 'moodle', user);
+     *
+     * If you do need the same string expanded with different $a values in PHP
+     * on server side, then the solution is to put them in your own data structure
+     * (e.g. and array) that you pass to JavaScript with {@link data_for_js()}.
      *
      * @param string $identifier the desired string.
      * @param string $module the language file to look in.
@@ -831,7 +903,7 @@ class page_requirements_manager {
      * @return string
      */
     protected function get_yui3lib_headcode() {
-        $code = $this->yui3loader->css() . $this->yui3loader->script();
+        $code = $this->yui3loader->tags();
         // unfortunately yui loader does not produce xhtml strict code, so let's fix it for now
         $code = str_replace('&amp;', '&', $code);
         $code = str_replace('&', '&amp;', $code);
@@ -880,12 +952,16 @@ class page_requirements_manager {
         // Please note custom CSS is strongly discouraged,
         // because it can not be overridden by themes!
         // It is suitable only for things like mod/data which accepts CSS from teachers.
+        $attributes = array('rel'=>'stylesheet', 'type'=>'text/css');
 
-        $code = '';
-        $attributes = array('id'=>'firstthemesheet', 'rel'=>'stylesheet', 'type'=>'text/css');
+        // This line of code may look funny but it is currently required in order
+        // to avoid MASSIVE display issues in Internet Explorer.
+        // As of IE8 + YUI3.1.1 the reference stylesheet (firstthemesheet) gets
+        // ignored whenever another resource is added until such time as a redraw
+        // is forced, usually by moving the mouse over the affected element.
+        $code = html_writer::tag('script', '/** Required in order to fix style inclusion problems in IE with YUI **/', array('id'=>'firstthemesheet', 'type'=>'text/css'));
 
         $urls = $this->cssthemeurls + $this->cssurls;
-
         foreach ($urls as $url) {
             $attributes['href'] = $url;
             $code .= html_writer::empty_tag('link', $attributes) . "\n";
@@ -933,10 +1009,12 @@ class page_requirements_manager {
         // set up global YUI3 loader object - this should contain all code needed by plugins
         // note: in JavaScript just use "YUI(M.yui.loader).use('overlay', function(Y) { .... });"
         // this needs to be done before including any other script
-        $js = "var M = {}; M.yui = {}; ";
-        $js .= "var galleryConfigFn = function(me) {var p = me.path,v=M.yui.galleryversion,f;if(/-(skin|core)/.test(me.name)) {me.type = 'css';var p = p.replace(/-(skin|core)/, '').replace(/\.js/, '.css').split('/'), f = p.pop().replace(/(\-(min|debug))/, '');if (/-skin/.test(me.name)) {p.splice(p.length,0,v,'assets','skins','sam', f);} else {p.splice(p.length,0,v,'assets', f);};} else {var p = p.split('/'), f = p.pop();p.splice(p.length,0,v, f);};me.path = p.join('/');}; ";
-        $js .= str_replace('"@GALLERYCONFIGFN@"', 'galleryConfigFn', js_writer::set_variable('M.yui.loader', $this->M_yui_loader, false) . "\n");
+        $js = "var M = {}; M.yui = {}; var moodleConfigFn = function(me) {var p = me.path, b = me.name.replace(/^moodle-/,'').split('-', 3), n = b.pop();if (/(skin|core)/.test(n)) {n = b.pop();me.type = 'css';};me.path = b.join('-')+'/'+n+'/'+n+'.'+me.type;}; var galleryConfigFn = function(me) {var p = me.path,v=M.yui.galleryversion,f;if(/-(skin|core)/.test(me.name)) {me.type = 'css';p = p.replace(/-(skin|core)/, '').replace(/\.js/, '.css').split('/'), f = p.pop().replace(/(\-(min|debug))/, '');if (/-skin/.test(me.name)) {p.splice(p.length,0,v,'assets','skins','sam', f);} else {p.splice(p.length,0,v,'assets', f);};} else {p = p.split('/'), f = p.pop();p.splice(p.length,0,v, f);};me.path = p.join('/');};\n";
+        $js .= js_writer::set_variable('M.yui.loader', $this->M_yui_loader, false) . "\n";
         $js .= js_writer::set_variable('M.cfg', $this->M_cfg, false);
+        $js = str_replace('"@GALLERYCONFIGFN@"', 'galleryConfigFn', $js);
+        $js = str_replace('"@MOODLECONFIGFN@"', 'moodleConfigFn', $js);
+
         $output .= html_writer::script($js);
 
         // link our main JS file, all core stuff should be there

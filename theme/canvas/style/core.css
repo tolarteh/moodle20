@@ -1,3 +1,13 @@
+html {
+	height: 100%;
+}
+
+body {
+	min-height: 100%;
+	margin: 0;
+	padding: 0;
+}
+
 .sitetopic {
 	border: none;
 }
@@ -8,6 +18,11 @@
 	color: #333;
 }
 
+#notice {
+	text-align: center;
+}
+
+.noticebox,
 .expired,
 .notopenyet,
 .notifysuccess,
@@ -21,8 +36,17 @@
 	margin: 1em 0;
 }
 
+.navbutton .singlebutton {
+	margin: 0;
+}
+
 .generalbox {
 	border-color: #ddd;
+}
+
+.noticebox .generalbox {
+	border: none;
+	margin:2em 0;
 }
 
 .expired,
@@ -32,7 +56,7 @@
 }
 
 .buttons .singlebutton input {
-	margin: 0;
+	margin: 0 1em;
 }
 
 .initialbar {
@@ -45,6 +69,11 @@
 
 .side-post-only #page-content #region-main-box #region-post-box #region-main-wrap #region-main {
 	padding-left: 0;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+	margin-right: 7px;
 }
 
 /* Login
@@ -69,7 +98,9 @@
 	margin: 0 auto;
 	text-align: left;
 }
-
+.dir-rtl .loginbox .loginform .form-label {
+	text-align: right;
+}
 .loginbox .loginform .form-input {
 	float: none;
 	width: 100%;
@@ -116,7 +147,7 @@
 	width: 48%;
 }
 
-.page-course-loginas #notice {
+#page-course-loginas #notice {
 	border: none;
 }
 
@@ -142,19 +173,11 @@
 /* Calendar 
 -----------------------*/
 
-.calendarlayout {
-	width: 100%;
-}
-
 .calendarlayout .sidecalendar {
 	padding-left: 15px;
 }
 
-.calendarlayout .sidecalendar .block {
-	width: 210px;
-}
-
-.calendarlayout .block .minicalendarblock h3 {
+.minicalendarblock h3 {
 	text-align: center;
 	font-size: 1.2em;
 }
@@ -171,7 +194,7 @@
 }
 
 .maincalendar .calendarmonth th,
-.calendarlayout .sidecalendar .minicalendar th {
+.minicalendar th {
 	background: url([[pix:theme|gradient-sb]]) repeat-x 0 0;
 }
 
@@ -209,7 +232,7 @@
 	border: none;
 }
 
-.sidecalendar .filters td,
+.calendar_filters td,
 .minicalendar td,
 .minicalendar th {
 	padding: 2px;
@@ -302,37 +325,55 @@
 -----------------------*/
 
 .userinfobox {
-	border: none;
+border-color: #ddd;
+padding: 0
 }
 
-.path-user .profilepicture {
+.userinfobox .content {
+	text-align: left;
+	padding-left:10px
+}
+
+.userinfobox .links {
+	vertical-align: top;
+	background: #f4f4f4;
+	padding-left: 10px;
+}
+
+.userinfobox .links a {
+	display: block;
+	text-align: left;
+	
+}
+
+.profilepicture {
 	float: left;
 	margin-right: 10px;
 }
 
-.path-user .descriptionbox {
-    margin-left: 110px;
+.descriptionbox {
+	margin-left: 110px;
 	border: 1px solid #ddd;
 	padding: 10px;
 }
 
 .path-user .description {
-    padding-bottom: 15px;
-    border-bottom: 1px solid #eee;
+	padding-bottom: 15px;
+	border-bottom: 1px solid #eee;
 }
 
 .userprofile .list {
-    margin-top: 10px;
+	margin-top: 10px;
 }
 
 .userprofile .list td {
-    padding-top: 3px;
-    padding-bottom: 3px;
+	padding-top: 3px;
+	padding-bottom: 3px;
 }
 
 .userprofile .list .c0 {
-    padding-left: 0;
-    font-weight: bold;
+	padding-left: 0;
+	font-weight: bold;
 }
 
 #page-user-view .buttons {
@@ -362,11 +403,6 @@
 	text-align: center;
 }
 
-#longtimenosee {
-	font-style: italic;
-	font-size: 0.95em;
-}
-
 #participants {
 	width: 100%;
 	margin: 1em auto 0;
@@ -377,21 +413,29 @@
 	vertical-align: middle;
 }
 
+.groupinfobox {border-color: #DDDDDD;width: 60%;margin-left: 20%;margin-right: 20%;}
+
+/* Notes
+------------------------*/
+
+.path-notes .generalbox {
+	border: none;
+}
+
 /* Roles
 ------------------------*/
 
 .path-admin-roles .generaltable {
-	width: 65%;
+	/* width: 65%; hiding because it's causing problems on role/assign */
 }
 
 .path-admin-roles .generaltable th {
-  vertical-align: middle;
+	vertical-align: middle;
 }
 
 .path-admin-roles .generaltable .lastcol {
-  width:15%;
+	width: 15%;
 }
-
 
 .path-admin-roles .backlink {
 	text-align: center;
@@ -403,7 +447,7 @@
 .blog_entry .audience {
 	color: #444;
 	margin: 0 0 0.5em;
-    font-size: 0.9em;
+	font-size: 0.9em;
 }
 
 .blog_entry .tags {
@@ -431,20 +475,32 @@
 }
 
 #page-tag-index #tag-blogs {
-	border: none;
+	border-width: 0 0 1px;
+	width: 65%;
+	margin: 1em auto;
 }
 
 #tagblogentries {
-	width: 75%;
-	margin: 0 auto 1em;
+	margin: 0 0 1em;
+}
+
+#tagblogentries li {
+	list-style: none;
+	padding: 0.25em 0;
+	margin: 0
+}
+
+#big-tag-cloud-box {
+	border: none;
 }
 
 #tag-user-table {
-	width:95%;
+	width: 95%;
 	margin: 0 auto;
+	border-width: 0 0 1px;
 }
 
-#page-tag-index .managelink {
+.managelink {
 	text-align: right;
 }
 
@@ -458,7 +514,6 @@
 	padding: 4px 0;
 }
 
-#page-tag-index .moreblogs,
 #page-tag-index .relatedpages {
 	text-align: center;
 }
@@ -471,6 +526,13 @@
 	text-align: center;
 	padding: 0 0 1em;
 }
+
+/* YUI overlays
+------------------------*/
+#helppopupbox {
+	z-index: 99999 !important;
+}
+
 
 /* Embedded Pages
 ------------------------*/
@@ -494,7 +556,7 @@
 }
 
 .form-label .form-shortname {
-	font-size: 0.9em;
+	font-size: 0.8em;
 	color: #777;
 }
 
@@ -503,8 +565,74 @@
 	color: #444;
 }
 
+.mform .hidden .fitem .fgroup {
+	width: 100%;
+	text-align: center;
+	margin: 1em 0;
+}
+
+.path-backup .mform .hidden .fitem .fgroup {
+    text-align: left;
+}
+
+.path-backup .mform .grouped_settings {
+    margin:1em;
+}
+.path-backup .mform .grouped_settings .grouped_settings {
+    margin:0;
+}
+
+/* Comments
+-----------------------*/
+
+.comment-list li {
+	background: #eee !important;
+	list-style: none;
+}
+
+/* Gradebook
+----------------------*/
+
+.path-grade h1.headermain {
+	text-align: left; /* Strangely necessary TODO: find bug */
+}
+
+.gradestable .lastrow th.header {
+	background: #ddd;
+}
+
+.gradestable .lastrow td.cell {
+	background: #eee !important;
+}
+
+.user-grade td.b1t,
+.user-grade td.baggt {
+	background: #ddd !important;
+}
+
+#page-grade-edit-scale-index .generaltable {
+	margin: 1em auto;
+}
+
+#page-grade-report-grader-preferences .generalbox {
+	border: none;
+}
+
+.path-grade-report-grader form {
+	text-align: left;
+}
+
 /* Footer
 -----------------------*/
+
+#page-footer .logininfo {
+	padding: 1em 0;
+}
+
+#page-footer .homelink,
+#page-footer .sitelink {
+	padding: 1em 0;
+}
 
 .homelink a {
 	text-decoration: none;
@@ -521,3 +649,36 @@
 	border-right: 1px solid #cecece;
 	border-left: 2px solid #8a8a8a;
 }
+
+/**
+ * Enrol   - TODO: tidy up styles here
+ */
+.userenrolment {font-size:90%;border:1px solid #999;}
+.userenrolment tr.r0 {background-color:#F9F9F9;}
+.userenrolment tr.r1 {background-color:#F3F3F3;}
+.userenrolment td {border:1px solid #E9E9E9;border-top-color:#F6F6F6;border-right-color:#EEE;border-left-color:#F3F3F3;}
+.userenrolment td.c0 {border-left-color:#999;}
+.userenrolment td.c4 {border-right-color:#999;}
+.userenrolment .col_userdetails {padding:3px;min-width:35%;}
+.userenrolment .col_role .roles {position:relative;}
+.userenrolment .col_role .role {line-height:10px;font-size:10px;}
+.userenrolment .col_role .role a img {height:8px;}
+.userenrolment .col_role .addrole {background-color:#DDD;border:1px outset #EEE;-moz-border-radius:5px;}
+.userenrolment .col_group {max-width:300px;}
+.userenrolment .col_group .group {line-height:10px;font-size:10px;}
+.userenrolment .col_group .group a img {height:8px;}
+.userenrolment .col_group .addgroup {background-color:#DDD;border:1px outset #EEE;-moz-border-radius:5px;}
+.userenrolment .col_enrol {max-width:300px;}
+.userenrolment .col_enrol .enrolment {border:1px outset #E6E6E6;background-color:#EEE;line-height:10px;font-size:10px;-moz-border-radius:5px;}
+.path-enrol .enrolusersbutton,
+.path-enrol .enrolcohortbutton {float:left;}
+.path-enrol .enrolusersbutton.instance1,
+.path-enrol .enrolcohortbutton.instance1 {float:right;}
+
+/* Registration */
+#page-admin-registration-hubselector .registration_textfield {width: 400px;}
+
+/**
+ * Redirect
+ */
+.pagelayout-redirect #content {text-align:center;margin-top:10%;margin-bottom:10%;}

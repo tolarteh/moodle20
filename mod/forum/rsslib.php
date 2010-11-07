@@ -29,11 +29,10 @@
  * @global object $DB
  * @param object $context the context
  * @param int $forumid the ID of the forum
- * @param string $cachepath the path to the cache directory. For example '/home/user/moodledata/rss/forum/'
  * @param array $args the arguments received in the url
  * @return string the full path to the cached RSS feed directory. Null if there is a problem.
  */
-function forum_rss_get_feed($context, $cm, $forumid, $args) {
+function forum_rss_get_feed($context, $args) {
     global $CFG, $DB;
 
     $status = true;
@@ -44,14 +43,27 @@ function forum_rss_get_feed($context, $cm, $forumid, $args) {
         return null;
     }
 
-    //check capabilities
-    if (!has_capability('mod/forum:viewdiscussion', $context)) {
+    $forumid  = clean_param($args[3], PARAM_INT);
+
+    $uservalidated = false;
+
+    $cm = get_coursemodule_from_instance('forum', $forumid, 0, false, MUST_EXIST);
+    if ($cm) {
+        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+
+        //context id from db should match the submitted one
+        if ($context->id==$modcontext->id && has_capability('mod/forum:viewdiscussion', $modcontext)) {
+            $uservalidated = true;
+        }
+    }
+
+    if (!$uservalidated) {
         return null;
     }
 
     $forum = $DB->get_record('forum', array('id' => $forumid), '*', MUST_EXIST);
 
-    if (!rss_enabled('forum', $forum)) {
+    if (!rss_enabled_for_mod('forum', $forum)) {
         return null;
     }
 
@@ -60,7 +72,7 @@ function forum_rss_get_feed($context, $cm, $forumid, $args) {
 
     //hash the sql to get the cache file name
     $filename = rss_get_file_name($forum, $sql);
-    $cachedfilepath = rss_get_file_full_name('forum', $filename);
+    $cachedfilepath = rss_get_file_full_name('mod_forum', $filename);
 
     //Is the cache out of date?
     $cachedfilelastmodified = 0;
@@ -71,7 +83,7 @@ function forum_rss_get_feed($context, $cm, $forumid, $args) {
         //need to regenerate the cached version
         $result = forum_rss_feed_contents($forum, $sql);
         if (!empty($result)) {
-            $status = rss_save_file('forum',$filename,$result);
+            $status = rss_save_file('mod_forum',$filename,$result);
         }
     }
 
@@ -86,7 +98,7 @@ function forum_rss_get_feed($context, $cm, $forumid, $args) {
  * @return void
  */
 function forum_rss_delete_file($forum) {
-    rss_delete_file('forum', $forum);
+    rss_delete_file('mod_forum', $forum);
 }
 
 ///////////////////////////////////////////////////////
@@ -181,7 +193,7 @@ function forum_rss_feed_discussions_sql($forum, $cm, $newsince=0) {
 
 function forum_rss_feed_posts_sql($forum, $cm, $newsince=0) {
     $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
-    
+
     //get group enforcement SQL
     $groupmode    = groups_get_activity_groupmode($cm);
     $currentgroup = groups_get_activity_group($cm);
@@ -246,7 +258,7 @@ function forum_rss_get_group_sql($cm, $groupmode, $currentgroup, $modcontext=nul
 }
 
 
-    
+
 
 /**
  * This function return the XML rss contents about the forum
@@ -267,15 +279,22 @@ function forum_rss_feed_contents($forum, $sql) {
     //set a flag. Are we displaying discussions or posts?
     $isdiscussion = true;
     if (!empty($forum->rsstype) && $forum->rsstype!=1) {
-            $isdiscussion = false;
+        $isdiscussion = false;
     }
 
-    $formatoptions = new object;
+    $formatoptions = new stdClass();
     $items = array();
     foreach ($recs as $rec) {
-            unset($item);
-            unset($user);
-            $item->title = format_string($rec->discussionname);
+            $item = new stdClass();
+            $user = new stdClass();
+            if ($isdiscussion && !empty($rec->discussionname)) {
+                $item->title = format_string($rec->discussionname);
+            } else if (!empty($rec->postsubject)) {
+                $item->title = format_string($rec->postsubject);
+            } else {
+                //we should have an item title by now but if we dont somehow then substitute something somewhat meaningful
+                $item->title = format_string($forum->name.' '.userdate($rec->postcreated,get_string('strftimedatetimeshort', 'langconfig')));
+            }
             $user->firstname = $rec->userfirstname;
             $user->lastname = $rec->userlastname;
             $item->author = fullname($user);
@@ -298,7 +317,7 @@ function forum_rss_feed_contents($forum, $sql) {
                     $item->attachments = array();
                 }
             }*/
-            
+
             $items[] = $item;
         }
     $recs->close();

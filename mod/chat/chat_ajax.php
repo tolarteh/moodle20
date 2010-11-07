@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+//TODO: use standard CLI_SCRIPT support here (skodak)
+
+define('AJAX_SCRIPT', true);
+
 require_once(dirname(dirname(dirname(__FILE__))) . '/config.php');
 require_once(dirname(__FILE__) . '/lib.php');
 
@@ -38,7 +42,7 @@ if (!$course = $DB->get_record('course', array('id'=>$chat->course))) {
 if (!$cm = get_coursemodule_from_instance('chat', $chat->id, $course->id)) {
     chat_print_error('ERROR', get_string('invalidcoursemodule', 'error'));
 }
-if (isguestuser()) {
+if (!isloggedin()) {
     chat_print_error('ERROR', get_string('notlogged','chat'));
 }
 
@@ -71,7 +75,7 @@ case 'chat':
     }
 
     if (!empty($chat_message)) {
-        $message = new object();
+        $message = new stdClass();
         $message->chatid    = $chatuser->chatid;
         $message->userid    = $chatuser->userid;
         $message->groupid   = $chatuser->groupid;
@@ -81,11 +85,10 @@ case 'chat':
         $chatuser->lastmessageping = time() - 2;
         $DB->update_record('chat_users', $chatuser);
 
-        if (!($DB->insert_record('chat_messages', $message) && $DB->insert_record('chat_messages_current', $message))) {
-            chat_print_error('ERROR', get_string('cantlogin','chat'));
-        } else {
-            echo 200;
-        }
+        $DB->insert_record('chat_messages', $message);
+        $DB->insert_record('chat_messages_current', $message);
+        // response ok message
+        echo json_encode(true);
         add_to_log($course->id, 'chat', 'talk', "view.php?id=$cm->id", $chat->id, $cm->id);
 
         ob_end_flush();
@@ -123,7 +126,7 @@ case 'update':
     $send_user_list = false;
     if ($messages && ($chat_lasttime != $chat_newlasttime)) {
         foreach ($messages as $n => &$message) {
-            $tmp = new stdclass;
+            $tmp = new stdClass();
             // when somebody enter room, user list will be updated
             if (!empty($message->system)){
                 $send_user_list = true;
@@ -132,6 +135,9 @@ case 'update':
             if ($html = chat_format_message_theme($message, $chatuser->course, $USER, $theme)) {
                 $message->mymessage = ($USER->id == $message->userid);
                 $message->message  = $html->html;
+                if (!empty($html->type)) {
+                    $message->type = $html->type;
+                }
             } else {
                 unset($messages[$n]);
             }

@@ -48,7 +48,7 @@ function groups_add_member($grouporid, $userorid) {
         return true;
     }
 
-    $member = new object();
+    $member = new stdClass();
     $member->groupid   = $groupid;
     $member->userid    = $userid;
     $member->timeadded = time();
@@ -59,7 +59,7 @@ function groups_add_member($grouporid, $userorid) {
     $DB->set_field('groups', 'timemodified', $member->timeadded, array('id'=>$groupid));
 
     //trigger groups events
-    $eventdata = new object();
+    $eventdata = new stdClass();
     $eventdata->groupid = $groupid;
     $eventdata->userid  = $userid;
     events_trigger('groups_member_added', $eventdata);
@@ -102,7 +102,7 @@ function groups_remove_member($grouporid, $userorid) {
     $DB->set_field('groups', 'timemodified', time(), array('id'=>$groupid));
 
     //trigger groups events
-    $eventdata = new object();
+    $eventdata = new stdClass();
     $eventdata->groupid = $groupid;
     $eventdata->userid  = $userid;
     events_trigger('groups_member_removed', $eventdata);
@@ -112,56 +112,53 @@ function groups_remove_member($grouporid, $userorid) {
 
 /**
  * Add a new group
- * @param object $data group properties (with magic quotes)
+ * @param object $data group properties
  * @param object $um upload manager with group picture
  * @return id of group or false if error
  */
-function groups_create_group($data, $editform=false, $editoroptions=null) {
+function groups_create_group($data, $editform = false, $editoroptions = false) {
     global $CFG, $DB;
-    require_once("$CFG->libdir/gdlib.php");
 
     //check that courseid exists
     $course = $DB->get_record('course', array('id' => $data->courseid), '*', MUST_EXIST);
+    $context = get_context_instance(CONTEXT_COURSE, $course->id);
 
     $data->timecreated  = time();
     $data->timemodified = $data->timecreated;
     $data->name         = trim($data->name);
 
-    if ($editform) {
+    if ($editform and $editoroptions) {
         $data->description = $data->description_editor['text'];
         $data->descriptionformat = $data->description_editor['format'];
     }
 
-    $id = $DB->insert_record('groups', $data);
+    $data->id = $DB->insert_record('groups', $data);
 
-    $data->id = $id;
+    if ($editform and $editoroptions) {
+        // Update description from editor with fixed files
+        $data = file_postupdate_standard_editor($data, 'description', $editoroptions, $context, 'group', 'description', $data->id);
+        $upd = new stdClass();
+        $upd->id                = $data->id;
+        $upd->description       = $data->description;
+        $upd->descriptionformat = $data->descriptionformat;
+        $DB->update_record('groups', $upd);
+    }
+
+    $group = $DB->get_record('groups', array('id'=>$data->id));
+
     if ($editform) {
-        //update image
-        if (save_profile_image($id, $editform, 'groups')) {
-            $DB->set_field('groups', 'picture', 1, array('id'=>$id));
-        }
-        $data->picture = 1;
-
-        if (method_exists($editform, 'get_editor_options')) {
-            // Update description from editor with fixed files
-            $editoroptions = $editform->get_editor_options();
-            $description = new stdClass;
-            $description->id = $data->id;
-            $description->description_editor = $data->description_editor;
-            $description = file_postupdate_standard_editor($description, 'description', $editoroptions, $editoroptions['context'], 'course_group_description', $description->id);
-            $DB->update_record('groups', $description);
-        }
+        groups_update_group_icon($group, $data, $editform);
     }
 
     //trigger groups events
-    events_trigger('groups_group_created', $data);
+    events_trigger('groups_group_created', $group);
 
-    return $id;
+    return $group->id;
 }
 
 /**
  * Add a new grouping
- * @param object $data grouping properties (with magic quotes)
+ * @param object $data grouping properties
  * @return id of grouping or false if error
  */
 function groups_create_grouping($data, $editoroptions=null) {
@@ -185,7 +182,7 @@ function groups_create_grouping($data, $editoroptions=null) {
         $description = new stdClass;
         $description->id = $data->id;
         $description->description_editor = $data->description_editor;
-        $description = file_postupdate_standard_editor($description, 'description', $editoroptions, $editoroptions['context'], 'course_grouping_description', $description->id);
+        $description = file_postupdate_standard_editor($description, 'description', $editoroptions, $editoroptions['context'], 'grouping', 'description', $description->id);
         $DB->update_record('groupings', $description);
     }
 
@@ -195,35 +192,63 @@ function groups_create_grouping($data, $editoroptions=null) {
 }
 
 /**
- * Update group
- * @param object $data group properties (with magic quotes)
- * @param object $um upload manager with group picture
- * @return boolean true or exception
+ * Update the group icon from form data
+ * @param $group
+ * @param $data
+ * @param $editform
  */
-function groups_update_group($data, $editform=false) {
+function groups_update_group_icon($group, $data, $editform) {
     global $CFG, $DB;
     require_once("$CFG->libdir/gdlib.php");
+
+    $fs = get_file_storage();
+    $context = get_context_instance(CONTEXT_COURSE, $group->courseid, MUST_EXIST);
+
+    //TODO: it would make sense to allow picture deleting too (skodak)
+
+    if ($iconfile = $editform->save_temp_file('imagefile')) {
+        if (process_new_icon($context, 'group', 'icon', $group->id, $iconfile)) {
+            $DB->set_field('groups', 'picture', 1, array('id'=>$group->id));
+            $group->picture = 1;
+        } else {
+            $fs->delete_area_files($context->id, 'group', 'icon', $group->id);
+            $DB->set_field('groups', 'picture', 0, array('id'=>$group->id));
+            $group->picture = 0;
+        }
+        @unlink($iconfile);
+    }
+}
+
+/**
+ * Update group
+ * @param object $data group properties (with magic quotes)
+ * @param object $editform
+ * @param array $editoroptions
+ * @return boolean true or exception
+ */
+function groups_update_group($data, $editform = false, $editoroptions = false) {
+    global $CFG, $DB;
+
+    $context = get_context_instance(CONTEXT_COURSE, $data->courseid);
 
     $data->timemodified = time();
     $data->name         = trim($data->name);
 
-    if ($editform && method_exists($editform, 'get_editor_options')) {
-        $editoroptions = $editform->get_editor_options();
-        $data = file_postupdate_standard_editor($data, 'description', $editoroptions, $editoroptions['context'], 'course_group_description', $data->id);
+    if ($editform and $editoroptions) {
+        $data = file_postupdate_standard_editor($data, 'description', $editoroptions, $context, 'group', 'description', $data->id);
     }
 
     $DB->update_record('groups', $data);
 
+    $group = $DB->get_record('groups', array('id'=>$data->id));
+
     if ($editform) {
-        //update image
-        if (save_profile_image($data->id, $editform, 'groups')) {
-        $DB->set_field('groups', 'picture', 1, array('id'=>$data->id));
-            $data->picture = 1;
-        }
+        groups_update_group_icon($group, $data, $editform);
     }
 
     //trigger groups events
-    events_trigger('groups_group_updated', $data);
+    events_trigger('groups_group_updated', $group);
+
 
     return true;
 }
@@ -238,7 +263,7 @@ function groups_update_grouping($data, $editoroptions=null) {
     $data->timemodified = time();
     $data->name         = trim($data->name);
     if ($editoroptions !== null) {
-        $data = file_postupdate_standard_editor($data, 'description', $editoroptions, $editoroptions['context'], 'course_grouping_description', $data->id);
+        $data = file_postupdate_standard_editor($data, 'description', $editoroptions, $editoroptions['context'], 'grouping', 'description', $data->id);
     }
     $DB->update_record('groupings', $data);
     //trigger groups events
@@ -274,18 +299,14 @@ function groups_delete_group($grouporid) {
     $DB->delete_records('groupings_groups', array('groupid'=>$groupid));
     //delete members
     $DB->delete_records('groups_members', array('groupid'=>$groupid));
-    //then imge
-    delete_profile_image($groupid, 'groups');
     //group itself last
     $DB->delete_records('groups', array('id'=>$groupid));
 
     // Delete all files associated with this group
     $context = get_context_instance(CONTEXT_COURSE, $group->courseid);
     $fs = get_file_storage();
-    $files = $fs->get_area_files($context->id, 'course_group_description', $groupid);
-    foreach ($files as $file) {
-        $file->delete();
-    }
+    $fs->delete_area_files($context->id, 'group', 'description', $groupid);
+    $fs->delete_area_files($context->id, 'group', 'icon', $groupid);
 
     //trigger groups events
     events_trigger('groups_group_deleted', $group);
@@ -323,7 +344,7 @@ function groups_delete_grouping($groupingorid) {
 
     $context = get_context_instance(CONTEXT_COURSE, $grouping->courseid);
     $fs = get_file_storage();
-    $files = $fs->get_area_files($context->id, 'course_grouping_description', $groupingid);
+    $files = $fs->get_area_files($context->id, 'grouping', 'description', $groupingid);
     foreach ($files as $file) {
         $file->delete();
     }
@@ -362,7 +383,7 @@ function groups_delete_group_members($courseid, $userid=0, $showfeedback=false) 
     $DB->delete_records_select('groups_members', "groupid IN ($groupssql) $usersql", $params);
 
     //trigger groups events
-    $eventdata = new object();
+    $eventdata = new stdClass();
     $eventdata->courseid = $courseid;
     $eventdata->userid   = $userid;
     events_trigger('groups_members_removed', $eventdata);
@@ -388,8 +409,6 @@ function groups_delete_groupings_groups($courseid, $showfeedback=false) {
 
     // Delete all files associated with groupings for this course
     $context = get_context_instance(CONTEXT_COURSE, $courseid);
-    $fs = get_file_storage();
-    $fs->delete_area_files($context->id, 'course_group_description');
 
     //trigger groups events
     events_trigger('groups_groupings_groups_removed', $courseid);
@@ -409,23 +428,24 @@ function groups_delete_groupings_groups($courseid, $showfeedback=false) {
  */
 function groups_delete_groups($courseid, $showfeedback=false) {
     global $CFG, $DB, $OUTPUT;
-    require_once($CFG->libdir.'/gdlib.php');
 
     // delete any uses of groups
     // Any associated files are deleted as part of groups_delete_groupings_groups
     groups_delete_groupings_groups($courseid, $showfeedback);
     groups_delete_group_members($courseid, 0, $showfeedback);
 
-    // delete group pictures
-    if ($groups = $DB->get_records('groups', array('courseid'=>$courseid))) {
-        foreach($groups as $group) {
-            delete_profile_image($group->id, 'groups');
-        }
-    }
+    // delete group pictures and descriptions
+    $context = get_context_instance(CONTEXT_COURSE, $courseid);
+    $fs = get_file_storage();
+    $fs->delete_area_files($context->id, 'group');
 
     // delete group calendar events
     $groupssql = "SELECT id FROM {groups} g WHERE g.courseid = ?";
     $DB->delete_records_select('event', "groupid IN ($groupssql)", array($courseid));
+
+    $context = get_context_instance(CONTEXT_COURSE, $courseid);
+    $fs = get_file_storage();
+    $fs->delete_area_files($context->id, 'group');
 
     $DB->delete_records('groups', array('courseid'=>$courseid));
 
@@ -448,6 +468,9 @@ function groups_delete_groups($courseid, $showfeedback=false) {
 function groups_delete_groupings($courseid, $showfeedback=false) {
     global $DB, $OUTPUT;
 
+    $context = get_context_instance(CONTEXT_COURSE, $courseid);
+    $fs = get_file_storage();
+
     // delete any uses of groupings
     $sql = "DELETE FROM {groupings_groups}
              WHERE groupingid in (SELECT id FROM {groupings} g WHERE g.courseid = ?)";
@@ -458,12 +481,12 @@ function groups_delete_groupings($courseid, $showfeedback=false) {
     // remove the groupingid from all course modules
     $DB->set_field('course_modules', 'groupingid', 0, array('course'=>$courseid));
 
-    $DB->delete_records('groupings', array('courseid'=>$courseid));
-
     // Delete all files associated with groupings for this course
     $context = get_context_instance(CONTEXT_COURSE, $courseid);
     $fs = get_file_storage();
-    $fs->delete_area_files($context->id, 'course_grouping_description');
+    $fs->delete_area_files($context->id, 'grouping');
+
+    $DB->delete_records('groupings', array('courseid'=>$courseid));
 
     //trigger groups events
     events_trigger('groups_groupings_deleted', $courseid);
@@ -508,7 +531,7 @@ function groups_get_potential_members($courseid, $roleid = null, $cohortid = nul
     $listofcontexts = get_related_contexts_string($context);
 
     list($esql, $params) = get_enrolled_sql($context);
-    
+
     if ($roleid) {
         $params['roleid'] = $roleid;
         $where = "WHERE u.id IN (SELECT userid
@@ -519,8 +542,8 @@ function groups_get_potential_members($courseid, $roleid = null, $cohortid = nul
     }
 
     if ($cohortid) {
-        $cohortjoin = "JOIN {cohort_members} cm ON cm.userid = u.id
-                       JOIN {cohort} c ON c.id = cm.cohortid";
+        $cohortjoin = "JOIN {cohort_members} cm ON (cm.userid = u.id AND cm.cohortid = :cohortid)";
+        $params['cohortid'] = $cohortid;
     } else {
         $cohortjoin = "";
     }
@@ -567,7 +590,7 @@ function groups_assign_grouping($groupingid, $groupid) {
     if ($DB->record_exists('groupings_groups', array('groupingid'=>$groupingid, 'groupid'=>$groupid))) {
         return true;
     }
-    $assign = new object();
+    $assign = new stdClass();
     $assign->groupingid = $groupingid;
     $assign->groupid    = $groupid;
     $assign->timeadded  = time();
@@ -623,11 +646,10 @@ function groups_get_members_by_role($groupid, $courseid, $fields='u.*',
                    u.id AS userid, $fields
               FROM {groups_members} gm
               JOIN {user} u ON u.id = gm.userid
-              JOIN {role_assignments} ra ON ra.userid = u.id
-              JOIN {role} r ON r.id = ra.roleid
+         LEFT JOIN {role_assignments} ra ON (ra.userid = u.id AND ra.contextid ".get_related_contexts_string($context).")
+         LEFT JOIN {role} r ON r.id = ra.roleid
              WHERE gm.groupid=:mgroupid
-                   AND ra.contextid ".get_related_contexts_string($context).
-                   $extrawheretest."
+                   ".$extrawheretest."
           ORDER BY r.sortorder, $sort";
     $whereparams['mgroupid'] = $groupid;
     $rs = $DB->get_recordset_sql($sql, $whereparams);
@@ -664,7 +686,7 @@ function groups_calculate_role_people($rs, $context) {
         if (!array_key_exists($rec->userid, $users)) {
             // User data includes all the optional fields, but not any of the
             // stuff we added to get the role details
-            $userdata=clone($rec);
+            $userdata = clone($rec);
             unset($userdata->roleid);
             unset($userdata->roleshortname);
             unset($userdata->rolename);
@@ -679,7 +701,7 @@ function groups_calculate_role_people($rs, $context) {
         if (!is_null($rec->roleid)) {
             // Create information about role if this is a new one
             if (!array_key_exists($rec->roleid,$roles)) {
-                $roledata = new object();
+                $roledata = new stdClass();
                 $roledata->id        = $rec->roleid;
                 $roledata->shortname = $rec->roleshortname;
                 if (array_key_exists($rec->roleid, $aliasnames)) {
@@ -697,22 +719,28 @@ function groups_calculate_role_people($rs, $context) {
     $rs->close();
 
     // Return false if there weren't any users
-    if (count($users)==0) {
+    if (count($users) == 0) {
         return false;
     }
 
     // Add pseudo-role for multiple roles
-    $roledata = new object();
+    $roledata = new stdClass();
     $roledata->name = get_string('multipleroles','role');
     $roledata->users = array();
     $roles['*'] = $roledata;
 
+    $roledata = new stdClass();
+    $roledata->name = get_string('noroles','role');
+    $roledata->users = array();
+    $roles[0] = $roledata;
+
     // Now we rearrange the data to store users by role
     foreach ($users as $userid=>$userdata) {
         $rolecount = count($userdata->roles);
-        if ($rolecount==0) {
-            debugging("Unexpected: user $userid is missing roles");
-        } else if($rolecount>1) {
+        if ($rolecount == 0) {
+            // does not have any roles
+            $roleid = 0;
+        } else if($rolecount > 1) {
             $roleid = '*';
         } else {
             $roleid = $userdata->roles[0]->id;

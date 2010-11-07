@@ -19,11 +19,13 @@
 /**
  * General database importer class
  *
- * @package    moodlecore
- * @subpackage DTL
+ * @package    core
+ * @subpackage dtl
  * @copyright  2008 Andrei Bautu
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Base class for database import operations. This class implements
@@ -64,7 +66,7 @@ class database_importer {
      * Object constructor.
      *
      * @param moodle_database $mdb Connection to the target database (a
-     * @see moodle_database object). Use null to use the curent $DB connection.
+     * @see moodle_database object). Use null to use the current $DB connection.
      * @param boolean $check_schema - whether or not to check that XML database
      * schema matches the RDBMS database schema before importing (inside
      * @see begin_database_import).

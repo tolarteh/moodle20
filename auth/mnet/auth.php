@@ -28,7 +28,7 @@ class auth_plugin_mnet extends auth_plugin_base {
      */
     function auth_plugin_mnet() {
         $this->authtype = 'mnet';
-        $this->config = get_config('auth/mnet');
+        $this->config = get_config('auth_mnet');
         $this->mnet = get_mnet_environment();
     }
 
@@ -80,10 +80,13 @@ class auth_plugin_mnet extends auth_plugin_base {
         $userdata['session.gc_maxlifetime']  = ini_get('session.gc_maxlifetime');
 
         if (array_key_exists('picture', $userdata) && !empty($user->picture)) {
+            //TODO: rewrite to use new file storage
+            /*
             $imagefile = make_user_directory($user->id, true) . "/f1.jpg";
             if (file_exists($imagefile)) {
                 $userdata['imagehash'] = sha1(file_get_contents($imagefile));
             }
+            */
         }
 
         $userdata['myhosts'] = array();
@@ -91,25 +94,14 @@ class auth_plugin_mnet extends auth_plugin_base {
             $userdata['myhosts'][] = array('name'=> $SITE->shortname, 'url' => $CFG->wwwroot, 'count' => count($courses));
         }
 
-        $sql = "
-                SELECT
-                    h.name as hostname,
-                    h.wwwroot,
-                    h.id as hostid,
-                    count(c.id) as count
-                FROM
-                    {mnet_enrol_course} c,
-                    {mnet_enrol_assignments} a,
-                    {mnet_host} h
-                WHERE
-                    c.id      =  a.courseid   AND
-                    c.hostid  =  h.id         AND
-                    a.userid  = ? AND
-                    c.hostid != ?
-                GROUP BY
-                    h.name,
-                    h.id,
-                    h.wwwroot";
+        $sql = "SELECT h.name AS hostname, h.wwwroot, h.id AS hostid,
+                       COUNT(c.id) AS count
+                  FROM {mnetservice_enrol_courses} c
+                  JOIN {mnetservice_enrol_enrolments} e ON (e.hostid = c.hostid AND e.remotecourseid = c.remoteid)
+                  JOIN {mnet_host} h ON h.id = c.hostid
+                 WHERE e.userid = ? AND c.hostid = ?
+              GROUP BY h.name, h.wwwroot, h.id";
+
         if ($courses = $DB->get_records_sql($sql, array($user->id, $remoteclient->id))) {
             foreach($courses as $course) {
                 $userdata['myhosts'][] = array('name'=> $course->hostname, 'url' => $CFG->wwwroot.'/auth/mnet/jump.php?hostid='.$course->hostid, 'count' => $course->count);
@@ -139,7 +131,7 @@ class auth_plugin_mnet extends auth_plugin_base {
         require_once $CFG->dirroot . '/mnet/xmlrpc/client.php';
 
         // check remote login permissions
-        if (! has_capability('moodle/site:mnetlogintoremote', get_context_instance(CONTEXT_SYSTEM))
+        if (! has_capability('moodle/site:mnetlogintoremote', get_system_context())
                 or is_mnet_remote_user($USER)
                 or isguestuser()
                 or !isloggedin()) {
@@ -152,9 +144,9 @@ class auth_plugin_mnet extends auth_plugin_base {
         }
 
         // set RPC timeout to 30 seconds if not configured
-        // TODO: Is this needed/useful/problematic?
         if (empty($this->config->rpc_negotiation_timeout)) {
-            set_config('rpc_negotiation_timeout', '30', 'auth/mnet');
+            $this->config->rpc_negotiation_timeout = 30;
+            set_config('rpc_negotiation_timeout', '30', 'auth_mnet');
         }
 
         // get the host info
@@ -166,7 +158,7 @@ class auth_plugin_mnet extends auth_plugin_base {
                                    array('userid'=>$USER->id, 'mnethostid'=>$mnethostid,
                                    'useragent'=>sha1($_SERVER['HTTP_USER_AGENT'])));
         if ($mnet_session == false) {
-            $mnet_session = new object();
+            $mnet_session = new stdClass();
             $mnet_session->mnethostid = $mnethostid;
             $mnet_session->userid = $USER->id;
             $mnet_session->username = $USER->username;
@@ -254,6 +246,18 @@ class auth_plugin_mnet extends auth_plugin_base {
         $remoteuser->auth = 'mnet';
         $remoteuser->wwwroot = $remotepeer->wwwroot;
 
+        // the user may roam from Moodle 1.x where lang has _utf8 suffix
+        // also, make sure that the lang is actually installed, otherwise set site default
+        if (isset($remoteuser->lang)) {
+            $remoteuser->lang = clean_param(str_replace('_utf8', '', $remoteuser->lang), PARAM_LANG);
+        }
+        if (empty($remoteuser->lang)) {
+            if (!empty($CFG->lang)) {
+                $remoteuser->lang = $CFG->lang;
+            } else {
+                $remoteuser->lang = 'en';
+            }
+        }
         $firsttime = false;
 
         // get the local record for the remote user
@@ -284,7 +288,9 @@ class auth_plugin_mnet extends auth_plugin_base {
         foreach ((array) $remoteuser as $key => $val) {
 
             // TODO: fetch image if it has changed
+            //TODO: rewrite to use new file storage
             if ($key == 'imagehash') {
+                /*
                 $dirname = make_user_directory($localuser->id, true);
                 $filename = "$dirname/f1.jpg";
 
@@ -312,6 +318,7 @@ class auth_plugin_mnet extends auth_plugin_base {
                         }
                     }
                 }
+                */
             }
 
             if($key == 'myhosts') {
@@ -347,7 +354,7 @@ class auth_plugin_mnet extends auth_plugin_base {
             $mnetrequest->set_method('auth/mnet/auth.php/update_enrolments');
 
             // pass username and an assoc array of "my courses"
-            // with info so that the IDP can maintain mnet_enrol_assignments
+            // with info so that the IDP can maintain mnetservice_enrol_enrolments
             $mnetrequest->add_param($remoteuser->username);
             $fields = 'id, category, sortorder, fullname, shortname, idnumber, summary, startdate, visible';
             $courses = enrol_get_users_courses($localuser->id, false, $fields, 'visible DESC,sortorder ASC');
@@ -362,7 +369,8 @@ class auth_plugin_mnet extends auth_plugin_base {
                 $extra = $DB->get_records_sql($sql);
 
                 $keys = array_keys($courses);
-                $defaultrole = get_default_course_role($ccache[$shortname]); //TODO: rewrite this completely, there is no default course role any more!!!
+                $defaultrole = reset(get_archetype_roles('student'));
+                //$defaultrole = get_default_course_role($ccache[$shortname]); //TODO: rewrite this completely, there is no default course role any more!!!
                 foreach ($keys AS $id) {
                     if ($courses[$id]->visible == 0) {
                         unset($courses[$id]);
@@ -414,7 +422,7 @@ class auth_plugin_mnet extends auth_plugin_base {
         if (!$mnet_session = $DB->get_record('mnet_session',
                                    array('userid'=>$user->id, 'mnethostid'=>$remotepeer->id,
                                    'useragent'=>sha1($_SERVER['HTTP_USER_AGENT'])))) {
-            $mnet_session = new object();
+            $mnet_session = new stdClass();
             $mnet_session->mnethostid = $remotepeer->id;
             $mnet_session->userid = $user->id;
             $mnet_session->username = $user->username;
@@ -440,7 +448,7 @@ class auth_plugin_mnet extends auth_plugin_base {
      * Normally called by the SP after calling user_authorise()
      *
      * @param string $username The username
-     * @param string $courses  Assoc array of courses following the structure of mnet_enrol_course
+     * @param array $courses  Assoc array of courses following the structure of mnetservice_enrol_courses
      * @return bool
      */
     function update_enrolments($username, $courses) {
@@ -458,52 +466,32 @@ class auth_plugin_mnet extends auth_plugin_base {
         }
 
         if (empty($courses)) { // no courses? clear out quickly
-            $DB->delete_records('mnet_enrol_assignments', array('hostid'=>$remoteclient->id, 'userid'=>$userid));
+            $DB->delete_records('mnetservice_enrol_enrolments', array('hostid'=>$remoteclient->id, 'userid'=>$userid));
             return true;
         }
 
         // IMPORTANT: Ask for remoteid as the first element in the query, so
         // that the array that comes back is indexed on the same field as the
         // array that we have received from the remote client
-        $sql = '
-                SELECT
-                    c.remoteid,
-                    c.id,
-                    c.cat_id,
-                    c.cat_name,
-                    c.cat_description,
-                    c.sortorder,
-                    c.fullname,
-                    c.shortname,
-                    c.idnumber,
-                    c.summary,
-                    c.startdate,
-                    a.id as assignmentid
-                FROM
-                    {mnet_enrol_course} c
-                LEFT JOIN {mnet_enrol_assignments} a
-                ON
-                   (a.courseid = c.id AND
-                    a.hostid   = c.hostid AND
-                    a.userid = ?)
-                WHERE
-                    c.hostid = ?';
+        $sql = "SELECT c.remoteid, c.id, c.categoryid AS cat_id, c.categoryname AS cat_name, c.sortorder,
+                       c.fullname, c.shortname, c.idnumber, c.summary, c.summaryformat, c.startdate,
+                       e.id AS enrolmentid
+                  FROM {mnetservice_enrol_courses} c
+             LEFT JOIN {mnetservice_enrol_enrolments} e ON (e.hostid = c.hostid AND e.remotecourseid = c.remoteid)
+                 WHERE e.userid = ? AND c.hostid = ?";
 
         $currentcourses = $DB->get_records_sql($sql, array($userid, $remoteclient->id));
 
         $local_courseid_array = array();
-        foreach($courses as $course) {
+        foreach($courses as $ix => $course) {
 
             $course['remoteid'] = $course['id'];
             $course['hostid']   =  (int)$remoteclient->id;
             $userisregd         = false;
 
-            // First up - do we have a record for this course?
-            if (!array_key_exists($course['remoteid'], $currentcourses)) {
-                // No record - we must create it
-                $course['id']  =  $DB->insert_record('mnet_enrol_course', (object)$course);
-                $currentcourse = (object)$course;
-            } else {
+            // if we do not have the the information about the remote course, it is not available
+            // to us for remote enrolment - skip
+            if (array_key_exists($course['remoteid'], $currentcourses)) {
                 // Pointer to current course:
                 $currentcourse =& $currentcourses[$course['remoteid']];
                 // We have a record - is it up-to-date?
@@ -519,12 +507,15 @@ class auth_plugin_mnet extends auth_plugin_base {
                 }
 
                 if ($saveflag) {
-                    $DB->update_record('mnet_enrol_course', $currentcourse);
+                    $DB->update_record('mnetervice_enrol_courses', $currentcourse);
                 }
 
-                if (isset($currentcourse->assignmentid) && is_numeric($currentcourse->assignmentid)) {
+                if (isset($currentcourse->enrolmentid) && is_numeric($currentcourse->enrolmentid)) {
                     $userisregd = true;
                 }
+            } else {
+                unset ($courses[$ix]);
+                continue;
             }
 
             // By this point, we should always have a $dataObj->id
@@ -540,16 +531,16 @@ class auth_plugin_mnet extends auth_plugin_base {
                 $assignObj = new stdClass();
                 $assignObj->userid    = $userid;
                 $assignObj->hostid    = (int)$remoteclient->id;
-                $assignObj->courseid  = $course['id'];
+                $assignObj->remotecourseid = $course['remoteid'];
                 $assignObj->rolename  = $course['defaultrolename'];
-                $assignObj->id = $DB->insert_record('mnet_enrol_assignments', $assignObj);
+                $assignObj->id = $DB->insert_record('mnetservice_enrol_enrolments', $assignObj);
             }
         }
 
         // Clean up courses that the user is no longer enrolled in.
         $local_courseid_string = implode(', ', $local_courseid_array);
         $whereclause = " userid = ? AND hostid = ? AND courseid NOT IN ($local_courseid_string)";
-        $DB->delete_records_select('mnet_enrol_assignments', $whereclause, array($userid, $remoteclient->id));
+        $DB->delete_records_select('mnetservice_enrol_enrolments', $whereclause, array($userid, $remoteclient->id));
     }
 
     function prevent_local_passwords() {
@@ -580,10 +571,10 @@ class auth_plugin_mnet extends auth_plugin_base {
      * Returns the URL for changing the user's pw, or false if the default can
      * be used.
      *
-     * @return string
+     * @return moodle_url
      */
     function change_password_url() {
-        return '';
+        return null;
     }
 
     /**
@@ -669,11 +660,11 @@ class auth_plugin_mnet extends auth_plugin_base {
         if (!isset ($config->auto_add_remote_users)) {
             $config->auto_add_remote_users = '0';
         } See MDL-21327   for why this is commented out
-        set_config('auto_add_remote_users',   $config->auto_add_remote_users,   'auth/mnet');
+        set_config('auto_add_remote_users',   $config->auto_add_remote_users,   'auth_mnet');
         */
 
         // save settings
-        set_config('rpc_negotiation_timeout', $config->rpc_negotiation_timeout, 'auth/mnet');
+        set_config('rpc_negotiation_timeout', $config->rpc_negotiation_timeout, 'auth_mnet');
 
         return true;
     }
@@ -1117,6 +1108,9 @@ class auth_plugin_mnet extends auth_plugin_base {
     function fetch_user_image($username) {
         global $CFG, $DB;
 
+        //TODO: rewrite to use new file storage
+        return false;
+        /*
         if ($user = $DB->get_record('user', array('username'=>$username, 'mnethostid'=>$CFG->mnet_localhost_id))) {
             $filename1 = make_user_directory($user->id, true) . "/f1.jpg";
             $filename2 = make_user_directory($user->id, true) . "/f2.jpg";
@@ -1130,6 +1124,7 @@ class auth_plugin_mnet extends auth_plugin_base {
             return $return;
         }
         return false;
+        */
     }
 
     /**
@@ -1246,7 +1241,7 @@ class auth_plugin_mnet extends auth_plugin_base {
         global $DB, $CFG;
         // strip off wwwroot, since the remote site will prefix it's return url with this
         $wantsurl = preg_replace('/(' . preg_quote($CFG->wwwroot, '/') . '|' . preg_quote($CFG->httpswwwroot, '/') . ')/', '', $wantsurl);
-        if (!$hosts = $DB->get_records_sql('SELECT DISTINCT h.*, a.sso_jump_url,a.name as application
+        if (!$hosts = $DB->get_records_sql('SELECT DISTINCT h.id, h.wwwroot, h.name, a.sso_jump_url,a.name as application
                 FROM {mnet_host} h
                 JOIN {mnet_host2service} m ON h.id=m.hostid
                 JOIN {mnet_service} s ON s.id=m.serviceid

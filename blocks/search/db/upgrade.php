@@ -1,43 +1,82 @@
 <?php
 
-// This file keeps track of upgrades to
-// the search block
+// This file is part of Moodle - http://moodle.org/
 //
-// Sometimes, changes between versions involve
-// alterations to database structures and other
-// major things that may break installations.
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 //
-// The upgrade function in this file will attempt
-// to perform all the necessary actions to upgrade
-// your older installtion to the current version.
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// If there's something it cannot do itself, it
-// will tell you what you need to do.
-//
-// The commands in here will all be database-neutral,
-// using the methods of database_manager class
-//
-// Please do not forget to use upgrade_set_timeout()
-// before any action that may take longer time to finish.
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Keeps track of upgrades to the global search block
+ *
+ * @package    blocks
+ * @subpackage search
+ * @copyright  2010 Aparup Banerjee <aparup@moodle.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+defined('MOODLE_INTERNAL') || die();
 
 function xmldb_block_search_upgrade($oldversion) {
     global $CFG, $DB;
 
+    require('upgradelib.php');
+    $result = TRUE;
     $dbman = $DB->get_manager();
-    $result = true;
 
-/// And upgrade begins here. For each one, you'll need one
-/// block of code similar to the next one. Please, delete
-/// this comment lines once this file start handling proper
-/// upgrade code.
+    if ($oldversion < 2010101800) {
+        // See MDL-24374
+        // Changing type of field docdate on table block_search_documents to int
+        // Changing type of field updated on table block_search_documents to int
+        $table = new xmldb_table('block_search_documents');
 
-/// if ($result && $oldversion < YYYYMMDD00) { //New version in version.php
-///     $result = result of database_manager methods
-/// }
+        $field_docdate_new = new xmldb_field('docdate_new', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0', 'docdate');
+        $field_updated_new = new xmldb_field('updated_new', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0', 'updated');
+        $field_docdate_old = new xmldb_field('docdate');
+        $field_updated_old = new xmldb_field('updated');
 
-//===== 1.9.0 upgrade line ======//
+        // Conditionally launch add temporary fields
+        if (!$dbman->field_exists($table, $field_docdate_new)) {
+            $dbman->add_field($table, $field_docdate_new);
+        }
+        if (!$dbman->field_exists($table, $field_updated_new)) {
+            $dbman->add_field($table, $field_updated_new);
+        }
+
+        $sql = "SELECT id, docdate, updated FROM {block_search_documents}";
+        $search_documents = $DB->get_records_sql($sql);
+        if ($search_documents) {
+            foreach ($search_documents as $sd) {
+                $sd->docdate_new = convert_datetime_upgrade($sd->docdate);
+                $sd->updated_new = convert_datetime_upgrade($sd->updated);
+                $DB->update_record('block_search_documents', $sd);
+            }
+        }
+        // Conditionally launch drop the old fields
+        if ($dbman->field_exists($table, $field_docdate_old)) {
+            $dbman->drop_field($table, $field_docdate_old);
+        }
+        if ($dbman->field_exists($table, $field_updated_old)) {
+            $dbman->drop_field($table, $field_updated_old);
+        }
+
+        //rename the new fields to the original field names.
+        $dbman->rename_field($table, $field_docdate_new, 'docdate');
+        $dbman->rename_field($table, $field_updated_new, 'updated');
+
+        // search savepoint reached
+        upgrade_block_savepoint(true, 2010101800, 'search');
+    }
+
 
     return $result;
 }
-
-

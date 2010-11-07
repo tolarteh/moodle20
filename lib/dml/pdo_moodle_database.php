@@ -19,11 +19,13 @@
 /**
  * Experimental pdo database class
  *
- * @package    moodlecore
- * @subpackage DML
+ * @package    core
+ * @subpackage dml
  * @copyright  2008 Andrei Bautu
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir.'/dml/moodle_database.php');
 require_once($CFG->libdir.'/dml/pdo_moodle_recordset.php');
@@ -151,7 +153,7 @@ abstract class pdo_moodle_database extends moodle_database {
 
     /**
      * Returns supported query parameter types
-     * @return bitmask
+     * @return int bitmask
      */
     protected function allowed_param_types() {
         return SQL_PARAMS_QM | SQL_PARAMS_NAMED;
@@ -159,6 +161,7 @@ abstract class pdo_moodle_database extends moodle_database {
 
     /**
      * Returns last error reported by database engine.
+     * @return string error message
      */
     public function get_last_error() {
         return $this->lastError;
@@ -253,7 +256,7 @@ abstract class pdo_moodle_database extends moodle_database {
      * @param array $params array of sql parameters
      * @param int $limitfrom return a subset of records, starting at this point (optional, required if $limitnum is set).
      * @param int $limitnum return a subset comprising this many records (optional, required if $limitfrom is set).
-     * @return mixed an moodle_recordset object, or false if an error occured.
+     * @return moodle_recordset instance
      */
     public function get_recordset_sql($sql, array $params=null, $limitfrom=0, $limitnum=0) {
 
@@ -281,7 +284,7 @@ abstract class pdo_moodle_database extends moodle_database {
      *
      * @param string $sql The SQL query
      * @param array $params array of sql parameters
-     * @return mixed array of values or false if an error occurred
+     * @return array of values
      */
     public function get_fieldset_sql($sql, array $params=null) {
         if(!$rs = $this->get_recordset_sql($sql, $params)) {
@@ -306,7 +309,7 @@ abstract class pdo_moodle_database extends moodle_database {
      * @param array $params array of sql parameters
      * @param int $limitfrom return a subset of records, starting at this point (optional, required if $limitnum is set).
      * @param int $limitnum return a subset comprising this many records (optional, required if $limitfrom is set).
-     * @return mixed an array of objects, or empty array if no records were found, or false if an error occurred.
+     * @return array of objects, or empty array if no records were found, or false if an error occurred.
      */
     public function get_records_sql($sql, array $params=null, $limitfrom=0, $limitnum=0) {
         if(!$rs = $this->get_recordset_sql($sql, $params, $limitfrom, $limitnum)) {
@@ -332,7 +335,7 @@ abstract class pdo_moodle_database extends moodle_database {
      * @param bool $returnit return it of inserted record
      * @param bool $bulk true means repeated inserts expected
      * @param bool $customsequence true if 'id' included in $params, disables $returnid
-     * @return true or new id
+     * @return bool|int true or new id
      */
     public function insert_record_raw($table, $params, $returnid=true, $bulk=false, $customsequence=false) {
         if (!is_array($params)) {
@@ -378,19 +381,18 @@ abstract class pdo_moodle_database extends moodle_database {
      * @param object $data A data object with values for one or more fields in the record
      * @param bool $returnid Should the id of the newly created record entry be returned? If this option is not requested then true/false is returned.
      * @param bool $bulk true means repeated inserts expected
-     * @return true or new id
+     * @return bool|int true or new id
      */
     public function insert_record($table, $dataobject, $returnid=true, $bulk=false) {
-        if (!is_object($dataobject)) {
-            $dataobject = (object)$dataobject;
-        }
+        $dataobject = (array)$dataobject;
 
         $columns = $this->get_columns($table);
-
-        unset($dataobject->id);
         $cleaned = array();
 
         foreach ($dataobject as $field=>$value) {
+            if ($field === 'id') {
+                continue;
+            }
             if (!isset($columns[$field])) {
                 continue;
             }
@@ -427,9 +429,8 @@ abstract class pdo_moodle_database extends moodle_database {
      * @return bool success
      */
     public function update_record_raw($table, $params, $bulk=false) {
-        if (!is_array($params)) {
-            $params = (array)$params;
-        }
+        $params = (array)$params;
+
         if (!isset($params['id'])) {
             throw new coding_exception('moodle_database::update_record_raw() id field must be specified.');
         }
@@ -465,13 +466,7 @@ abstract class pdo_moodle_database extends moodle_database {
      * @return bool success
      */
     public function update_record($table, $dataobject, $bulk=false) {
-        if (!is_object($dataobject)) {
-            $dataobject = (object)$dataobject;
-        }
-
-        if (!isset($dataobject->id) ) {
-            return false;
-        }
+        $dataobject = (array)$dataobject;
 
         $columns = $this->get_columns($table);
         $cleaned = array();

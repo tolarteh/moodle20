@@ -29,11 +29,13 @@
  */
 
 $string['admindirname'] = 'دایرکتوری مدیر';
+$string['availablelangs'] = 'بسته‌های زبانی موجود';
 $string['chooselanguagehead'] = 'انتخاب زبان';
 $string['chooselanguagesub'] = 'لطفاً زبانی را به جهت استفاده در حین نصب انتخاب نمائید. زبان سایت و کاربر را در صفحه‌ای دیگر می‌توانید انتخاب کنید.';
 $string['dataroot'] = 'دایرکتوری داده';
 $string['dbprefix'] = 'پیشوند جدول‌ها';
 $string['dirroot'] = 'دایرکتوری مودل';
+$string['environmenthead'] = 'بررسی محیط شما ...';
 $string['installation'] = 'در حال نصب';
 $string['langdownloaderror'] = 'متأسفانه زبان «{$a}» نصب نشد. فرآیند نصب به زبان انگلیسی ادامه خواهد یافت.';
 $string['memorylimithelp'] = '<p>حد حافظهٔ PHP کارگزار شما هم‌اکنون {$a}  است.</p>

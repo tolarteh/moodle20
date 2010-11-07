@@ -3,7 +3,7 @@
  *  Base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage UnitTester
- *  @version    $Id: invoker.php,v 1.4 2008-12-04 23:19:37 skodak Exp $
+ *  @version    $Id: invoker.php,v 1.4 2008/12/04 23:19:37 skodak Exp $
  */
 
 /**#@+

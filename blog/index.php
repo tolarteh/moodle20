@@ -36,8 +36,7 @@ $PAGE->set_url('/blog/index.php', $url_params);
 
 //correct tagid if a text tag is provided as a param
 if (!empty($tag)) {
-    $ILIKE = $DB->sql_ilike();
-    if ($tagrec = $DB->get_record_sql("SELECT * FROM {tag} WHERE name $ILIKE ?", array("%$tag%"))) {
+    if ($tagrec = $DB->get_record_sql("SELECT * FROM {tag} WHERE ". $DB->sql_like('name', '?', false), array("%$tag%"))) {
         $tagid = $tagrec->id;
     } else {
         unset($tagid);
@@ -140,7 +139,7 @@ if (!empty($groupid)) {
     }
 }
 
-if (!empty($user)) {
+if (!empty($userid)) {
     if ($CFG->bloglevel < BLOG_USER_LEVEL) {
         print_error('blogdisable', 'blog');
     }
@@ -188,6 +187,21 @@ $blogheaders = blog_get_headers();
 
 if (empty($entryid) && empty($modid) && empty($groupid)) {
     $PAGE->set_context(get_context_instance(CONTEXT_USER, $USER->id));
+}
+
+if ($CFG->enablerssfeeds) {
+    $rsscontext = $filtertype = $thingid = null;
+    list($thingid, $rsscontext, $filtertype) = blog_rss_get_params($blogheaders['filters']);
+
+    $rsstitle = $blogheaders['heading'];
+
+    //check we haven't started output by outputting an error message
+    if ($PAGE->state == moodle_page::STATE_BEFORE_HEADER) {
+        blog_rss_add_http_header($rsscontext, $rsstitle, $filtertype, $thingid, $tagid);
+    }
+
+    //this works but there isn't a great place to put the link
+    //blog_rss_print_link($rsscontext, $filtertype, $thingid, $tagid);
 }
 
 echo $OUTPUT->header();

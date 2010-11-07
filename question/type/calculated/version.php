@@ -1,5 +1,5 @@
-<?PHP // $Id: version.php,v 1.7 2010-02-08 18:47:16 pichetp Exp $
+<?PHP
 
-$plugin->version  = 2010020800;
-$plugin->requires = 2007101000;
-?>
+$plugin->version  = 2010090501;
+$plugin->requires = 2010090501;
+

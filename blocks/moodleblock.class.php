@@ -18,8 +18,9 @@
 /**
  * This file contains the parent class for moodle blocks, block_base.
  *
- * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package blocks
+ * @package    core
+ * @subpackage block
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU Public License
  */
 
 /// Constants
@@ -77,12 +78,6 @@ class block_base {
     var $edit_controls = NULL;
 
     /**
-     * The current version that the block type defines.
-     * @var string $version
-     */
-    var $version       = NULL;
-
-    /**
      * The initialized instance of this block object.
      * @var block $instance
      */
@@ -116,19 +111,11 @@ class block_base {
 /// Class Functions
 
     /**
-     * The class constructor
-     *
-     */
-    function block_base() {
-        $this->init();
-    }
-
-    /**
      * Fake constructor to keep PHP5 happy
      *
      */
     function __construct() {
-        $this->block_base();
+        $this->init();
     }
 
     /**
@@ -136,113 +123,6 @@ class block_base {
      * the database tables are deleted. (Called once per block, not per instance!)
      */
     function before_delete() {
-    }
-
-    /**
-     * Function that can be overridden to do extra setup after a block instance has been
-     * restored from backup. For example, it may need to alter any dates that the block
-     * stores, if the $restore->course_startdateoffset is set.
-     */
-    function after_restore($restore) {
-    }
-
-    /**
-     * Enable custom instance data section in backup and restore.
-     *
-     * If return true, then {@link instance_backup()} and
-     * {@link instance_restore()} will be called during
-     * backup/restore routines.
-     *
-     * @return boolean
-     **/
-    function backuprestore_instancedata_used() {
-        return false;
-    }
-
-    /**
-     * Allows the block class to have a backup routine.  Handy
-     * when the block has its own tables that have foreign keys to
-     * other tables (example: user table).
-     *
-     * Note: at the time of writing this comment, the indent level
-     * for the {@link full_tag()} should start at 5.
-     *
-     * @param resource $bf Backup File
-     * @param object $preferences Backup preferences
-     * @return boolean
-     **/
-    function instance_backup($bf, $preferences) {
-        return true;
-    }
-
-    /**
-     * Allows the block class to restore its backup routine.
-     *
-     * Should not return false if data is empty
-     * because old backups would not contain block instance backup data.
-     *
-     * @param object $restore Standard restore object
-     * @param object $data Object from backup_getid for this block instance
-     * @return boolean
-     **/
-    function instance_restore($restore, $data) {
-        return true;
-    }
-
-    /**
-     * Will be called before an instance of this block is backed up, so that any links in
-     * in config can be encoded. For example config->text, for the HTML block
-     * @return string
-     */
-    function get_backup_encoded_config() {
-        return base64_encode(serialize($this->config));
-    }
-
-    /**
-     * Return the content encoded to support interactivities linking. This function is
-     * called automatically from the backup procedure by {@link backup_encode_absolute_links()}.
-     *
-     * NOTE: There is no block instance when this method is called.
-     *
-     * @param string $content Content to be encoded
-     * @param object $restore Restore preferences object
-     * @return string The encoded content
-     **/
-    function encode_content_links($content, $restore) {
-        return $content;
-    }
-
-    /**
-     * This function makes all the necessary calls to {@link restore_decode_content_links_worker()}
-     * function in order to decode contents of this block from the backup
-     * format to destination site/course in order to mantain inter-activities
-     * working in the backup/restore process.
-     *
-     * This is called from {@link restore_decode_content_links()} function in the restore process.
-     *
-     * NOTE: There is no block instance when this method is called.
-     *
-     * @param object $restore Standard restore object
-     * @return boolean
-     **/
-    function decode_content_links_caller($restore) {
-        return true;
-    }
-
-    /**
-     * Return content decoded to support interactivities linking.
-     * This is called automatically from
-     * {@link restore_decode_content_links_worker()} function
-     * in the restore process.
-     *
-     * NOTE: There is no block instance when this method is called.
-     *
-     * @param string $content Content to be dencoded
-     * @param object $restore Restore preferences object
-     * @return string The dencoded content
-     **/
-    function decode_content_links($content, $restore) {
-        return $content;
     }
 
     /**
@@ -298,19 +178,6 @@ class block_base {
     function get_content_type() {
         // Intentionally doesn't check if a content_type is set. This is already done in _self_test()
         return $this->content_type;
-    }
-
-    /**
-     * Returns the class $version var value.
-     *
-     * Intentionally doesn't check if a version is set.
-     * This is already done in {@link _self_test()}
-     *
-     * @return string $this->version
-     */
-    function get_version() {
-        // Intentionally doesn't check if a version is set. This is already done in _self_test()
-        return $this->version;
     }
 
     /**
@@ -444,11 +311,6 @@ class block_base {
             $errors[] = 'content_not_set';
             $correct = false;
         }*/
-        if ($this->get_version() === NULL) {
-            $errors[] = 'version_not_set';
-            $correct = false;
-        }
-
         $formats = $this->applicable_formats();
         if (empty($formats) || array_sum($formats) === 0) {
             $errors[] = 'no_formats';
@@ -687,6 +549,8 @@ class block_base {
      * The framework has first say in whether this will be allowed (e.g., no adding allowed unless in edit mode)
      * but if the framework does allow it, the block can still decide to refuse.
      * This function has access to the complete page object, the creation related to which is being determined.
+     *
+     * @param moodle_page $page
      * @return boolean
      */
     function user_can_addto($page) {
@@ -754,9 +618,24 @@ class block_base {
         throw new coding_exception('config_print() can no longer be used. Blocks should use a settings.php file.');
     }
 
+    /**
+     * Can be overridden by the block to prevent the block from being dockable.
+     * 
+     * @return bool
+     */
     public function instance_can_be_docked() {
         global $CFG;
         return (!empty($CFG->allowblockstodock) && $this->page->theme->enable_dock);
+    }
+
+    /**
+     * If overridden and set to true by the block it will not be hidable when
+     * editing is turned on.
+     *
+     * @return bool
+     */
+    public function instance_can_be_hidden() {
+        return true;
     }
 
     /** @callback callback functions for comments api */

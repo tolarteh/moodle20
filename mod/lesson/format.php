@@ -21,10 +21,13 @@
  *
  * Included by import.ph
  *
- * @package lesson
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage lesson
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  **/
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Given some question info and some data about the the answers
@@ -54,6 +57,7 @@ function lesson_save_question_options($question, $lesson) {
     $manager = lesson_page_type_manager::get($lesson);
 
     $timenow = time();
+    $result = new stdClass();
     switch ($question->qtype) {
         case LESSON_PAGE_SHORTANSWER:
 
@@ -142,7 +146,7 @@ function lesson_save_question_options($question, $lesson) {
             if (isset($question->feedbacktrue)) {
                 $answer->response = $question->feedbacktrue;
             }
-            $true->id = $DB->insert_record("lesson_answers", $answer);
+            $DB->insert_record("lesson_answers", $answer);
 
             // the lie
             $answer = new stdClass;
@@ -157,7 +161,7 @@ function lesson_save_question_options($question, $lesson) {
             if (isset($question->feedbackfalse)) {
                 $answer->response = $question->feedbackfalse;
             }
-            $false->id = $DB->insert_record("lesson_answers", $answer);
+            $DB->insert_record("lesson_answers", $answer);
 
           break;
 
@@ -249,8 +253,7 @@ function lesson_save_question_options($question, $lesson) {
                         // first answer contains the correct answer jump
                         $answer->jumpto = LESSON_NEXTPAGE;
                     }
-                    $subquestion->id = $DB->insert_record("lesson_answers", $answer);
-                    $subquestions[] = $subquestion->id;
+                    $subquestions[] = $DB->insert_record("lesson_answers", $answer);
                     $i++;
                 }
             }

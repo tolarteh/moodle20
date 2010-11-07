@@ -51,7 +51,7 @@ class XMLDBAction {
 
     var $postaction;     //Action to execute at the end of the invoke script
 
-    var $sesskey_protected; // Actions must be protected by sesskey mechanishm
+    var $sesskey_protected; // Actions must be protected by sesskey mechanism
 
     /**
      * Constructor
@@ -105,7 +105,7 @@ class XMLDBAction {
     }
 
     /**
-     * getPostAtion method, returns the action to launch after executing
+     * getPostAction method, returns the action to launch after executing
      * another one
      */
     function getPostAction() {
@@ -211,7 +211,7 @@ class XMLDBAction {
      * the view_structure_php and view_table_php actions
      *
      * @param xmldb_structure structure object containing all the info
-     * @return string PHP code to be used to stabilish a savepoint
+     * @return string PHP code to be used to mark a reached savepoint
      */
     function upgrade_savepoint_php($structure) {
 
@@ -238,23 +238,23 @@ class XMLDBAction {
         switch ($plugintype ) {
             case 'lib': /// has own savepoint function
                 $result = XMLDB_LINEFEED .
-                          '    /// Main savepoint reached' . XMLDB_LINEFEED .
-                          '        upgrade_main_savepoint($result, XXXXXXXXXX);' . XMLDB_LINEFEED;
+                          '        // Main savepoint reached' . XMLDB_LINEFEED .
+                          '        upgrade_main_savepoint(true, XXXXXXXXXX);' . XMLDB_LINEFEED;
                 break;
             case 'mod': /// has own savepoint function
                 $result = XMLDB_LINEFEED .
-                          '    /// ' . $pluginname . ' savepoint reached' . XMLDB_LINEFEED .
-                          '        upgrade_mod_savepoint($result, XXXXXXXXXX, ' . "'$pluginname'" . ');' . XMLDB_LINEFEED;
+                          '        // ' . $pluginname . ' savepoint reached' . XMLDB_LINEFEED .
+                          '        upgrade_mod_savepoint(true, XXXXXXXXXX, ' . "'$pluginname'" . ');' . XMLDB_LINEFEED;
                 break;
             case 'block': /// has own savepoint function
                 $result = XMLDB_LINEFEED .
-                          '    /// ' . $pluginname . ' savepoint reached' . XMLDB_LINEFEED .
-                          '        upgrade_block_savepoint($result, XXXXXXXXXX, ' . "'$pluginname'" . ');' . XMLDB_LINEFEED;
+                          '        // ' . $pluginname . ' savepoint reached' . XMLDB_LINEFEED .
+                          '        upgrade_block_savepoint(true, XXXXXXXXXX, ' . "'$pluginname'" . ');' . XMLDB_LINEFEED;
                 break;
             default: /// rest of plugins
                 $result = XMLDB_LINEFEED .
-                          '    /// ' . $pluginname . ' savepoint reached' . XMLDB_LINEFEED .
-                          '        upgrade_plugin_savepoint($result, XXXXXXXXXX, ' . "'$plugintype'" . ', ' . "'$pluginname'" . ');' . XMLDB_LINEFEED;
+                          '        // ' . $pluginname . ' savepoint reached' . XMLDB_LINEFEED .
+                          '        upgrade_plugin_savepoint(true, XXXXXXXXXX, ' . "'$plugintype'" . ', ' . "'$pluginname'" . ');' . XMLDB_LINEFEED;
         }
         return $result;
     }

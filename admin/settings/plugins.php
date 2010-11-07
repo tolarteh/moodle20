@@ -14,15 +14,13 @@ if ($hassiteconfig) {
             continue;
         }
         $strmodulename = get_string('modulename', 'mod_'.$modulename);
-        if (file_exists($CFG->dirroot.'/mod/'.$modulename.'/settingstree.php')) {
-            include($CFG->dirroot.'/mod/'.$modulename.'/settingstree.php');
-        } else if (file_exists($CFG->dirroot.'/mod/'.$modulename.'/settings.php')) {
+        if (file_exists($CFG->dirroot.'/mod/'.$modulename.'/settings.php')) {
             // do not show disabled modules in tree, keep only settings link on manage page
             $settings = new admin_settingpage('modsetting'.$modulename, $strmodulename, 'moodle/site:config', !$module->visible);
-            if ($ADMIN->fulltree) {
-                include($CFG->dirroot.'/mod/'.$modulename.'/settings.php');
+            include($CFG->dirroot.'/mod/'.$modulename.'/settings.php');
+            if ($settings) {
+                $ADMIN->add('modsettings', $settings);
             }
-            $ADMIN->add('modsettings', $settings);
         }
     }
 
@@ -40,13 +38,10 @@ if ($hassiteconfig) {
         $strblockname = get_string('pluginname', 'block_'.$blockname);
         if (file_exists($CFG->dirroot.'/blocks/'.$blockname.'/settings.php')) {
             $settings = new admin_settingpage('blocksetting'.$blockname, $strblockname, 'moodle/site:config', !$block->visible);
-            if ($ADMIN->fulltree) {
-                include($CFG->dirroot.'/blocks/'.$blockname.'/settings.php');
+            include($CFG->dirroot.'/blocks/'.$blockname.'/settings.php');
+            if ($settings) {
+                $ADMIN->add('blocksettings', $settings);
             }
-            $ADMIN->add('blocksettings', $settings);
-
-        } else if (file_exists($CFG->dirroot.'/blocks/'.$blockname.'/config_global.html')) {
-            $ADMIN->add('blocksettings', new admin_externalpage('blocksetting'.$blockname, $strblockname, "$CFG->wwwroot/$CFG->admin/block.php?block=$block->id", 'moodle/site:config', !$block->visible));
         }
     }
 
@@ -74,29 +69,22 @@ if ($hassiteconfig) {
     $ADMIN->add('authsettings', $temp);
 
 
-    if ($auths = get_plugin_list('auth')) {
-        $authsenabled = get_enabled_auth_plugins();
-        $authbyname = array();
-
-        foreach ($auths as $auth => $authdir) {
-            $strauthname = get_string('pluginname', "auth_{$auth}");
-            $authbyname[$strauthname] = $auth;
-        }
-        ksort($authbyname);
-
-        foreach ($authbyname as $strauthname=>$authname) {
-            if (file_exists($authdir.'/settings.php')) {
-                // do not show disabled auths in tree, keep only settings link on manage page
-                $settings = new admin_settingpage('authsetting'.$authname, $strauthname, 'moodle/site:config', !in_array($authname, $authsenabled));
-                if ($ADMIN->fulltree) {
-                    include($authdir.'/settings.php');
-                }
-                // TODO: finish implementation of common settings - locking, etc.
+    $auths = get_plugin_list('auth');
+    $authsenabled = get_enabled_auth_plugins();
+    foreach ($auths as $authname => $authdir) {
+        $strauthname = get_string('pluginname', "auth_{$authname}");
+        // do not show disabled auths in tree, keep only settings link on manage page
+        $enabled = in_array($authname, $authsenabled);
+        if (file_exists($authdir.'/settings.php')) {
+            // TODO: finish implementation of common settings - locking, etc.
+            $settings = new admin_settingpage('authsetting'.$authname, $strauthname, 'moodle/site:config', !$enabled);
+            include($authdir.'/settings.php');
+            if ($settings) {
                 $ADMIN->add('authsettings', $settings);
-
-            } else {
-                $ADMIN->add('authsettings', new admin_externalpage('authsetting'.$authname, $strauthname, "$CFG->wwwroot/$CFG->admin/auth_config.php?auth=$authname", 'moodle/site:config', !in_array($authname, $authsenabled)));
             }
+
+        } else {
+            $ADMIN->add('authsettings', new admin_externalpage('authsetting'.$authname, $strauthname, "$CFG->wwwroot/$CFG->admin/auth_config.php?auth=$authname", 'moodle/site:config', !$enabled));
         }
     }
 
@@ -133,19 +121,24 @@ if ($hassiteconfig) {
     $ADMIN->add('modules', new admin_category('editorsettings', get_string('editors', 'editor')));
     $temp = new admin_settingpage('manageeditors', get_string('editorsettings', 'editor'));
     $temp->add(new admin_setting_manageeditors());
+    $htmleditors = editors_get_available();
     $ADMIN->add('editorsettings', $temp);
 
-    $editors_available = get_available_editors();
-    $url = $CFG->wwwroot.'/'.$CFG->admin.'/editors.php?sesskey='.sesskey();
+    $editors_available = editors_get_available();
     foreach ($editors_available as $editor=>$editorstr) {
         if (file_exists($CFG->dirroot . '/lib/editor/'.$editor.'/settings.php')) {
-            $editor_setting = new admin_externalpage('editorsettings'.$editor, $editorstr, $url.'&amp;action=edit&amp;editor='.$editor);
-            $ADMIN->add('editorsettings', $editor_setting);
+            $settings = new admin_settingpage('editorsettings'.$editor, get_string('pluginname', 'editor_'.$editor), 'moodle/site:config');
+            // settings.php may create a subcategory or unset the settings completely
+            include($CFG->dirroot . '/lib/editor/'.$editor.'/settings.php');
+            if ($settings) {
+                $ADMIN->add('editorsettings', $settings);
+            }
         }
     }
+
 /// License types
-    $ADMIN->add('modules', new admin_category('licensesettings', get_string('license')));
-    $temp = new admin_settingpage('managelicenses', get_string('license'));
+    $ADMIN->add('modules', new admin_category('licensesettings', get_string('licenses')));
+    $temp = new admin_settingpage('managelicenses', get_string('managelicenses', 'admin'));
 
     require_once($CFG->libdir . '/licenselib.php');
     $licenses = array();
@@ -207,10 +200,10 @@ if ($hassiteconfig) {
         if (file_exists("$CFG->dirroot/$filterpath/filtersettings.php")) {
             $settings = new admin_settingpage('filtersetting'.str_replace('/', '', $filterpath),
                     $strfiltername, 'moodle/site:config', !isset($activefilters[$filterpath]));
-            if ($ADMIN->fulltree) {
-                include("$CFG->dirroot/$filterpath/filtersettings.php");
+            include("$CFG->dirroot/$filterpath/filtersettings.php");
+            if ($settings) {
+                $ADMIN->add('filtersettings', $settings);
             }
-            $ADMIN->add('filtersettings', $settings);
         }
     }
 
@@ -266,12 +259,11 @@ if ($hassiteconfig) {
             new admin_externalpage(
                 'portfoliosettings' . $portfolio->get('id'),
                 $portfolio->get('name'),
-                $url . '?edit=' . $portfolio->get('id'),
-                'moodle/site:config',
-                !$portfolio->get('visible')
+                $url . '?action=edit&pf=' . $portfolio->get('id'),
+                'moodle/site:config'
             ),
             $portfolio->get('name'),
-            $url . ' ?edit=' . $portfolio->get('id')
+            $url . '?action=edit&pf=' . $portfolio->get('id')
         );
     }
 
@@ -287,6 +279,7 @@ if ($hassiteconfig) {
     $temp->add(new admin_setting_heading('managerepositoriescommonheading', get_string('commonsettings', 'admin'), ''));
     $temp->add(new admin_setting_configtext('repositorycacheexpire', get_string('cacheexpire', 'repository'), get_string('configcacheexpire', 'repository'), 120));
     $temp->add(new admin_setting_configcheckbox('repositoryallowexternallinks', get_string('allowexternallinks', 'repository'), get_string('configallowexternallinks', 'repository'), 1));
+    $temp->add(new admin_setting_configcheckbox('legacyfilesinnewcourses', get_string('legacyfilesinnewcourses', 'admin'), get_string('legacyfilesinnewcourses_help', 'admin'), 0));
     $ADMIN->add('repositorysettings', $temp);
     $ADMIN->add('repositorysettings', new admin_externalpage('repositorynew',
         get_string('addplugin', 'repository'), $url, 'moodle/site:config', true),
@@ -328,18 +321,24 @@ if ($hassiteconfig) {
     $temp->add(new admin_setting_heading('manageserviceshelpexplaination', get_string('information', 'webservice'), get_string('servicehelpexplanation', 'webservice')));
     $temp->add(new admin_setting_manageexternalservices());
     $ADMIN->add('webservicesettings', $temp);
-    $ADMIN->add('webservicesettings', new admin_externalpage('externalservice', get_string('externalservice', 'webservice'), "$CFG->wwwroot/$CFG->admin/webservice/service.php", 'moodle/site:config', true));
+    $ADMIN->add('webservicesettings', new admin_externalpage('externalservice', get_string('editaservice', 'webservice'), "$CFG->wwwroot/$CFG->admin/webservice/service.php", 'moodle/site:config', true));
     $ADMIN->add('webservicesettings', new admin_externalpage('externalservicefunctions', get_string('externalservicefunctions', 'webservice'), "$CFG->wwwroot/$CFG->admin/webservice/service_functions.php", 'moodle/site:config', true));
     $ADMIN->add('webservicesettings', new admin_externalpage('externalserviceusers', get_string('externalserviceusers', 'webservice'), "$CFG->wwwroot/$CFG->admin/webservice/service_users.php", 'moodle/site:config', true));
+    $ADMIN->add('webservicesettings', new admin_externalpage('externalserviceusersettings', get_string('serviceusersettings', 'webservice'), "$CFG->wwwroot/$CFG->admin/webservice/service_user_settings.php", 'moodle/site:config', true));
     /// manage protocol page link
     $temp = new admin_settingpage('webserviceprotocols', get_string('manageprotocols', 'webservice'));
     $temp->add(new admin_setting_managewebserviceprotocols());
     if (empty($CFG->enablewebservices)) {
         $temp->add(new admin_setting_heading('webservicesaredisabled', '', get_string('disabledwarning', 'webservice')));
     }
-    $url = new moodle_url('/webservice/wsdoc.php');
-    $atag =html_writer::start_tag('a', array('href' => $url)).get_string('documentation', 'webservice').html_writer::end_tag('a');
-    $temp->add(new admin_setting_configcheckbox('enablewsdocumentation', get_string('enablewsdocumentation', 'admin'), get_string('configenablewsdocumentation', 'admin', $atag), false));
+
+    // We cannot use $OUTPUT this early, doing so means that we lose the ability
+    // to set the page layout on all admin pages.
+    // $wsdoclink = $OUTPUT->doc_link('How_to_get_a_security_key');
+    $url = new moodle_url(get_docs_url('How_to_get_a_security_key'));
+    $wsdoclink = html_writer::tag('a', get_string('supplyinfo'),array('href'=>$url));
+    $temp->add(new admin_setting_configcheckbox('enablewsdocumentation', get_string('enablewsdocumentation',
+                        'admin'), get_string('configenablewsdocumentation', 'admin', $wsdoclink), false));
     $ADMIN->add('webservicesettings', $temp);
     /// links to protocol pages
     $webservices_available = get_plugin_list('webservice');
@@ -348,10 +347,10 @@ if ($hassiteconfig) {
         if (file_exists("$location/settings.php")) {
             $name = get_string('pluginname', 'webservice_'.$webservice);
             $settings = new admin_settingpage('webservicesetting'.$webservice, $name, 'moodle/site:config', !in_array($webservice, $active_webservices) or empty($CFG->enablewebservices));
-            if ($ADMIN->fulltree) {
-                include("$location/settings.php");
+            include("$location/settings.php");
+            if ($settings) {
+                $ADMIN->add('webservicesettings', $settings);
             }
-            $ADMIN->add('webservicesettings', $settings);
         }
     }
     /// manage token page link
@@ -375,14 +374,24 @@ if ($hassiteconfig || has_capability('moodle/question:config', $systemcontext)) 
         if (file_exists($settingsfile)) {
             $settings = new admin_settingpage('qtypesetting' . $qtype->name(),
                     $qtype->local_name(), 'moodle/question:config');
-            if ($ADMIN->fulltree) {
-                include($settingsfile);
+            include($settingsfile);
+            if ($settings) {
+                $ADMIN->add('qtypesettings', $settings);
             }
-            $ADMIN->add('qtypesettings', $settings);
         }
     }
 }
-
+if ($hassiteconfig && !empty($CFG->enableplagiarism)) {
+    $ADMIN->add('modules', new admin_category('plagiarism', get_string('plagiarism', 'plagiarism')));
+    $temp = new admin_settingpage('plagiarismsettings', get_string('plagiarismsettings', 'plagiarism'));
+    $temp->add(new admin_setting_manageplagiarism());
+    $ADMIN->add('plagiarism', $temp);
+    foreach (get_plugin_list('plagiarism') as $plugin => $plugindir) {
+        if (file_exists($plugindir.'/settings.php')) {
+            $ADMIN->add('plagiarism', new admin_externalpage('plagiarism'.$plugin, get_string($plugin, 'plagiarism_'.$plugin), "$CFG->wwwroot/plagiarism/$plugin/settings.php", 'moodle/site:config'));
+        }
+    }
+}
 $ADMIN->add('reports', new admin_externalpage('comments', get_string('comments'), $CFG->wwwroot.'/comment/', 'moodle/site:viewreports'));
 /// Now add reports
 

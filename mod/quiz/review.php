@@ -77,6 +77,8 @@
     if ($attemptobj->is_preview_user() && $attemptobj->is_own_attempt()) {
         // Normal blocks
         $strreviewtitle = get_string('reviewofpreview', 'quiz');
+        navigation_node::override_active_url($attemptobj->start_attempt_url());
+
     } else {
         $strreviewtitle = get_string('reviewofattempt', 'quiz', $attemptobj->get_attempt_number());
         if (empty($attemptobj->get_quiz()->showblocks) && !$attemptobj->is_preview_user()) {
@@ -85,13 +87,13 @@
         }
     }
 
-/// Arrange for the navigation to be displayed.
+    // Initialise the JavaScript.
+    $headtags = $attemptobj->get_html_head_contributions($page);
+
+    // Arrange for the navigation to be displayed.
     $navbc = $attemptobj->get_navigation_panel('quiz_review_nav_panel', $page, $showall);
     $firstregion = reset($PAGE->blocks->get_regions());
     $PAGE->blocks->add_pretend_block($navbc, $firstregion);
-
-    $PAGE->requires->js('/lib/overlib/overlib.js', true);
-    $PAGE->requires->js('/lib/overlib/overlib_cssstyle.js', true);
 
 /// Print the page header
     $headtags = $attemptobj->get_html_head_contributions($page);
@@ -108,7 +110,6 @@
         $PAGE->set_heading($attemptobj->get_course()->fullname);
         echo $OUTPUT->header();
     }
-    echo '<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>'; // for overlib
 
 /// Print heading.
     if ($attemptobj->is_preview_user() && $attemptobj->is_own_attempt()) {
@@ -183,7 +184,7 @@
             if ($quiz->grade != $quiz->sumgrades) {
                 $a = new stdClass;
                 $a->grade = quiz_format_grade($quiz, $attempt->sumgrades);
-                $a->maxgrade = quiz_format_grade($quiz, $attempt->sumgrades);
+                $a->maxgrade = quiz_format_grade($quiz, $quiz->sumgrades);
                 $rows[] = '<tr><th scope="row" class="cell">' . get_string('marks', 'quiz') . '</th><td class="cell">' .
                         get_string('outofshort', 'quiz', $a) . '</td></tr>';
             }
@@ -199,7 +200,7 @@
     }
 
 /// Feedback if there is any, and the user is allowed to see it now.
-    $feedback = quiz_feedback_for_grade($grade, $attempt->quiz);
+    $feedback = $attemptobj->get_overall_feedback($grade);
     if ($options->overallfeedback && $feedback) {
         $rows[] = '<tr><th scope="row" class="cell">' . get_string('feedback', 'quiz') .
                 '</th><td class="cell">' . $feedback . '</td></tr>';
@@ -217,7 +218,7 @@
 /// Form for saving flags if necessary.
     if ($options->flags == QUESTION_FLAGSEDITABLE) {
         echo '<form action="' . s($attemptobj->review_url(0, $page, $showall)) .
-                '" method="post"><div>';
+                '" method="post" class="questionflagsaveform"><div>';
         echo '<input type="hidden" name="sesskey" value="' . sesskey() . '" />';
     }
 
@@ -236,11 +237,11 @@
 /// Close form if we opened it.
     if ($options->flags == QUESTION_FLAGSEDITABLE) {
         echo '<div class="submitbtns">' . "\n" .
-                '<input type="submit" id="savingflagssubmit" name="savingflags" value="' .
+                '<input type="submit" class="questionflagsavebutton" name="savingflags" value="' .
                 get_string('saveflags', 'question') . '" />' .
                 "</div>\n" .
                 "\n</div></form>\n";
-        $PAGE->requires->js_function_call('question_flag_changer.init_flag_save_form', array('savingflagssubmit'));
+        $PAGE->requires->js_init_call('M.mod_quiz.init_review_form', null, false, quiz_get_js_module());
     }
 
 /// Print a link to the next page.

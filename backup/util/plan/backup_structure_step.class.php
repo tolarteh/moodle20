@@ -43,10 +43,15 @@ abstract class backup_structure_step extends backup_step {
             throw new backup_step_exception('wrong_backup_task_specified');
         }
         $this->filename = $filename;
+        $this->contenttransformer = null;
         parent::__construct($name, $task);
     }
 
     public function execute() {
+
+        if (!$this->execute_condition()) { // Check any condition to execute this
+            return;
+        }
 
         $fullpath = $this->task->get_taskbasepath();
 
@@ -91,20 +96,61 @@ abstract class backup_structure_step extends backup_step {
 
         // Close everything
         $xw->stop();
+
+        // Destroy the structure. It helps PHP 5.2 memory a lot!
+        $structure->destroy();
     }
 
 // Protected API starts here
 
     /**
-     * This function simply marks one param to be considered as straight sql
-     * param, so it won't be searched in the structure tree nor converted at
-     * all. Useful for better integration of definition of sources in structure
-     * and DB stuff.
+     * Add plugin structure to any element in the structure backup tree
+     *
+     * @param string $plugintype type of plugin as defined by get_plugin_types()
+     * @param backup_nested_element $element element in the structure backup tree that
+     *                                       we are going to add plugin information to
+     * @param bool $multiple to define if multiple plugins can produce information
+     *                       for each instance of $element (true) or no (false)
      */
-    protected function is_sqlparam($value) {
-        return array('sqlparam' => $value);
+    protected function add_plugin_structure($plugintype, $element, $multiple) {
+
+        global $CFG;
+
+        // Check the requested plugintype is a valid one
+        if (!array_key_exists($plugintype, get_plugin_types($plugintype))) {
+             throw new backup_step_exception('incorrect_plugin_type', $plugintype);
+        }
+
+        // Arrived here, plugin is correct, let's create the optigroup
+        $optigroupname = $plugintype . '_' . $element->get_name() . '_plugin';
+        $optigroup = new backup_optigroup($optigroupname, null, $multiple);
+        $element->add_child($optigroup); // Add optigroup to stay connected since beginning
+
+        // Get all the optigroup_elements, looking across all the plugin dirs
+        $pluginsdirs = get_plugin_list($plugintype);
+        foreach ($pluginsdirs as $name => $plugindir) {
+            $classname = 'backup_' . $plugintype . '_' . $name . '_plugin';
+            $backupfile = $plugindir . '/backup/moodle2/' . $classname . '.class.php';
+            if (file_exists($backupfile)) {
+                require_once($backupfile);
+                $backupplugin = new $classname($plugintype, $name, $optigroup);
+                // Add plugin returned structure to optigroup
+                $backupplugin->define_plugin_structure($element->get_name());
+            }
+        }
     }
 
+    /**
+     * To conditionally decide if one step will be executed or no
+     *
+     * For steps needing to be executed conditionally, based in dynamic
+     * conditions (at execution time vs at declaration time) you must
+     * override this function. It will return true if the step must be
+     * executed and false if not
+     */
+    protected function execute_condition() {
+        return true;
+    }
 
     /**
      * Function that will return the structure to be processed by this backup_step.

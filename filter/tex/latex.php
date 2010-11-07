@@ -20,13 +20,7 @@
 
             // construct directory structure
             $this->temp_dir = $CFG->dataroot . "/temp/latex";
-            if (!file_exists("$CFG->dataroot/temp")) {
-                mkdir( "$CFG->dataroot/temp", $CFG->directorypermissions );
-            }
-            if (!file_exists( $this->temp_dir )) {
-                mkdir( $this->temp_dir, $CFG->directorypermissions );
-            }
-
+            make_upload_directory('temp/latex');
         }
 
         /**
@@ -46,7 +40,7 @@
         function construct_latex_document( $formula, $fontsize=12 ) {
             global $CFG;
 
-            $formula = tex_sanitize_formula($formula);
+            $formula = filter_tex_sanitize_formula($formula);
 
             // $fontsize don't affects to formula's size. $density can change size
             $doc =  "\\documentclass[{$fontsize}pt]{article}\n";

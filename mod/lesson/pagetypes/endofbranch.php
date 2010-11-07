@@ -18,10 +18,13 @@
 /**
  * End of branch table
  *
- * @package   lesson
- * @copyright 2009 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage lesson
+ * @copyright  2009 Sam Hemelryk
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  **/
+
+defined('MOODLE_INTERNAL') || die();
 
  /** End of Branch page */
 define("LESSON_PAGE_ENDOFBRANCH",   "21");
@@ -65,7 +68,7 @@ class lesson_page_type_endofbranch extends lesson_page {
         } elseif ($jumpto == LESSON_CLUSTERJUMP) {
 
             if (!$canmanage) {
-                $jumpto = $this->lesson->cluster_jump($pageid);
+                $jumpto = $this->lesson->cluster_jump($this->properties->id);
             } else {
                 if ($this->properties->nextpageid == 0) {
                     $jumpto = LESSON_EOL;
@@ -104,7 +107,7 @@ class lesson_page_type_endofbranch extends lesson_page {
         if (empty($properties->qoption)) {
             $properties->qoption = '0';
         }
-        $properties = file_postupdate_standard_editor($properties, 'contents', array('noclean'=>true, 'maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$PAGE->course->maxbytes), get_context_instance(CONTEXT_MODULE, $PAGE->cm->id), 'lesson_page_contents', $properties->id);
+        $properties = file_postupdate_standard_editor($properties, 'contents', array('noclean'=>true, 'maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$PAGE->course->maxbytes), get_context_instance(CONTEXT_MODULE, $PAGE->cm->id), 'mod_lesson', 'page_contents', $properties->id);
         $DB->update_record("lesson_pages", $properties);
 
         $answers  = $this->get_answers();
@@ -123,7 +126,7 @@ class lesson_page_type_endofbranch extends lesson_page {
         if (isset($properties->jumpto[0])) {
             $answer->jumpto = $properties->jumpto[0];
         }
-        if (isset($form->score[0])) {
+        if (isset($properties->score[0])) {
             $answer->score = $properties->score[0];
         }
         if (!empty($answer->id)) {
@@ -170,7 +173,7 @@ class lesson_add_page_form_endofbranch extends lesson_add_page_form_base {
 
         $this->editoroptions = array('noclean'=>true, 'maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$PAGE->course->maxbytes);
         $mform->addElement('editor', 'contents_editor', get_string("pagecontents", "lesson"), null, $this->editoroptions);
-        $mform->setType('contents_editor', PARAM_CLEANHTML);
+        $mform->setType('contents_editor', PARAM_RAW);
 
         $this->add_jumpto(0);
     }

@@ -39,8 +39,8 @@ require_once($CFG->dirroot . '/mod/wiki/comments_form.php');
 
 $pageid = required_param('pageid', PARAM_TEXT);
 $action = optional_param('action', '', PARAM_ACTION);
-$id = optional_param('id', PARAM_INT);
-$commentid = optional_param('commentid', PARAM_INT);
+$id = optional_param('id', 0, PARAM_INT);
+$commentid = optional_param('commentid', 0, PARAM_INT);
 $newcontent = optional_param('newcontent', '', PARAM_CLEANHTML);
 
 if (!$page = wiki_get_page($pageid)) {
@@ -53,11 +53,11 @@ if (!$subwiki = wiki_get_subwiki($page->subwikiid)) {
 if (!$cm = get_coursemodule_from_instance("wiki", $subwiki->wikiid)) {
     print_error('invalidcoursemodule');
 }
-$course = $DB->get_record('course', array('id'=>$cm->course), '*', MUST_EXIST);
+$course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
 if (!$wiki = wiki_get_wiki($subwiki->wikiid)) {
     print_error('incorrectwikiid', 'wiki');
 }
-require_course_login($course->id, true, $cm);
+require_login($course->id, true, $cm);
 
 $comm = new page_wiki_handlecomments($wiki, $subwiki, $cm);
 $comm->set_page($page);

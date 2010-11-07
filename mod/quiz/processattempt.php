@@ -51,7 +51,7 @@ if ($attemptobj->get_userid() != $USER->id) {
     quiz_error($attemptobj->get_quiz(), 'notyourattempt');
 }
 
-/// Check capabilites.
+/// Check capabilities.
 if (!$attemptobj->is_preview_user()) {
     $attemptobj->require_capability('mod/quiz:attempt');
 }
@@ -196,8 +196,8 @@ $accessmanager = $attemptobj->get_access_manager($timenow);
 $accessmanager->clear_password_access();
 
 /// Trigger event
-$eventdata = new object();
-$eventdata->component  = 'mod/quiz';
+$eventdata = new stdClass();
+$eventdata->component  = 'mod_quiz';
 $eventdata->course     = $attemptobj->get_courseid();
 $eventdata->quiz       = $attemptobj->get_quizid();
 $eventdata->cm         = $attemptobj->get_cmid();

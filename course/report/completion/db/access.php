@@ -1,4 +1,4 @@
-<?php  // $Id: access.php,v 1.3 2010-05-21 11:51:28 sam_marshall Exp $
+<?php
 
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
@@ -38,5 +38,3 @@ $capabilities = array(
         'clonepermissionsfrom' => 'moodle/site:viewreports',
     )
 );
-
-?>

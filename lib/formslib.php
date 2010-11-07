@@ -25,24 +25,26 @@
  * See examples of use of this library in course/edit.php and course/edit_form.php
  *
  * A few notes :
- *      form defintion is used for both printing of form and processing and should be the same
+ *      form definition is used for both printing of form and processing and should be the same
  *              for both or you may lose some submitted data which won't be let through.
  *      you should be using setType for every form element except select, radio or checkbox
  *              elements, these elements clean themselves.
  *
  *
- * @copyright Jamie Pratt <me@jamiep.org>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @package   moodlecore
+ * @copyright  Jamie Pratt <me@jamiep.org>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage form
  */
 
-/** setup.php icludes our hacked pear libs first */
+defined('MOODLE_INTERNAL') || die();
+
+/** setup.php includes our hacked pear libs first */
 require_once 'HTML/QuickForm.php';
 require_once 'HTML/QuickForm/DHTMLRulesTableless.php';
 require_once 'HTML/QuickForm/Renderer/Tableless.php';
 
 require_once $CFG->libdir.'/filelib.php';
-require_once $CFG->libdir.'/uploadlib.php'; // TODO: remove
 
 define('EDITOR_UNLIMITED_FILES', -1);
 
@@ -64,15 +66,16 @@ if (!empty($CFG->debug) and $CFG->debug >= DEBUG_ALL){
 /**
  *
  * @staticvar bool $done
+ * @global moodle_page $PAGE
  */
 function form_init_date_js() {
     global $PAGE;
     static $done = false;
     if (!$done) {
-        $PAGE->requires->yui2_lib('calendar');
-        $PAGE->requires->yui2_lib('container');
-        $PAGE->requires->js_function_call('init_date_selectors',
-                array(get_string('firstdayofweek', 'langconfig')));
+        $module   = 'moodle-form-dateselector';
+        $function = 'M.form.dateselector.init_date_selectors';
+        $config = array(array('firstdayofweek'=>get_string('firstdayofweek', 'langconfig')));
+        $PAGE->requires->yui_module($module, $function, $config);
         $done = true;
     }
 }
@@ -230,7 +233,8 @@ abstract class moodleform {
     }
 
     /**
-     * Internal method. Validates all old-style uploaded files.
+     * Internal method. Validates all old-style deprecated uploaded files.
+     * The new way is to upload files via repository api.
      *
      * @global object
      * @global object
@@ -283,7 +287,7 @@ abstract class moodleform {
             }
 
 /*
-  // TODO: rethink the file scanning
+  // TODO: rethink the file scanning MDL-19380
             if ($CFG->runclamonupload) {
                 if (!clam_scan_moodle_file($_FILES[$elname], $COURSE)) {
                     $errors[$elname] = $_FILES[$elname]['uploadlog'];
@@ -329,7 +333,6 @@ abstract class moodleform {
      * note: $slashed param removed
      *
      * @param mixed $default_values object or array of default values
-     * @param bool $slased true if magic quotes applied to data values
      */
     function set_data($default_values) {
         if (is_object($default_values)) {
@@ -339,10 +342,10 @@ abstract class moodleform {
     }
 
     /**
-     * @param bool $um
+     * @deprecated
      */
     function set_upload_manager($um=false) {
-        debugging('Not used anymore, please fix code!');
+        debugging('Old file uploads can not be used any more, please use new filepicker element');
     }
 
     /**
@@ -562,7 +565,7 @@ abstract class moodleform {
             $draftid = $values[$elname];
             $fs = get_file_storage();
             $context = get_context_instance(CONTEXT_USER, $USER->id);
-            if (!$files = $fs->get_area_files($context->id, 'user_draft', $draftid, 'id DESC', false)) {
+            if (!$files = $fs->get_area_files($context->id, 'user', 'draft', $draftid, 'id DESC', false)) {
                 return false;
             }
             $file = reset($files);
@@ -591,7 +594,6 @@ abstract class moodleform {
         if (!$this->is_submitted() or !$this->is_validated()) {
             return false;
         }
-
         if (file_exists($pathname)) {
             if ($override) {
                 if (!@unlink($pathname)) {
@@ -612,7 +614,7 @@ abstract class moodleform {
             $draftid = $values[$elname];
             $fs = get_file_storage();
             $context = get_context_instance(CONTEXT_USER, $USER->id);
-            if (!$files = $fs->get_area_files($context->id, 'user_draft', $draftid, 'id DESC', false)) {
+            if (!$files = $fs->get_area_files($context->id, 'user', 'draft', $draftid, 'id DESC', false)) {
                 return false;
             }
             $file = reset($files);
@@ -624,6 +626,31 @@ abstract class moodleform {
         }
 
         return false;
+    }
+
+    /**
+     * Returns a temporary file, do not forget to delete after not needed any more.
+     *
+     * @param string $elname
+     * @return string or false
+     */
+    function save_temp_file($elname) {
+        if (!$this->get_new_filename($elname)) {
+            return false;
+        }
+        if (!$dir = make_upload_directory('temp/forms')) {
+            return false;
+        }
+        if (!$tempfile = tempnam($dir, 'tempup_')) {
+            return false;
+        }
+        if (!$this->save_file($elname, $tempfile, true)) {
+            // something went wrong
+            @unlink($tempfile);
+            return false;
+        }
+
+        return $tempfile;
     }
 
     /**
@@ -651,39 +678,12 @@ abstract class moodleform {
             $draftid = $values[$elname];
             $fs = get_file_storage();
             $context = get_context_instance(CONTEXT_USER, $USER->id);
-            if (!$files = $fs->get_area_files($context->id, 'user_draft', $draftid, 'id DESC', false)) {
+            if (!$files = $fs->get_area_files($context->id, 'user', 'draft', $draftid, 'id DESC', false)) {
                 return null;
             }
             return $files;
         }
         return null;
-    }
-
-    /**
-     * Dispose form element draft files
-     *
-     * @global object $USER
-     * @param string $elname name of element
-     */
-    function dispose($elname) {
-        global $USER;
-
-        if (!$this->is_submitted() or !$this->is_validated()) {
-            return false;
-        }
-
-        $element = $this->_form->getElement($elname);
-
-        if ($element instanceof MoodleQuickForm_filepicker || $element instanceof MoodleQuickForm_filemanager) {
-            $values = $this->_form->exportValues($elname);
-            if (empty($values[$elname])) {
-                return false;
-            }
-            $draftid = $values[$elname];
-            $fs = get_file_storage();
-            $context = get_context_instance(CONTEXT_USER, $USER->id);
-            $fs->delete_area_files($context->id, 'user_draft', $draftid);
-        }
     }
 
     /**
@@ -699,7 +699,7 @@ abstract class moodleform {
      * @param int $newuserid - new userid if required
      * @return mixed stored_file object or false if error; may throw exception if duplicate found
      */
-    function save_stored_file($elname, $newcontextid, $newfilearea, $newitemid, $newfilepath='/',
+    function save_stored_file($elname, $newcontextid, $newcomponent, $newfilearea, $newitemid, $newfilepath='/',
                               $newfilename=null, $overwrite=false, $newuserid=null) {
         global $USER;
 
@@ -721,7 +721,7 @@ abstract class moodleform {
             }
             $draftid = $values[$elname];
             $context = get_context_instance(CONTEXT_USER, $USER->id);
-            if (!$files = $fs->get_area_files($context->id, 'user_draft', $draftid, 'id DESC', false)) {
+            if (!$files = $fs->get_area_files($context->id, 'user' ,'draft', $draftid, 'id DESC', false)) {
                 return false;
             }
             $file = reset($files);
@@ -730,14 +730,14 @@ abstract class moodleform {
             }
 
             if ($overwrite) {
-                if ($oldfile = $fs->get_file($newcontextid, $newfilearea, $newitemid, $newfilepath, $newfilename)) {
+                if ($oldfile = $fs->get_file($newcontextid, $newcomponent, $newfilearea, $newitemid, $newfilepath, $newfilename)) {
                     if (!$oldfile->delete()) {
                         return false;
                     }
                 }
             }
 
-            $file_record = array('contextid'=>$newcontextid, 'filearea'=>$newfilearea, 'itemid'=>$newitemid,
+            $file_record = array('contextid'=>$newcontextid, 'component'=>$newcomponent, 'filearea'=>$newfilearea, 'itemid'=>$newitemid,
                                  'filepath'=>$newfilepath, 'filename'=>$newfilename, 'userid'=>$newuserid);
             return $fs->create_file_from_storedfile($file_record, $file);
 
@@ -745,14 +745,14 @@ abstract class moodleform {
             $filename = is_null($newfilename) ? $_FILES[$elname]['name'] : $newfilename;
 
             if ($overwrite) {
-                if ($oldfile = $fs->get_file($newcontextid, $newfilearea, $newitemid, $newfilepath, $newfilename)) {
+                if ($oldfile = $fs->get_file($newcontextid, $newcomponent, $newfilearea, $newitemid, $newfilepath, $newfilename)) {
                     if (!$oldfile->delete()) {
                         return false;
                     }
                 }
             }
 
-            $file_record = array('contextid'=>$newcontextid, 'filearea'=>$newfilearea, 'itemid'=>$newitemid,
+            $file_record = array('contextid'=>$newcontextid, 'component'=>$newcomponent, 'filearea'=>$newfilearea, 'itemid'=>$newitemid,
                                  'filepath'=>$newfilepath, 'filename'=>$newfilename, 'userid'=>$newuserid);
             return $fs->create_file_from_pathname($file_record, $_FILES[$elname]['tmp_name']);
         }
@@ -784,7 +784,7 @@ abstract class moodleform {
             $draftid = $values[$elname];
             $fs = get_file_storage();
             $context = get_context_instance(CONTEXT_USER, $USER->id);
-            if (!$files = $fs->get_area_files($context->id, 'user_draft', $draftid, 'id DESC', false)) {
+            if (!$files = $fs->get_area_files($context->id, 'user', 'draft', $draftid, 'id DESC', false)) {
                 return false;
             }
             $file = reset($files);
@@ -812,8 +812,6 @@ abstract class moodleform {
 
     /**
      * Abstract method - always override!
-     *
-     * If you need special handling of uploaded files, create instance of $this->_upload_manager here.
      */
     protected abstract function definition();
 
@@ -917,7 +915,8 @@ abstract class moodleform {
                             $mform->setDefault($realelementname, $params);
                             break;
                         case 'helpbutton' :
-                            $mform->setHelpButton($realelementname, $params);
+                            $params = array_merge(array($realelementname), $params);
+                            call_user_func_array(array(&$mform, 'addHelpButton'), $params);
                             break;
                         case 'disabledif' :
                             foreach ($namecloned as $num => $name){
@@ -1076,7 +1075,7 @@ EOS;
         global $PAGE;
         if (is_string($element)) {
             $element = $this->_form->getElement($element);
-}
+        }
         if (is_object($element)) {
             $element->_generateId();
             $elementid = $element->getAttribute('id');
@@ -1091,6 +1090,23 @@ EOS;
                 }
             }
         }
+    }
+
+    /**
+     * Returns a JS module definition for the mforms JS
+     * @return array
+     */
+    public static function get_js_module() {
+        global $CFG;
+        return array(
+            'name' => 'mform',
+            'fullpath' => '/lib/form/form.js',
+            'requires' => array('base', 'node'),
+            'strings' => array(
+                array('showadvanced', 'form'),
+                array('hideadvanced', 'form')
+            )
+        );
     }
 }
 
@@ -1193,7 +1209,6 @@ class MoodleQuickForm extends HTML_QuickForm_DHTMLRulesTableless {
         $this->_reqHTML = '<img class="req" title="'.get_string('requiredelement', 'form').'" alt="'.get_string('requiredelement', 'form').'" src="'.$OUTPUT->pix_url('req') .'" />';
         $this->_advancedHTML = '<img class="adv" title="'.get_string('advancedelement', 'form').'" alt="'.get_string('advancedelement', 'form').'" src="'.$OUTPUT->pix_url('adv') .'" />';
         $this->setRequiredNote(get_string('somefieldsrequired', 'form', '<img alt="'.get_string('requiredelement', 'form').'" src="'.$OUTPUT->pix_url('req') .'" />'));
-        //(Help file doesn't add anything) helpbutton('requiredelement', get_string('requiredelement', 'form'), 'moodle', true, false, '', true));
     }
 
     /**
@@ -1414,15 +1429,17 @@ class MoodleQuickForm extends HTML_QuickForm_DHTMLRulesTableless {
      * Add an array of buttons to the form
      * @param    array       $buttons          An associative array representing help button to attach to
      *                                          to the form. keys of array correspond to names of elements in form.
+     * @deprecated since Moodle 2.0 - use addHelpButton() call on each element manually
      * @param bool $suppresscheck
      * @param string $function
      * @access   public
     */
     function setHelpButtons($buttons, $suppresscheck=false, $function='helpbutton'){
 
-        foreach ($buttons as $elementname => $button){
-            $this->setHelpButton($elementname, $button, $suppresscheck, $function);
-        }
+        debugging('function moodle_form::setHelpButtons() is deprecated');
+        //foreach ($buttons as $elementname => $button){
+        //    $this->setHelpButton($elementname, $button, $suppresscheck, $function);
+        //}
     }
     /**
      * Add a single button.
@@ -1437,7 +1454,8 @@ class MoodleQuickForm extends HTML_QuickForm_DHTMLRulesTableless {
      */
     function setHelpButton($elementname, $buttonargs, $suppresscheck=false, $function='helpbutton'){
         global $OUTPUT;
-        //TODO: obsolete this function completely
+
+        debugging('function moodle_form::setHelpButton() is deprecated');
         if ($function !== 'helpbutton') {
             //debugging('parameter $function in moodle_form::setHelpButton() is not supported any more');
         }
@@ -1738,8 +1756,12 @@ function qf_errorHandler(element, _qfMsg) {
             //unset($element);
             list($jsArr,$element)=$jsandelement;
             //end of fix
+            $escapedElementName = preg_replace_callback(
+                '/[_\[\]]/',
+                create_function('$matches', 'return sprintf("_%2x",ord($matches[0]));'),
+                $elementName);
             $js .= '
-function validate_' . $this->_formName . '_' . $elementName . '(element) {
+function validate_' . $this->_formName . '_' . $escapedElementName . '(element) {
   var value = \'\';
   var errFlag = new Array();
   var _qfGroups = {};
@@ -1753,7 +1775,7 @@ function validate_' . $this->_formName . '_' . $elementName . '(element) {
 }
 ';
             $validateJS .= '
-  ret = validate_' . $this->_formName . '_' . $elementName.'(frm.elements[\''.$elementName.'\']) && ret;
+  ret = validate_' . $this->_formName . '_' . $escapedElementName.'(frm.elements[\''.$elementName.'\']) && ret;
   if (!ret && !first_focus) {
     first_focus = true;
     frm.elements[\''.$elementName.'\'].focus();
@@ -1764,7 +1786,7 @@ function validate_' . $this->_formName . '_' . $elementName . '(element) {
             //unset($element);
             //$element =& $this->getElement($elementName);
             //end of fix
-            $valFunc = 'validate_' . $this->_formName . '_' . $elementName . '(this)';
+            $valFunc = 'validate_' . $this->_formName . '_' . $escapedElementName . '(this)';
             $onBlur = $element->getAttribute('onBlur');
             $onChange = $element->getAttribute('onChange');
             $element->updateAttributes(array('onBlur' => $onBlur . $valFunc,
@@ -1791,7 +1813,7 @@ function validate_' . $this->_formName . '(frm) {
         foreach ($this->_rules as $field => $rulesarr){
             foreach ($rulesarr as $key => $rule){
                 if ($rule['message']===null){
-                    $a=new object();
+                    $a=new stdClass();
                     $a->format=$rule['format'];
                     $str=get_string('err_'.$rule['type'], 'form', $a);
                     if (strpos($str, '[[')!==0){
@@ -1802,22 +1824,14 @@ function validate_' . $this->_formName . '(frm) {
         }
     }
 
-    /**
-     * @return string
-     */
-    function getLockOptionEndScript(){
-
-        $iname = $this->getAttribute('id').'items';
-        $js = '<script type="text/javascript">'."\n";
-        $js .= '//<![CDATA['."\n";
-        $js .= "var $iname = Array();\n";
-
+    function getLockOptionObject(){
+        $result = array();
         foreach ($this->_dependencies as $dependentOn => $conditions){
-            $js .= "{$iname}['$dependentOn'] = Array();\n";
+            $result[$dependentOn] = array();
             foreach ($conditions as $condition=>$values) {
-                $js .= "{$iname}['$dependentOn']['$condition'] = Array();\n";
+                $result[$dependentOn][$condition] = array();
                 foreach ($values as $value=>$dependents) {
-                    $js .= "{$iname}['$dependentOn']['$condition']['$value'] = Array();\n";
+                    $result[$dependentOn][$condition][$value] = array();
                     $i = 0;
                     foreach ($dependents as $dependent) {
                         $elements = $this->_getElNamesRecursive($dependent);
@@ -1829,17 +1843,13 @@ function validate_' . $this->_formName . '(frm) {
                             if ($element == $dependentOn) {
                                 continue;
                             }
-                            $js .= "{$iname}['$dependentOn']['$condition']['$value'][$i]='$element';\n";
-                            $i++;
+                            $result[$dependentOn][$condition][$value][] = $element;
                         }
                     }
                 }
             }
         }
-        $js .="lockoptionsallsetup('".$this->getAttribute('id')."');\n";
-        $js .='//]]>'."\n";
-        $js .='</script>'."\n";
-        return $js;
+        return array($this->getAttribute('id'), $result);
     }
 
     /**
@@ -2237,16 +2247,20 @@ class MoodleQuickForm_Renderer extends HTML_QuickForm_Renderer_Tableless{
     }
 
     /**
+     * @global moodle_page $PAGE
      * @param object $form Passed by reference
      */
     function finishForm(&$form){
+        global $PAGE;
         if ($form->isFrozen()){
             $this->_hiddenHtml = '';
         }
         parent::finishForm($form);
-        if ((!$form->isFrozen()) && ('' != ($script = $form->getLockOptionEndScript()))) {
-            // add a lockoptions script
-            $this->_html = $this->_html . "\n" . $script;
+        if (!$form->isFrozen()) {
+            $args = $form->getLockOptionObject();
+            if (count($args[1]) > 0) {
+                $PAGE->requires->js_init_call('M.form.initFormDependencies', $args, false, moodleform::get_js_module());
+            }
         }
     }
    /**
@@ -2255,17 +2269,10 @@ class MoodleQuickForm_Renderer extends HTML_QuickForm_Renderer_Tableless{
     * @param    object  $header   An HTML_QuickForm_header element being visited
     * @access   public
     * @return   void
+    * @global moodle_page $PAGE
     */
     function renderHeader(&$header) {
         global $PAGE;
-        static $advformcount;
-
-        // This ensures that if 2(+) advanced buttons are used
-        // that all show/hide buttons appear in the correct place
-        // Because of now using $PAGE->requires->js_function_call
-        if ($advformcount==null) {
-            $advformcount = 1;
-        }
 
         $name = $header->getName();
 
@@ -2281,30 +2288,17 @@ class MoodleQuickForm_Renderer extends HTML_QuickForm_Renderer_Tableless{
 
         if (isset($this->_advancedElements[$name])){
             $header_html =str_replace('{advancedimg}', $this->_advancedHTML, $header_html);
+            $elementName='mform_showadvanced';
+            if ($this->_showAdvanced==0){
+                $buttonlabel = get_string('showadvanced', 'form');
+            } else {
+                $buttonlabel = get_string('hideadvanced', 'form');
+            }
+            $button = '<input name="'.$elementName.'" class="showadvancedbtn" value="'.$buttonlabel.'" type="submit" />';
+            $PAGE->requires->js_init_call('M.form.initShowAdvanced', array(), false, moodleform::get_js_module());
+            $header_html = str_replace('{button}', $button, $header_html);
         } else {
             $header_html =str_replace('{advancedimg}', '', $header_html);
-        }
-        $elementName='mform_showadvanced';
-        if ($this->_showAdvanced==0){
-            $buttonlabel = get_string('showadvanced', 'form');
-        } else {
-            $buttonlabel = get_string('hideadvanced', 'form');
-        }
-
-        if (isset($this->_advancedElements[$name])){
-            $PAGE->requires->yui2_lib('event');
-            // this is tricky - the first submit button on form is "clicked" if user presses enter
-            // we do not want to "submit" using advanced button if javascript active
-            $button_nojs = '<input name="'.$elementName.'" id="'.$elementName.(string)$advformcount.'" class="showadvancedbtn" value="'.$buttonlabel.'" type="submit" />';
-
-            $buttonlabel = addslashes_js($buttonlabel);
-            $PAGE->requires->string_for_js('showadvanced', 'form');
-            $PAGE->requires->string_for_js('hideadvanced', 'form');
-            $PAGE->requires->js_function_call('showAdvancedInit', Array($elementName.(string)$advformcount, $elementName, $buttonlabel));
-
-            $advformcount++;
-            $header_html = str_replace('{button}', $button_nojs, $header_html);
-        } else {
             $header_html = str_replace('{button}', '', $header_html);
         }
 

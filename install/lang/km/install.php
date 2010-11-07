@@ -29,11 +29,13 @@
  */
 
 $string['admindirname'] = 'ថត​អ្នក​គ្រប់គ្រង';
+$string['availablelangs'] = 'កញ្ចប់​ភាសា​ដែល​មាន';
 $string['chooselanguagehead'] = 'ជ្រើស​ភាសា';
 $string['chooselanguagesub'] = 'សូម​ជ្រើស​ភាសា សម្រាប់​តែ​ការ​ដំឡើង​ប៉ុណ្ណោះ ។ អ្នក​នឹង​អាច​ជ្រើស​ភាសា​សម្រាប់​តំបន់​បណ្ដាញ និង​អ្នក​ប្រើ នៅ​ផ្នែក​ក្រោយ​ៗ​ទៀត ។';
 $string['dataroot'] = 'ថត​ទិន្នន័យ';
 $string['dbprefix'] = 'បុព្វបទ​តារាង';
 $string['dirroot'] = 'ថត Moodle';
+$string['environmenthead'] = 'កំពុង​ពិនិត្យ​បរិស្ថាន​របស់​អ្នក...';
 $string['installation'] = 'ការ​ដំឡើង';
 $string['langdownloaderror'] = 'ភាសា "{$a}" មិនត្រូវ​បាន​ដំឡើង​ឡើយ ។ វា​នឹង​បន្ត​ដំឡើង​ជា​ភាសា​អង់គ្លេស ។';
 $string['memorylimithelp'] = '<p>បច្ចុប្បន្ន សតិ​កំណត់​របស់ PHP សម្រាប់​ម៉ាស៊ីន​បម្រើ​របស់​អ្នក ត្រូវ​បាន​កំណត់​ជា {$a} ។</p>

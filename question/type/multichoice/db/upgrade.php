@@ -9,7 +9,7 @@
 //
 // The upgrade function in this file will attempt
 // to perform all the necessary actions to upgrade
-// your older installtion to the current version.
+// your older installation to the current version.
 //
 // If there's something it cannot do itself, it
 // will tell you what you need to do.
@@ -24,13 +24,12 @@ function xmldb_qtype_multichoice_upgrade($oldversion) {
     global $CFG, $DB, $QTYPES;
 
     $dbman = $DB->get_manager();
-    $result = true;
 
     // This upgrade actually belongs to the random question type,
     // but that does not have a DB upgrade script. Therefore, multichoice
     // is doing it.
     // Rename random questions to give them more helpful names.
-    if ($result && $oldversion < 2008021800) {
+    if ($oldversion < 2008021800) {
         require_once($CFG->libdir . '/questionlib.php');
         // Get all categories containing random questions.
         $categories = $DB->get_recordset_sql("
@@ -41,19 +40,75 @@ function xmldb_qtype_multichoice_upgrade($oldversion) {
                 GROUP BY qc.id, qc.name");
 
         // Rename the random qusetions in those categories.
-        $where = "qtype = 'random' AND category = ? AND " . $DB->sql_compare_text('questiontext') . " = ?";
+        $where = "qtype = 'random' AND category = ? AND " .
+                $DB->sql_compare_text('questiontext') . " = " . $DB->sql_compare_text('?');
         foreach ($categories as $cat) {
             $randomqname = $QTYPES[RANDOM]->question_name($cat, false);
-            $result = $result && $DB->set_field_select('question', 'name', $randomqname, $where, array($cat->id, '0'));
+            $DB->set_field_select('question', 'name', $randomqname, $where, array($cat->id, '0'));
 
             $randomqname = $QTYPES[RANDOM]->question_name($cat, true);
-            $result = $result && $DB->set_field_select('question', 'name', $randomqname, $where, array($cat->id, '1'));
+            $DB->set_field_select('question', 'name', $randomqname, $where, array($cat->id, '1'));
         }
 
-        upgrade_plugin_savepoint($result, 2008021800, 'qtype', 'multichoice');
+        upgrade_plugin_savepoint(true, 2008021800, 'qtype', 'multichoice');
     }
 
-    return $result;
+    if ($oldversion < 2009021801) {
+
+    /// Define field correctfeedbackformat to be added to question_multichoice
+        $table = new xmldb_table('question_multichoice');
+        $field = new xmldb_field('correctfeedbackformat', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'correctfeedback');
+
+    /// Conditionally launch add field correctfeedbackformat
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+    /// Define field partiallycorrectfeedbackformat to be added to question_multichoice
+        $field = new xmldb_field('partiallycorrectfeedbackformat', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'partiallycorrectfeedback');
+
+    /// Conditionally launch add field partiallycorrectfeedbackformat
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+    /// Define field incorrectfeedbackformat to be added to question_multichoice
+        $field = new xmldb_field('incorrectfeedbackformat', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'incorrectfeedback');
+
+    /// Conditionally launch add field incorrectfeedbackformat
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $rs = $DB->get_recordset('question_multichoice');
+        foreach ($rs as $record) {
+            if ($CFG->texteditors !== 'textarea') {
+                if (!empty($record->correctfeedback)) {
+                    $record->correctfeedback = text_to_html($record->correctfeedback);
+                }
+                $record->correctfeedbackformat = FORMAT_HTML;
+                if (!empty($record->partiallycorrectfeedback)) {
+                    $record->partiallycorrectfeedback = text_to_html($record->partiallycorrectfeedback);
+                }
+                $record->partiallycorrectfeedbackformat = FORMAT_HTML;
+                if (!empty($record->incorrectfeedback)) {
+                    $record->incorrectfeedback = text_to_html($record->incorrectfeedback);
+                }
+                $record->incorrectfeedbackformat = FORMAT_HTML;
+            } else {
+                $record->correctfeedbackformat = FORMAT_MOODLE;
+                $record->partiallycorrectfeedbackformat = FORMAT_MOODLE;
+                $record->incorrectfeedbackformat = FORMAT_MOODLE;
+            }
+            $DB->update_record('question_multichoice', $record);
+        }
+        $rs->close();
+
+    /// multichoice savepoint reached
+        upgrade_plugin_savepoint(true, 2009021801, 'qtype', 'multichoice');
+    }
+
+    return true;
 }
 
 

@@ -18,10 +18,13 @@
 /**
  * messagelib.php - Contains generic messaging functions for the message system
  *
- * @package   moodlecore
- * @copyright Luis Rodrigues and Martin Dougiamas
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage message
+ * @copyright  Luis Rodrigues and Martin Dougiamas
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Called when a message provider wants to send a message.
@@ -30,13 +33,15 @@
  *
  * Required parameter $eventdata structure:
  *  modulename     -
- *  userfrom
- *  userto
- *  subject
+ *  userfrom object the user sending the message
+ *  userto object the message recipient
+ *  subject string the message subject
  *  fullmessage - the full message in a given format
  *  fullmessageformat  - the format if the full message (FORMAT_MOODLE, FORMAT_HTML, ..)
  *  fullmessagehtml  - the full version (the message processor will choose with one to use)
  *  smallmessage - the small version of the message
+ *  contexturl - if this is a notification then you can specify a url to view the event. For example the forum post the user is being notified of.
+ *  contexturlname - the display text for contexturl
  *
  * @param object $eventdata information about the message (modulename, userfrom, userto, ...)
  * @return boolean success
@@ -44,27 +49,34 @@
 function message_send($eventdata) {
     global $CFG, $DB;
 
-    //TODO: this function is very slow and inefficient, it would be a major bottleneck in cron processing, this has to be improved in 2.0
-    //      probably we could add two parameters with user messaging preferences and we could somehow preload/cache them in cron
-
     //TODO: we need to solve problems with database transactions here somehow, for now we just prevent transactions - sorry
     $DB->transactions_forbidden();
 
+    if (is_int($eventdata->userto)) {
+        mtrace('message_send() userto is a user ID when it should be a user object');
+        $eventdata->userto = $DB->get_record('user', array('id' => $eventdata->useridto));
+    }
+    if (is_int($eventdata->userfrom)) {
+        mtrace('message_send() userfrom is a user ID when it should be a user object');
+        $eventdata->userfrom = $DB->get_record('user', array('id' => $message->userfrom));
+    }
+
+    //after how long inactive should the user be considered logged off?
     if (isset($CFG->block_online_users_timetosee)) {
         $timetoshowusers = $CFG->block_online_users_timetosee * 60;
     } else {
-        $timetoshowusers = 300;
+        $timetoshowusers = 300;//5 minutes
     }
 
-/// Work out if the user is logged in or not
-    if ((time() - $eventdata->userto->lastaccess) > $timetoshowusers) {
-        $userstate = 'loggedoff';
-    } else {
+    // Work out if the user is logged in or not
+    if ((time() - $timetoshowusers) < $eventdata->userto->lastaccess) {
         $userstate = 'loggedin';
+    } else {
+        $userstate = 'loggedoff';
     }
 
-/// Create the message object
-    $savemessage = new object();
+    // Create the message object
+    $savemessage = new stdClass();
     $savemessage->useridfrom        = $eventdata->userfrom->id;
     $savemessage->useridto          = $eventdata->userto->id;
     $savemessage->subject           = $eventdata->subject;
@@ -72,56 +84,82 @@ function message_send($eventdata) {
     $savemessage->fullmessageformat = $eventdata->fullmessageformat;
     $savemessage->fullmessagehtml   = $eventdata->fullmessagehtml;
     $savemessage->smallmessage      = $eventdata->smallmessage;
-    $savemessage->timecreated       = time();
 
-/// Find out what processors are defined currently
-/// When a user doesn't have settings none gets return, if he doesn't want contact "" gets returned
-    $processor = get_user_preferences('message_provider_'.$eventdata->component.'_'.$eventdata->name.'_'.$userstate, NULL, $eventdata->userto->id);
+    if (!empty($eventdata->notification)) {
+        $savemessage->notification = $eventdata->notification;
+    } else {
+        $savemessage->notification = 0;
+    }
 
+    if (!empty($eventdata->contexturl)) {
+        $savemessage->contexturl = $eventdata->contexturl;
+    } else {
+        $savemessage->contexturl = null;
+    }
+
+    if (!empty($eventdata->contexturlname)) {
+        $savemessage->contexturlname = $eventdata->contexturlname;
+    } else {
+        $savemessage->contexturlname = null;
+    }
+
+    $savemessage->timecreated = time();
+
+    // Find out what processors are defined currently
+    // When a user doesn't have settings none gets return, if he doesn't want contact "" gets returned
+    $preferencename = 'message_provider_'.$eventdata->component.'_'.$eventdata->name.'_'.$userstate;
+
+    $processor = get_user_preferences($preferencename, null, $eventdata->userto->id);
     if ($processor == NULL) { //this user never had a preference, save default
         if (!message_set_default_message_preferences($eventdata->userto)) {
             print_error('cannotsavemessageprefs', 'message');
         }
-        if ($userstate == 'loggedin') {
-            $processor = 'popup';
-        }
-        if ($userstate == 'loggedoff') {
-            $processor = 'email';
-        }
+        $processor = get_user_preferences($preferencename, NULL, $eventdata->userto->id);
     }
 
-    // if we are suposed to do something with this message
-    // No processor for this message, mark it as read
-    if ($processor == "") {  //this user cleared all the preferences
+    if ($processor=='none' && $savemessage->notification) {
+        //if they have deselected all processors and its a notification mark it read. The user doesnt want to be bothered
         $savemessage->timeread = time();
-        $messageid = $message->id;
-        unset($message->id);
         $DB->insert_record('message_read', $savemessage);
-
     } else {                        // Process the message
-    /// Store unread message just in case we can not send it
+        // Store unread message just in case we can not send it
         $savemessage->id = $DB->insert_record('message', $savemessage);
+        $eventdata->savedmessageid = $savemessage->id;
 
-    /// Try to deliver the message to each processor
-        $processorlist = explode(',', $processor);
-        foreach ($processorlist as $procname) {
-            $processorfile = $CFG->dirroot. '/message/output/'.$procname.'/message_output_'.$procname.'.php';
+        // Try to deliver the message to each processor
+        if ($processor!='none') {
+            $processorlist = explode(',', $processor);
+            foreach ($processorlist as $procname) {
+                $processorfile = $CFG->dirroot. '/message/output/'.$procname.'/message_output_'.$procname.'.php';
 
-            if (is_readable($processorfile)) {
-                include_once($processorfile);  // defines $module with version etc
-                $processclass = 'message_output_' . $procname;
+                if (is_readable($processorfile)) {
+                    include_once($processorfile);  // defines $module with version etc
+                    $processclass = 'message_output_' . $procname;
 
-                if (class_exists($processclass)) {
-                    $pclass = new $processclass();
+                    if (class_exists($processclass)) {
+                        $pclass = new $processclass();
 
-                    if (!$pclass->send_message($savemessage)) {
-                        debugging('Error calling message processor '.$procname);
-                        return false;
+                        if (!$pclass->send_message($eventdata)) {
+                            debugging('Error calling message processor '.$procname);
+                            return false;
+                        }
                     }
+                } else {
+                    debugging('Error finding message processor '.$procname);
+                    return false;
                 }
-            } else {
-                debugging('Error calling message processor '.$procname);
-                return false;
+            }
+            
+            //if messaging is disabled and they previously had forum notifications handled by the popup processor
+            //or any processor that puts a row in message_working then the notification will remain forever
+            //unread. To prevent this mark the message read if messaging is disabled
+            if (empty($CFG->messaging)) {
+                require_once($CFG->dirroot.'/message/lib.php');
+                message_mark_message_read($savemessage, time());
+            } else if ( $DB->count_records('message_working', array('unreadmessageid' => $savemessage->id)) == 0){
+                //if there is no more processors that want to process this we can move message to message_read
+                require_once($CFG->dirroot.'/message/lib.php');
+                message_mark_message_read($savemessage, time(), true);
             }
         }
     }
@@ -154,7 +192,7 @@ function message_update_providers($component='moodle') {
                 continue;
 
             } else {                                // Update existing one
-                $provider = new object();
+                $provider = new stdClass();
                 $provider->id         = $dbproviders[$messagename]->id;
                 $provider->capability = $fileprovider['capability'];
                 $DB->update_record('message_providers', $provider);
@@ -164,7 +202,7 @@ function message_update_providers($component='moodle') {
 
         } else {             // New message provider, add it
 
-            $provider = new object();
+            $provider = new stdClass();
             $provider->name       = $messagename;
             $provider->component  = $component;
             $provider->capability = $fileprovider['capability'];
@@ -189,7 +227,7 @@ function message_get_my_providers() {
 
     $systemcontext = get_context_instance(CONTEXT_SYSTEM);
 
-    $providers = $DB->get_records('message_providers');
+    $providers = $DB->get_records('message_providers', null, 'name');
 
     // Remove all the providers we aren't allowed to see now
     foreach ($providers as $providerid => $provider) {
@@ -247,6 +285,7 @@ function message_get_providers_from_file($component) {
  * @param $component - examples: 'moodle', 'mod/forum', 'block/quiz_results'
  */
 function message_uninstall($component) {
+    global $DB;
     return $DB->delete_records('message_providers', array('component' => $component));
 }
 
@@ -257,11 +296,43 @@ function message_uninstall($component) {
 function message_set_default_message_preferences($user) {
     global $DB;
 
+    //check for the pre 2.0 disable email setting
+    $useemail = empty($user->emailstop);
+
+    //look for the pre-2.0 preference if it exists
+    $oldpreference = get_user_preferences('message_showmessagewindow', -1, $user->id);
+    //if they elected to see popups or the preference didnt exist
+    $usepopups = (intval($oldpreference)==1 || intval($oldpreference)==-1);
+
+    $defaultonlineprocessor = 'none';
+    $defaultofflineprocessor = 'none';
+    
+    if ($useemail) {
+        $defaultonlineprocessor = 'email';
+        $defaultofflineprocessor = 'email';
+    } else if ($usepopups) {
+        $defaultonlineprocessor = 'popup';
+        $defaultofflineprocessor = 'popup';
+    }
+
+    $offlineprocessortouse = $onlineprocessortouse = null;
+
     $providers = $DB->get_records('message_providers');
     $preferences = array();
+
     foreach ($providers as $providerid => $provider) {
-        $preferences['message_provider_'.$provider->component.'_'.$provider->name.'_loggedin'] = 'popup';
-        $preferences['message_provider_'.$provider->component.'_'.$provider->name.'_loggedoff'] = 'email';
+
+        //force some specific defaults for IMs
+        if ($provider->name=='instantmessage' && $usepopups && $useemail) {
+            $onlineprocessortouse = 'popup';
+            $offlineprocessortouse = 'email,popup';
+        } else {
+            $onlineprocessortouse = $defaultonlineprocessor;
+            $offlineprocessortouse = $defaultofflineprocessor;
+        }
+        
+        $preferences['message_provider_'.$provider->component.'_'.$provider->name.'_loggedin'] = $onlineprocessortouse;
+        $preferences['message_provider_'.$provider->component.'_'.$provider->name.'_loggedoff'] = $offlineprocessortouse;
     }
     return set_user_preferences($preferences, $user->id);
 }

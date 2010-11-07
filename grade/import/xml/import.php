@@ -44,10 +44,7 @@ require_capability('gradeimport/xml:view', $context);
 // that we'll take longer, and that the process should be recycled soon
 // to free up memory.
 @set_time_limit(0);
-@raise_memory_limit("256M");
-if (function_exists('apache_child_terminate')) {
-    @apache_child_terminate();
-}
+raise_memory_limit(MEMORY_EXTRA);
 
 $text = download_file_content($url);
 if ($text === false) {
@@ -58,7 +55,7 @@ $error = '';
 $importcode = import_xml_grades($text, $course, $error);
 
 if ($importcode !== false) {
-    /// comit the code if we are up this far
+    /// commit the code if we are up this far
 
     if (defined('USER_KEY_LOGIN')) {
         if (grade_import_commit($id, $importcode, $feedback, false)) {

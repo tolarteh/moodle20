@@ -39,14 +39,14 @@ if (array_search($issue, $issues, true) === false) {
 }
 
 // we may need a bit more memory and this may take a long time to process
-@raise_memory_limit('128M');
+raise_memory_limit(MEMORY_EXTRA);
 @set_time_limit(0);
 
 // Print the header.
 admin_externalpage_setup('reportsecurity');
 echo $OUTPUT->header();
 
-echo $OUTPUT->heading(get_string('reportsecurity', 'report_security'));
+echo $OUTPUT->heading(get_string('pluginname', 'report_security'));
 
 echo '<div id="timewarning">'.get_string('timewarning', 'report_security').'</div>';
 while(@ob_end_flush());
@@ -78,7 +78,7 @@ if ($issue and ($result = $issue(true))) {
     $table->head  = array($strissue, $strstatus, $strdesc, $strconfig);
     $table->size  = array('30%', '10%', '50%', '10%' );
     $table->align = array('left', 'left', 'left', 'left');
-    $table->width = '90%';
+    $table->attributes = array('class'=>'scurityreporttable generaltable');
     $table->data  = array();
 
     // print detail of one issue only
@@ -105,7 +105,7 @@ if ($issue and ($result = $issue(true))) {
     $table->head  = array($strissue, $strstatus, $strdesc);
     $table->size  = array('30%', '10%', '60%' );
     $table->align = array('left', 'left', 'left');
-    $table->width = '90%';
+    $table->attributes = array('class'=>'scurityreporttable generaltable');
     $table->data  = array();
 
     foreach ($issues as $issue) {

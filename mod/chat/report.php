@@ -38,9 +38,13 @@
     }
 
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $PAGE->set_context($context);
+
     require_login($course->id, false, $cm);
 
-    require_capability('mod/chat:readlog', $context);
+    if (empty($chat->studentlogs) && !has_capability('mod/chat:readlog', $context)) {
+        notice(get_string('nopermissiontoseethechatlog', 'chat'));
+    }
 
     add_to_log($course->id, 'chat', 'report', "report.php?id=$cm->id", $chat->id, $cm->id);
 
@@ -87,25 +91,28 @@
             echo '<p class="boxaligncenter">'.userdate($start).' --> '. userdate($end).'</p>';
 
             echo $OUTPUT->box_start('center');
+            $participates = array();
             foreach ($messages as $message) {  // We are walking FORWARDS through messages
+                if (!isset($participates[$message->userid])) {
+                    $participates[$message->userid] = true;
+                }
                 $formatmessage = chat_format_message($message, $course->id, $USER);
                 if (isset($formatmessage->html)) {
                     echo $formatmessage->html;
                 }
             }
-                if (has_capability('mod/chat:exportsession', $context)
-                    || (array_key_exists($USER->id, $sessionusers)
-                        && has_capability('mod/chat:exportparticipatedsession', $context))) {
-                    require_once($CFG->libdir . '/portfoliolib.php');
-                    $buttonoptions  = array(
-                        'id'    => $cm->id,
-                        'start' => $start,
-                        'end'   => $end,
-                    );
-                    $button = new portfolio_add_button();
-                    $button->set_callback_options('chat_portfolio_caller', $buttonoptions, '/mod/chat/locallib.php');
-                    $button->render();
-                }
+            $participated_cap = array_key_exists($USER->id, $participates) && has_capability('mod/chat:exportparticipatedsession', $context);
+            if (has_capability('mod/chat:exportsession', $context) || $participated_cap) {
+                require_once($CFG->libdir . '/portfoliolib.php');
+                $buttonoptions  = array(
+                    'id'    => $cm->id,
+                    'start' => $start,
+                    'end'   => $end,
+                );
+                $button = new portfolio_add_button();
+                $button->set_callback_options('chat_portfolio_caller', $buttonoptions, '/mod/chat/locallib.php');
+                $button->render();
+            }
             echo $OUTPUT->box_end();
         }
 
@@ -267,5 +274,3 @@
 
 /// Finish the page
     echo $OUTPUT->footer();
-
-

@@ -9,7 +9,7 @@
 //
 // The upgrade function in this file will attempt
 // to perform all the necessary actions to upgrade
-// your older installtion to the current version.
+// your older installation to the current version.
 //
 // If there's something it cannot do itself, it
 // will tell you what you need to do.
@@ -24,11 +24,10 @@ function xmldb_chat_upgrade($oldversion) {
     global $CFG, $DB;
 
     $dbman = $DB->get_manager();
-    $result = true;
 
     //===== 1.9.0 upgrade line ======//
 
-    if ($result && $oldversion < 2010050100) {
+    if ($oldversion < 2010050100) {
 
     /// Changing precision of field ip on table chat_users to (45)
         $table = new xmldb_table('chat_users');
@@ -38,10 +37,10 @@ function xmldb_chat_upgrade($oldversion) {
         $dbman->change_field_precision($table, $field);
 
     /// chat savepoint reached
-        upgrade_mod_savepoint($result, 2010050100, 'chat');
+        upgrade_mod_savepoint(true, 2010050100, 'chat');
     }
 
-    if ($result && $oldversion < 2010050101) {
+    if ($oldversion < 2010050101) {
 
     /// Define field introformat to be added to chat
         $table = new xmldb_table('chat');
@@ -52,12 +51,24 @@ function xmldb_chat_upgrade($oldversion) {
             $dbman->add_field($table, $field);
         }
 
+        // conditionally migrate to html format in intro
+        if ($CFG->texteditors !== 'textarea') {
+            $rs = $DB->get_recordset('chat', array('introformat'=>FORMAT_MOODLE), '', 'id,intro,introformat');
+            foreach ($rs as $ch) {
+                $ch->intro       = text_to_html($ch->intro, false, false, true);
+                $ch->introformat = FORMAT_HTML;
+                $DB->update_record('chat', $ch);
+                upgrade_set_timeout();
+            }
+            $rs->close();
+        }
+
     /// chat savepoint reached
-        upgrade_mod_savepoint($result, 2010050101, 'chat');
+        upgrade_mod_savepoint(true, 2010050101, 'chat');
     }
 
     /// Creating chat_messages_current to hold latest chat messages
-    if ($result && $oldversion < 2010050102) {
+    if ($oldversion < 2010050102) {
 
     /// Define table chat_messages_current to be created
         $table = new xmldb_table('chat_messages_current');
@@ -86,9 +97,9 @@ function xmldb_chat_upgrade($oldversion) {
         }
 
     /// chat savepoint reached
-        upgrade_mod_savepoint($result, 2010050102, 'chat');
+        upgrade_mod_savepoint(true, 2010050102, 'chat');
     }
-    return $result;
+    return true;
 }
 
 

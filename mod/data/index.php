@@ -84,7 +84,7 @@ if ($rss) {
     array_push($table->align, 'center');
 }
 
-$options = new object();
+$options = new stdClass();
 $options->noclean = true;
 
 $currentsection = "";
@@ -114,7 +114,7 @@ foreach ($datas as $data) {
 
     $rsslink = '';
     if ($rss && $data->rssarticles > 0) {
-        $rsslink = rss_get_link($context->id, $USER->id, 'data', $data->id, 'RSS');
+        $rsslink = rss_get_link($context->id, $USER->id, 'mod_data', $data->id, 'RSS');
     }
 
     if ($usesections) {
@@ -141,6 +141,6 @@ foreach ($datas as $data) {
 }
 
 echo "<br />";
-echo html_writer::table($table);
+echo html_writer::tag('div', html_writer::table($table), array('class'=>'no-overflow'));
 echo $OUTPUT->footer();
 

@@ -18,12 +18,15 @@
 /**
  * Library of functions for gradebook - both public and internal
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage grade
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
- /** Include essential files */
+defined('MOODLE_INTERNAL') || die();
+
+/** Include essential files */
 require_once($CFG->libdir . '/grade/constants.php');
 
 require_once($CFG->libdir . '/grade/grade_category.php');
@@ -309,17 +312,21 @@ function grade_update($source, $courseid, $itemtype, $itemmodule, $iteminstance,
  * @param int $iteminstance id of the item module
  * @param int $userid ID of the graded user
  * @param array $data array itemnumber=>outcomegrade
+ * @return boolean returns true if grade items were found and updated successfully
  */
 function grade_update_outcomes($source, $courseid, $itemtype, $itemmodule, $iteminstance, $userid, $data) {
     if ($items = grade_item::fetch_all(array('itemtype'=>$itemtype, 'itemmodule'=>$itemmodule, 'iteminstance'=>$iteminstance, 'courseid'=>$courseid))) {
+        $result = true;
         foreach ($items as $item) {
             if (!array_key_exists($item->itemnumber, $data)) {
                 continue;
             }
             $grade = $data[$item->itemnumber] < 1 ? null : $data[$item->itemnumber];
-            $item->update_final_grade($userid, $grade, $source);
+            $result = ($item->update_final_grade($userid, $grade, $source) && $result);
         }
+        return $result;
     }
+    return false; //grade items not found
 }
 
 /**
@@ -332,13 +339,13 @@ function grade_update_outcomes($source, $courseid, $itemtype, $itemmodule, $item
  * @param string $itemtype 'mod', 'block'
  * @param string $itemmodule 'forum, 'quiz', etc.
  * @param int $iteminstance id of the item module
- * @param int $userid_or_ids optional id of the graded user or array of ids; if userid not used, returns only information about grade_item
+ * @param array|int $userid_or_ids optional id of the graded user or array of ids; if userid not used, returns only information about grade_item
  * @return array Array of grade information objects (scaleid, name, grade and locked status, etc.) indexed with itemnumbers
  */
 function grade_get_grades($courseid, $itemtype, $itemmodule, $iteminstance, $userid_or_ids=null) {
     global $CFG;
 
-    $return = new object();
+    $return = new stdClass();
     $return->items    = array();
     $return->outcomes = array();
 
@@ -357,7 +364,7 @@ function grade_get_grades($courseid, $itemtype, $itemmodule, $iteminstance, $use
 
             if (empty($grade_item->outcomeid)) {
                 // prepare information about grade item
-                $item = new object();
+                $item = new stdClass();
                 $item->itemnumber = $grade_item->itemnumber;
                 $item->scaleid    = $grade_item->scaleid;
                 $item->name       = $grade_item->get_name();
@@ -399,7 +406,7 @@ function grade_get_grades($courseid, $itemtype, $itemmodule, $iteminstance, $use
                     foreach ($userids as $userid) {
                         $grade_grades[$userid]->grade_item =& $grade_item;
 
-                        $grade = new object();
+                        $grade = new stdClass();
                         $grade->grade          = $grade_grades[$userid]->finalgrade;
                         $grade->locked         = $grade_grades[$userid]->is_locked();
                         $grade->hidden         = $grade_grades[$userid]->is_hidden();
@@ -430,7 +437,7 @@ function grade_get_grades($courseid, $itemtype, $itemmodule, $iteminstance, $use
                             if ($grade_item->gradetype == GRADE_TYPE_SCALE or $grade_item->get_displaytype() != GRADE_DISPLAY_TYPE_REAL) {
                                 $grade->str_long_grade = $grade->str_grade;
                             } else {
-                                $a = new object();
+                                $a = new stdClass();
                                 $a->grade = $grade->str_grade;
                                 $a->max   = grade_format_gradevalue($grade_item->grademax, $grade_item);
                                 $grade->str_long_grade = get_string('gradelong', 'grades', $a);
@@ -456,7 +463,7 @@ function grade_get_grades($courseid, $itemtype, $itemmodule, $iteminstance, $use
                 }
 
                 // outcome info
-                $outcome = new object();
+                $outcome = new stdClass();
                 $outcome->itemnumber = $grade_item->itemnumber;
                 $outcome->scaleid    = $grade_outcome->scaleid;
                 $outcome->name       = $grade_outcome->get_name();
@@ -476,7 +483,7 @@ function grade_get_grades($courseid, $itemtype, $itemmodule, $iteminstance, $use
                     foreach ($userids as $userid) {
                         $grade_grades[$userid]->grade_item =& $grade_item;
 
-                        $grade = new object();
+                        $grade = new stdClass();
                         $grade->grade          = $grade_grades[$userid]->finalgrade;
                         $grade->locked         = $grade_grades[$userid]->is_locked();
                         $grade->hidden         = $grade_grades[$userid]->is_hidden();
@@ -593,7 +600,7 @@ function grade_get_setting($courseid, $name, $default=null, $resetcache=false) {
 function grade_get_settings($courseid) {
     global $DB;
 
-     $settings = new object();
+     $settings = new stdClass();
      $settings->id = $courseid;
 
     if ($records = $DB->get_records('grade_settings', array('courseid'=>$courseid))) {
@@ -621,14 +628,14 @@ function grade_set_setting($courseid, $name, $value) {
         $DB->delete_records('grade_settings', array('courseid'=>$courseid, 'name'=>$name));
 
     } else if (!$existing = $DB->get_record('grade_settings', array('courseid'=>$courseid, 'name'=>$name))) {
-        $data = new object();
+        $data = new stdClass();
         $data->courseid = $courseid;
         $data->name     = $name;
         $data->value    = $value;
         $DB->insert_record('grade_settings', $data);
 
     } else {
-        $data = new object();
+        $data = new stdClass();
         $data->id       = $existing->id;
         $data->value    = $value;
         $DB->update_record('grade_settings', $data);
@@ -791,7 +798,7 @@ function grade_get_categories_menu($courseid, $includenew=false) {
     foreach ($categories as $category) {
         $cats[$category->id] = $category->get_name();
     }
-    asort($cats, SORT_LOCALE_STRING);
+    textlib_get_instance()->asort($cats);
 
     return ($result+$cats);
 }

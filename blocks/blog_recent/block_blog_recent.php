@@ -37,15 +37,10 @@ class block_blog_recent extends block_base {
     function init() {
         $this->title = get_string('pluginname', 'block_blog_recent');
         $this->content_type = BLOCK_TYPE_TEXT;
-        $this->version = 2009070900;
     }
 
     function applicable_formats() {
         return array('all' => true, 'my' => false, 'tag' => false);
-    }
-
-    function has_config() {
-        return true;
     }
 
     function instance_allow_config() {
@@ -80,7 +75,7 @@ class block_blog_recent extends block_base {
         if ($context->contextlevel == CONTEXT_MODULE) {
             $filter['module'] = $context->instanceid;
             $a = new stdClass;
-            $a->type = get_string('modulename', $page->cm->modname);
+            $a->type = get_string('modulename', $this->page->cm->modname);
             $strview = get_string('viewallmodentries', 'blog', $a);
         } else if ($context->contextlevel == CONTEXT_COURSE) {
             $filter['course'] = $context->instanceid;

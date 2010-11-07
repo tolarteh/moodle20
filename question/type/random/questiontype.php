@@ -88,6 +88,7 @@ class random_qtype extends default_questiontype {
     }
 
     function display_question_editing_page(&$mform, $question, $wizardnow){
+        global $OUTPUT;
         $heading = $this->get_heading(empty($question->id));
         echo $OUTPUT->heading_with_help($heading, $this->name(), $this->plugin_name());
         $mform->display();
@@ -296,8 +297,7 @@ class random_qtype extends default_questiontype {
         $response = "random$realqid-$response";
 
         // ... and save it again.
-        if (!$DB->set_field('question_states', 'answer', $response, array('id' => $state->id))) {
-        }
+        $DB->set_field('question_states', 'answer', $response, array('id' => $state->id));
 
         // Restore the real id
         $wrappedquestion->id = $realqid;
@@ -363,49 +363,6 @@ class random_qtype extends default_questiontype {
          ->compare_responses($wrappedquestion, $state, $teststate);
     }
 
-    function restore_recode_answer($state, $restore) {
-        // The answer looks like 'randomXX-ANSWER', where XX is
-        // the id of the used question and ANSWER the actual
-        // response to that question.
-        // However, there may still be old-style states around,
-        // which store the id of the wrapped question in the
-        // state of the random question and store the response
-        // in a separate state for the wrapped question
-
-        global $QTYPES, $DB;
-        $answer_field = "";
-
-        if (preg_match('~^random([0-9]+)-(.*)$~', $state->answer, $answerregs)) {
-            // Recode the question id in $answerregs[1]
-            // Get the question from backup_ids
-            if(!$wrapped = backup_getid($restore->backup_unique_code,"question",$answerregs[1])) {
-              echo 'Could not recode question in random-'.$answerregs[1].'<br />';
-              return($answer_field);
-            }
-            // Get the question type for recursion
-            if (!$wrappedquestion->qtype = $DB->get_field('question', 'qtype', array('id' => $wrapped->new_id))) {
-              echo 'Could not get qtype while recoding question random-'.$answerregs[1].'<br />';
-              return($answer_field);
-            }
-            $newstate = $state;
-            $newstate->question = $wrapped->new_id;
-            $newstate->answer = $answerregs[2];
-            $answer_field = 'random'.$wrapped->new_id.'-';
-
-            // Recode the answer field in $answerregs[2] depending on
-            // the qtype of question with id $answerregs[1]
-            $answer_field .= $QTYPES[$wrappedquestion->qtype]->restore_recode_answer($newstate, $restore);
-        } else {
-            // Handle old-style states
-            $answer_link = backup_getid($restore->backup_unique_code,"question",$state->answer);
-            if ($answer_link) {
-                $answer_field = $answer_link->new_id;
-            }
-        }
-
-        return $answer_field;
-    }
-
     /**
      * For random question type return empty string which means won't calculate.
      * @param object $question
@@ -424,5 +381,3 @@ class random_qtype extends default_questiontype {
 //// INITIATION - Without this line the question type is not in use... ///
 //////////////////////////////////////////////////////////////////////////
 question_register_questiontype(new random_qtype());
-
-

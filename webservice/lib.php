@@ -35,12 +35,90 @@ define('WEBSERVICE_AUTHMETHOD_SESSION_TOKEN', 2);
 class webservice {
 
     /**
+     * Add a user to the list of authorised user of a given service
+     * @param object $user
+     */
+    public function add_ws_authorised_user($user) {
+        global $DB;
+        $user->timecreated = mktime();
+        $DB->insert_record('external_services_users', $user);
+    }
+
+    /**
+     * Remove a user from a list of allowed user of a service
+     * @param object $user
+     * @param int $serviceid
+     */
+    public function remove_ws_authorised_user($user, $serviceid) {
+        global $DB;
+        $DB->delete_records('external_services_users',
+                array('externalserviceid' => $serviceid, 'userid' => $user->id));
+    }
+
+    /**
+     * Update service allowed user settings
+     * @param object $user
+     */
+    public function update_ws_authorised_user($user) {
+        global $DB;
+        $DB->update_record('external_services_users', $user);
+    }
+
+    /**
+     * Return list of allowed users with their options (ip/timecreated / validuntil...)
+     * for a given service
+     * @param int $serviceid
+     * @return array $users
+     */
+    public function get_ws_authorised_users($serviceid) {
+        global $DB, $CFG;
+        $params = array($CFG->siteguest, $serviceid);
+        $sql = " SELECT u.id as id, esu.id as serviceuserid, u.email as email, u.firstname as firstname,
+                        u.lastname as lastname,
+                        esu.iprestriction as iprestriction, esu.validuntil as validuntil,
+                        esu.timecreated as timecreated
+                   FROM {user} u, {external_services_users} esu
+                  WHERE u.id <> ? AND u.deleted = 0 AND u.confirmed = 1
+                        AND esu.userid = u.id
+                        AND esu.externalserviceid = ?";
+        if (!empty($userid)) { //TODO: what is this?
+            $sql .= ' AND u.id = ?';
+            $params[] = $userid;
+        }
+
+        $users = $DB->get_records_sql($sql, $params);
+        return $users;
+    }
+
+    /**
+     * Return a authorised user with his options (ip/timecreated / validuntil...)
+     * @param int $serviceid
+     * @param int $userid
+     * @return object
+     */
+    public function get_ws_authorised_user($serviceid, $userid) {
+        global $DB, $CFG;
+        $params = array($CFG->siteguest, $serviceid, $userid);
+        $sql = " SELECT u.id as id, esu.id as serviceuserid, u.email as email, u.firstname as firstname,
+                        u.lastname as lastname,
+                        esu.iprestriction as iprestriction, esu.validuntil as validuntil,
+                        esu.timecreated as timecreated
+                   FROM {user} u, {external_services_users} esu
+                  WHERE u.id <> ? AND u.deleted = 0 AND u.confirmed = 1
+                        AND esu.userid = u.id
+                        AND esu.externalserviceid = ?
+                        AND u.id = ?";
+        $user = $DB->get_record_sql($sql, $params);
+        return $user;
+    }
+
+    /**
      * Generate all ws token needed by a user
      * @param int $userid
      */
     public function generate_user_ws_tokens($userid) {
         global $CFG, $DB;
-        
+
         /// generate a token for non admin if web service are enable and the user has the capability to create a token
         if (!is_siteadmin() && has_capability('moodle/webservice:createtoken', get_context_instance(CONTEXT_SYSTEM), $userid) && !empty($CFG->enablewebservices)) {
         /// for every service than the user is authorised on, create a token (if it doesn't already exist)
@@ -71,7 +149,7 @@ class webservice {
             foreach ($serviceidlist as $serviceid) {
                 if (!in_array($serviceid, $tokenizedservice)) {
                     //create the token for this service
-                    $newtoken = new object();
+                    $newtoken = new stdClass();
                     $newtoken->token = md5(uniqid(rand(),1));
                     //check that the user has capability on this service
                     $newtoken->tokentype = EXTERNAL_TOKEN_PERMANENT;
@@ -113,7 +191,12 @@ class webservice {
      * If doesn't exist a exception is thrown
      * @param integer $userid
      * @param integer $tokenid
-     * @return object
+     * @return object token
+     * ->id token id
+     * ->token
+     * ->firstname user firstname
+     * ->lastname
+     * ->name service name
      */
     public function get_created_by_user_ws_token($userid, $tokenid) {
         global $DB;
@@ -122,10 +205,22 @@ class webservice {
                     FROM
                         {external_tokens} t, {user} u, {external_services} s
                     WHERE
-                        t.creatorid=? AND t.id=? AND t.tokentype = ".EXTERNAL_TOKEN_PERMANENT." AND s.id = t.externalserviceid AND t.userid = u.id";
-        $token = $DB->get_record_sql($sql, array($userid, $tokenid), MUST_EXIST); //must be the token creator
+                        t.creatorid=? AND t.id=? AND t.tokentype = "
+                . EXTERNAL_TOKEN_PERMANENT
+                . " AND s.id = t.externalserviceid AND t.userid = u.id";
+        //must be the token creator
+        $token = $DB->get_record_sql($sql, array($userid, $tokenid), MUST_EXIST);
         return $token;
+    }
 
+    /**
+     * Return a token for a given id
+     * @param integer $tokenid
+     * @return object token
+     */
+    public function get_token_by_id($tokenid) {
+        global $DB;
+        return $DB->get_record('external_tokens', array('id' => $tokenid));
     }
 
     /**
@@ -138,6 +233,18 @@ class webservice {
     }
 
     /**
+     * Delete a service - it also delete the functions and users references to this service
+     * @param int $serviceid
+     */
+    public function delete_service($serviceid) {
+        global $DB;
+        $DB->delete_records('external_services_users', array('externalserviceid' => $serviceid));
+        $DB->delete_records('external_services_functions', array('externalserviceid' => $serviceid));
+        $DB->delete_records('external_tokens', array('externalserviceid' => $serviceid));
+        $DB->delete_records('external_services', array('id' => $serviceid));
+    }
+
+    /**
      * Get a user token by token
      * @param string $token
      * @throws moodle_exception if there is multiple result
@@ -146,8 +253,222 @@ class webservice {
         global $DB;
         return $DB->get_record('external_tokens', array('token'=>$token), '*', MUST_EXIST);
     }
-}
 
+    /**
+     * Get the list of all functions for given service ids
+     * @param array $serviceids
+     * @return array functions
+     */
+    public function get_external_functions($serviceids) {
+        global $DB;
+        if (!empty($serviceids)) {
+            list($serviceids, $params) = $DB->get_in_or_equal($serviceids);
+            $sql = "SELECT f.*
+                      FROM {external_functions} f
+                     WHERE f.name IN (SELECT sf.functionname
+                                        FROM {external_services_functions} sf
+                                       WHERE sf.externalserviceid $serviceids)";
+            $functions = $DB->get_records_sql($sql, $params);
+        } else {
+            $functions = array();
+        }
+        return $functions;
+    }
+
+    /**
+     * Get the list of all functions not in the given service id
+     * @param int $serviceid
+     * @return array functions
+     */
+    public function get_not_associated_external_functions($serviceid) {
+        global $DB;
+        $select = "name NOT IN (SELECT s.functionname
+                                  FROM {external_services_functions} s
+                                 WHERE s.externalserviceid = :sid
+                               )";
+
+        $functions = $DB->get_records_select('external_functions',
+                        $select, array('sid' => $serviceid), 'name');
+
+        return $functions;
+    }
+
+    /**
+     * Get list of required capabilities of a service, sorted by functions
+     * @param integer $serviceid
+     * @return array
+     * example of return value:
+     *  Array
+     *  (
+     *    [moodle_group_create_groups] => Array
+     *    (
+     *       [0] => moodle/course:managegroups
+     *    )
+     *
+     *    [moodle_enrol_get_enrolled_users] => Array
+     *    (
+     *       [0] => moodle/site:viewparticipants
+     *       [1] => moodle/course:viewparticipants
+     *       [2] => moodle/role:review
+     *       [3] => moodle/site:accessallgroups
+     *       [4] => moodle/course:enrolreview
+     *    )
+     *  )
+     */
+    public function get_service_required_capabilities($serviceid) {
+        $functions = $this->get_external_functions(array($serviceid));
+        $requiredusercaps = array();
+        foreach ($functions as $function) {
+            $functioncaps = split(',', $function->capabilities);
+            if (!empty($functioncaps) and !empty($functioncaps[0])) {
+                foreach ($functioncaps as $functioncap) {
+                    $requiredusercaps[$function->name][] = trim($functioncap);
+                }
+            }
+        }
+        return $requiredusercaps;
+    }
+
+    /**
+     * Get user capabilities (with context)
+     * Only usefull for documentation purpose
+     * @param integer $userid
+     * @return array
+     */
+    public function get_user_capabilities($userid) {
+        global $DB;
+        //retrieve the user capabilities
+        $sql = "SELECT rc.id, rc.capability FROM {role_capabilities} rc, {role_assignments} ra
+            WHERE rc.roleid=ra.roleid AND ra.userid= ?";
+        $dbusercaps = $DB->get_records_sql($sql, array($userid));
+        $usercaps = array();
+        foreach ($dbusercaps as $usercap) {
+            $usercaps[$usercap->capability] = true;
+        }
+        return $usercaps;
+    }
+
+    /**
+     * Get users missing capabilities for a given service
+     * @param array $users
+     * @param integer $serviceid
+     * @return array of missing capabilities, the key being the user id
+     */
+    public function get_missing_capabilities_by_users($users, $serviceid) {
+        global $DB;
+        $usersmissingcaps = array();
+
+        //retrieve capabilities required by the service
+        $servicecaps = $this->get_service_required_capabilities($serviceid);
+
+        //retrieve users missing capabilities
+        foreach ($users as $user) {
+            //cast user array into object to be a bit more flexible
+            if (is_array($user)) {
+                $user = (object) $user;
+            }
+            $usercaps = $this->get_user_capabilities($user->id);
+
+            //detect the missing capabilities
+            foreach ($servicecaps as $functioname => $functioncaps) {
+                foreach ($functioncaps as $functioncap) {
+                    if (!key_exists($functioncap, $usercaps)) {
+                        if (!isset($usersmissingcaps[$user->id])
+                                or array_search($functioncap, $usersmissingcaps[$user->id]) === false) {
+                            $usersmissingcaps[$user->id][] = $functioncap;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $usersmissingcaps;
+    }
+
+    /**
+     * Get a external service for a given id
+     * @param service id $serviceid
+     * @param integer $strictness IGNORE_MISSING, MUST_EXIST...
+     * @return object external service
+     */
+    public function get_external_service_by_id($serviceid, $strictness=IGNORE_MISSING) {
+        global $DB;
+        $service = $DB->get_record('external_services',
+                        array('id' => $serviceid), '*', $strictness);
+        return $service;
+    }
+
+    /**
+     * Get a external function for a given id
+     * @param function id $functionid
+     * @param integer $strictness IGNORE_MISSING, MUST_EXIST...
+     * @return object external function
+     */
+    public function get_external_function_by_id($functionid, $strictness=IGNORE_MISSING) {
+        global $DB;
+        $function = $DB->get_record('external_functions',
+                            array('id' => $functionid), '*', $strictness);
+        return $function;
+    }
+
+    /**
+     * Add a function to a service
+     * @param string $functionname
+     * @param integer $serviceid
+     */
+    public function add_external_function_to_service($functionname, $serviceid) {
+        global $DB;
+        $addedfunction = new stdClass();
+        $addedfunction->externalserviceid = $serviceid;
+        $addedfunction->functionname = $functionname;
+        $DB->insert_record('external_services_functions', $addedfunction);
+    }
+
+    /**
+     * Add a service
+     * @param object $service
+     * @return serviceid integer
+     */
+    public function add_external_service($service) {
+        global $DB;
+        $service->timecreated = mktime();
+        $serviceid = $DB->insert_record('external_services', $service);
+        return $serviceid;
+    }
+
+     /**
+     * Update a service
+     * @param object $service
+     */
+    public function update_external_service($service) {
+        global $DB;
+        $service->timemodified = mktime();
+        $DB->update_record('external_services', $service);
+    }
+
+    /**
+     * Test whether a external function is already linked to a service
+     * @param string $functionname
+     * @param integer $serviceid
+     * @return bool true if a matching function exists for the service, else false.
+     * @throws dml_exception if error
+     */
+    public function service_function_exists($functionname, $serviceid) {
+        global $DB;
+        return $DB->record_exists('external_services_functions',
+                            array('externalserviceid' => $serviceid,
+                                'functionname' => $functionname));
+    }
+
+    public function remove_external_function_from_service($functionname, $serviceid) {
+        global $DB;
+        $DB->delete_records('external_services_functions',
+                    array('externalserviceid' => $serviceid, 'functionname' => $functionname));
+
+    }
+
+
+}
 
 /**
  * Exception indicating access control problem in web service call
@@ -240,13 +561,13 @@ abstract class webservice_server implements webservice_server_interface {
 
     /**
      * Contructor
-     * @param integer $authmethod authentication method one of WEBSERVICE_AUTHMETHOD_* 
+     * @param integer $authmethod authentication method one of WEBSERVICE_AUTHMETHOD_*
      */
     public function __construct($authmethod) {
         $this->authmethod = $authmethod;
-    }    
-    
-    
+    }
+
+
     /**
      * Authenticate user using username+password or token.
      * This function sets up $USER global.
@@ -286,7 +607,7 @@ abstract class webservice_server implements webservice_server_interface {
 
             if (!$auth->user_login_webservice($this->username, $this->password)) {
                 // log failed login attempts
-                add_to_log(1, 'webservice', get_string('simpleauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".$this->username."/".$this->password." - ".getremoteaddr() , 0);
+                add_to_log(SITEID, 'webservice', get_string('simpleauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".$this->username."/".$this->password." - ".getremoteaddr() , 0);
                 throw new webservice_access_exception(get_string('wrongusernamepassword', 'webservice'));
             }
 
@@ -297,7 +618,7 @@ abstract class webservice_server implements webservice_server_interface {
         } else {
             $user = $this->authenticate_by_token(EXTERNAL_TOKEN_EMBEDDED);
         }
-        
+
         // now fake user login, the session is completely empty too
         session_set_user($user);
         $this->userid = $user->id;
@@ -308,20 +629,20 @@ abstract class webservice_server implements webservice_server_interface {
 
         external_api::set_context_restriction($this->restricted_context);
     }
-    
+
     protected function authenticate_by_token($tokentype){
         global $DB;
         if (!$token = $DB->get_record('external_tokens', array('token'=>$this->token, 'tokentype'=>$tokentype))) {
             // log failed login attempts
-            add_to_log(1, 'webservice', get_string('tokenauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".$this->token. " - ".getremoteaddr() , 0);
+            add_to_log(SITEID, 'webservice', get_string('tokenauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".$this->token. " - ".getremoteaddr() , 0);
             throw new webservice_access_exception(get_string('invalidtoken', 'webservice'));
         }
-    
+
         if ($token->validuntil and $token->validuntil < time()) {
             $DB->delete_records('external_tokens', array('token'=>$this->token, 'tokentype'=>$tokentype));
             throw new webservice_access_exception(get_string('invalidtimedtoken', 'webservice'));
         }
-        
+
         if ($token->sid){//assumes that if sid is set then there must be a valid associated session no matter the token type
             $session = session_get_instance();
             if (!$session->session_exists($token->sid)){
@@ -331,7 +652,7 @@ abstract class webservice_server implements webservice_server_interface {
         }
 
         if ($token->iprestriction and !address_in_subnet(getremoteaddr(), $token->iprestriction)) {
-            add_to_log(1, 'webservice', get_string('tokenauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".getremoteaddr() , 0);
+            add_to_log(SITEID, 'webservice', get_string('tokenauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".getremoteaddr() , 0);
             throw new webservice_access_exception(get_string('invalidiptoken', 'webservice'));
         }
 
@@ -342,9 +663,9 @@ abstract class webservice_server implements webservice_server_interface {
 
         // log token access
         $DB->set_field('external_tokens', 'lastaccess', time(), array('id'=>$token->id));
-        
+
         return $user;
-        
+
     }
 }
 
@@ -380,7 +701,7 @@ abstract class webservice_zend_server extends webservice_server {
      */
     public function run() {
         // we will probably need a lot of memory in some functions
-        @raise_memory_limit('128M');
+        raise_memory_limit(MEMORY_EXTRA);
 
         // set some longer timeout, this script is not sending any output,
         // this means we need to manually extend the timeout operations
@@ -406,9 +727,9 @@ abstract class webservice_zend_server extends webservice_server {
 
         // tell server what functions are available
         $this->zend_server->setClass($this->service_class);
-        
+
         //log the web service request
-        add_to_log(1, 'webservice', '', '' , $this->zend_class." ".getremoteaddr() , 0, $this->userid);
+        add_to_log(SITEID, 'webservice', '', '' , $this->zend_class." ".getremoteaddr() , 0, $this->userid);
 
         // execute and return response, this sends some headers too
         $response = $this->zend_server->handle();
@@ -484,17 +805,8 @@ abstract class webservice_zend_server extends webservice_server {
         $rs->close();
 
         // now get the list of all functions
-        if ($serviceids) {
-            list($serviceids, $params) = $DB->get_in_or_equal($serviceids);
-            $sql = "SELECT f.*
-                      FROM {external_functions} f
-                     WHERE f.name IN (SELECT sf.functionname
-                                        FROM {external_services_functions} sf
-                                       WHERE sf.externalserviceid $serviceids)";
-            $functions = $DB->get_records_sql($sql, $params);
-        } else {
-            $functions = array();
-        }
+        $wsmanager = new webservice();
+        $functions = $wsmanager->get_external_functions($serviceids);
 
         // now make the virtual WS class with all the fuctions for this particular user
         $methods = '';
@@ -532,25 +844,29 @@ class '.$classname.' {
 
         $function = external_function_info($function);
 
+        //arguments in function declaration line with defaults.
+        $paramanddefaults      = array();
+        //arguments used as parameters for external lib call.
         $params      = array();
         $params_desc = array();
         foreach ($function->parameters_desc->keys as $name=>$keydesc) {
             $param = '$'.$name;
+            $paramanddefault = $param;
             //need to generate the default if there is any
             if ($keydesc instanceof external_value) {
                 if ($keydesc->required == VALUE_DEFAULT) {
                     if ($keydesc->default===null) {
-                        $param .= '=null';
+                        $paramanddefault .= '=null';
                     } else {
                         switch($keydesc->type) {
                             case PARAM_BOOL:
-                                $param .= $keydesc->default; break;
+                                $paramanddefault .= '='.$keydesc->default; break;
                             case PARAM_INT:
-                                $param .= $keydesc->default; break;
+                                $paramanddefault .= '='.$keydesc->default; break;
                             case PARAM_FLOAT;
-                                $param .= $keydesc->default; break;
+                                $paramanddefault .= '='.$keydesc->default; break;
                             default:
-                                $param .= '=\''.$keydesc->default.'\'';
+                                $paramanddefault .= '=\''.$keydesc->default.'\'';
                         }
                     }
                 } else if ($keydesc->required == VALUE_OPTIONAL) {
@@ -559,11 +875,21 @@ class '.$classname.' {
                     throw new moodle_exception('parametercannotbevalueoptional');
                 }
             } else { //for the moment we do not support default for other structure types
-                 if ($keydesc->required == VALUE_OPTIONAL or $keydesc->required == VALUE_DEFAULT) {
-                     throw new moodle_exception('paramdefaultarraynotsupported');
+                 if ($keydesc->required == VALUE_DEFAULT) {
+                     //accept empty array as default
+                     if (isset($keydesc->default) and is_array($keydesc->default)
+                             and empty($keydesc->default)) {
+                         $paramanddefault .= '=array()';
+                     } else {
+                        throw new moodle_exception('errornotemptydefaultparamarray', 'webservice', '', $name);
+                     }
+                 }
+                 if ($keydesc->required == VALUE_OPTIONAL) {
+                     throw new moodle_exception('erroroptionalparamarray', 'webservice', '', $name);
                  }
             }
-            $params[]      = $param;
+            $params[] = $param;
+            $paramanddefaults[] = $paramanddefault;
             $type = 'string';
             if ($keydesc instanceof external_value) {
                 switch($keydesc->type) {
@@ -576,15 +902,16 @@ class '.$classname.' {
                         $type = 'string';
                 }
             } else if ($keydesc instanceof external_single_structure) {
-                $type = 'struct';
+                $type = 'object|struct';
             } else if ($keydesc instanceof external_multiple_structure) {
                 $type = 'array';
             }
             $params_desc[] = '     * @param '.$type.' $'.$name.' '.$keydesc->desc;
         }
-        $params      = implode(', ', $params);
-        $params_desc = implode("\n", $params_desc);
-        
+        $params                = implode(', ', $params);
+        $paramanddefaults      = implode(', ', $paramanddefaults);
+        $params_desc           = implode("\n", $params_desc);
+
         $serviceclassmethodbody = $this->service_class_method_body($function, $params);
 
         if (is_null($function->returns_desc)) {
@@ -602,7 +929,7 @@ class '.$classname.' {
                         $type = 'string';
                 }
             } else if ($function->returns_desc instanceof external_single_structure) {
-                $type = 'struct';
+                $type = 'object|struct'; //only 'object' is supported by SOAP, 'struct' by XML-RPC MDL-23083
             } else if ($function->returns_desc instanceof external_multiple_structure) {
                 $type = 'array';
             }
@@ -618,28 +945,63 @@ class '.$classname.' {
 '.$params_desc.'
 '.$return.'
      */
-    public function '.$function->name.'('.$params.') {
+    public function '.$function->name.'('.$paramanddefaults.') {
 '.$serviceclassmethodbody.'
     }
 ';
         return $code;
     }
-    
+
     /**
      * You can override this function in your child class to add extra code into the dynamically
      * created service class. For example it is used in the amf server to cast types of parameters and to
      * cast the return value to the types as specified in the return value description.
-     * @param unknown_type $function
-     * @param unknown_type $params
+     * @param stdClass $function
+     * @param array $params
      * @return string body of the method for $function ie. everything within the {} of the method declaration.
      */
     protected function service_class_method_body($function, $params){
+        //cast the param from object to array (validate_parameters except array only)
+        $castingcode = '';
+        if ($params){
+            $paramstocast = explode(',', $params);
+            foreach ($paramstocast as $paramtocast) {
+                //clean the parameter from any white space
+                $paramtocast = trim($paramtocast);
+                $castingcode .= $paramtocast .
+                '=webservice_zend_server::cast_objects_to_array('.$paramtocast.');';
+            }
+
+        }
+
         $descriptionmethod = $function->methodname.'_returns()';
         $callforreturnvaluedesc = $function->classname.'::'.$descriptionmethod;
-        return '    if ('.$callforreturnvaluedesc.' == null)  {
+        return $castingcode . '    if ('.$callforreturnvaluedesc.' == null)  {'.
+                        $function->classname.'::'.$function->methodname.'('.$params.');
                         return null;
                     }
                     return external_api::clean_returnvalue('.$callforreturnvaluedesc.', '.$function->classname.'::'.$function->methodname.'('.$params.'));';
+    }
+
+    /**
+     * Recursive function to recurse down into a complex variable and convert all
+     * objects to arrays.
+     * @param mixed $param value to cast
+     * @return mixed Cast value
+     */
+    public static function cast_objects_to_array($param){
+        if (is_object($param)){
+            $param = (array)$param;
+        }
+        if (is_array($param)){
+            $toreturn = array();
+            foreach ($param as $key=> $param){
+                $toreturn[$key] = self::cast_objects_to_array($param);
+            }
+            return $toreturn;
+        } else {
+            return $param;
+        }
     }
 
     /**
@@ -779,7 +1141,7 @@ abstract class webservice_base_server extends webservice_server {
      */
     public function run() {
         // we will probably need a lot of memory in some functions
-        @raise_memory_limit('128M');
+        raise_memory_limit(MEMORY_EXTRA);
 
         // set some longer timeout, this script is not sending any output,
         // this means we need to manually extend the timeout operations
@@ -800,9 +1162,9 @@ abstract class webservice_base_server extends webservice_server {
 
         // find all needed function info and make sure user may actually execute the function
         $this->load_function_info();
-        
+
         //log the web service request
-        add_to_log(1, 'webservice', $this->functionname, '' , getremoteaddr() , 0, $this->userid);
+        add_to_log(SITEID, 'webservice', $this->functionname, '' , getremoteaddr() , 0, $this->userid);
 
         // finally, execute the function - any errors are catched by the default exception handler
         $this->execute();

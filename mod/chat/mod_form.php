@@ -8,6 +8,8 @@ require_once ($CFG->dirroot.'/course/moodleform_mod.php');
 class mod_chat_mod_form extends moodleform_mod {
 
     function definition() {
+        global $CFG;
+
         $mform = $this->_form;
 
 //-------------------------------------------------------------------------------
@@ -17,7 +19,7 @@ class mod_chat_mod_form extends moodleform_mod {
         if (!empty($CFG->formatstringstriptags)) {
             $mform->setType('name', PARAM_TEXT);
         } else {
-            $mform->setType('name', PARAM_CLEAN);
+            $mform->setType('name', PARAM_CLEANHTML);
         }
         $mform->addRule('name', null, 'required', null, 'client');
 
@@ -49,6 +51,7 @@ class mod_chat_mod_form extends moodleform_mod {
         $mform->addElement('select', 'keepdays', get_string('savemessages', 'chat'), $options);
 
         $mform->addElement('selectyesno', 'studentlogs', get_string('studentseereports', 'chat'));
+        $mform->addHelpButton('studentlogs', 'studentseereports', 'chat');
 
         $this->standard_coursemodule_elements();
 

@@ -98,6 +98,8 @@
 
     if(isset($CFG->feedback_allowfullanonymous)
                 AND $CFG->feedback_allowfullanonymous
+                AND $course->id == SITEID
+                AND (!$courseid OR $courseid == SITEID)
                 AND $feedback->anonymous == FEEDBACK_ANONYMOUS_YES ) {
         $feedback_complete_cap = true;
     }
@@ -270,7 +272,7 @@
         echo $OUTPUT->heading(format_text($feedback->name));
 
         if( (intval($feedback->publish_stats) == 1) AND
-                ( has_capability('mod/feedback:viewanalysepage', $context)) AND 
+                ( has_capability('mod/feedback:viewanalysepage', $context)) AND
                 !( has_capability('mod/feedback:viewreports', $context)) ) {
             echo $OUTPUT->box_start('mdl-align');
             echo '<a href="'.$analysisurl->out().'">'.get_string('completed_feedbacks', 'feedback').'</a>';
@@ -280,7 +282,7 @@
         if(isset($savereturn) && $savereturn == 'saved') {
             if($feedback->page_after_submit) {
                 echo $OUTPUT->box_start('generalbox boxaligncenter boxwidthwide');
-                echo format_text($feedback->page_after_submit);
+                echo format_text($feedback->page_after_submit, $feedback->page_after_submitformat, array('overflowdiv'=>true));
                 echo $OUTPUT->box_end();
             } else {
                 echo '<p align="center"><b><font color="green">'.get_string('entries_saved','feedback').'</font></b></p>';
@@ -336,11 +338,11 @@
                 }
                 echo $OUTPUT->box_start('feedback_items');
 
-                unset($startitem);
+                $startitem = null;
                 $itemnr = $DB->count_records_select('feedback_item', 'feedback = ? AND hasvalue = 1 AND position < ?', array($feedback->id, $startposition));
                 $lastbreakposition = 0;
                 $align = right_to_left() ? 'right' : 'left';
-                
+
                 foreach($feedbackitems as $feedbackitem){
                     if(!isset($startitem)) {
                         //avoid showing double pagebreaks
@@ -349,7 +351,7 @@
                         }
                         $startitem = $feedbackitem;
                     }
-                    
+
                     if($feedbackitem->dependitem > 0) {
                         //chech if the conditions are ok
                         if(!isset($feedbackcompletedtmp->id) OR !feedback_compare_item_value($feedbackcompletedtmp->id, $feedbackitem->dependitem, $feedbackitem->dependvalue, true)) {
@@ -358,13 +360,13 @@
                             continue;
                         }
                     }
-                    
+
                     if($feedbackitem->dependitem > 0) {
                         $dependstyle = ' feedback_complete_depend';
                     }else {
                         $dependstyle = '';
                     }
-                    
+
                     echo $OUTPUT->box_start('feedback_item_box_'.$align.$dependstyle);
                         $value = '';
                         //get the value

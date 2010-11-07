@@ -11,7 +11,6 @@
 
 require_once("../config.php");
 require_once("editlib.php"); // Includes lib/questionlib.php
-require_once($CFG->libdir . '/uploadlib.php');
 require_once("import_form.php");
 
 list($thispageurl, $contexts, $cmid, $cm, $module, $pagevars) =
@@ -20,7 +19,7 @@ list($thispageurl, $contexts, $cmid, $cm, $module, $pagevars) =
 // get display strings
 $txt = new stdClass();
 $txt->importerror = get_string('importerror','quiz');
-$txt->importquestions = get_string("importquestions", "quiz");
+$txt->importquestions = get_string('importquestions', 'question');
 
 list($catid, $catcontext) = explode(',', $pagevars['cat']);
 if (!$category = $DB->get_record("question_categories", array("id" => $catid))) {
@@ -29,10 +28,12 @@ if (!$category = $DB->get_record("question_categories", array("id" => $catid))) 
 
 $PAGE->set_pagelayout('standard');
 
+$categorycontext = get_context_instance_by_id($category->contextid);
+$category->context = $categorycontext;
 //this page can be called without courseid or cmid in which case
 //we get the context from the category object.
 if ($contexts === null) { // need to get the course from the chosen category
-    $contexts = new question_edit_contexts(get_context_instance_by_id($category->contextid));
+    $contexts = new question_edit_contexts($categorycontext);
     $thiscontext = $contexts->lowest();
     if ($thiscontext->contextlevel == CONTEXT_COURSE){
         require_login($thiscontext->instanceid, false);
@@ -42,9 +43,6 @@ if ($contexts === null) { // need to get the course from the chosen category
     }
     $contexts->require_one_edit_tab_cap($edittab);
 }
-
-// ensure the files area exists for this course
-make_upload_directory("$COURSE->id");
 
 $PAGE->set_url($thispageurl->out());
 
@@ -69,22 +67,14 @@ if ($form = $import_form->get_data()) {
 
     // work out if this is an uploaded file
     // or one from the filesarea.
-    if (!empty($form->choosefile)) {
-        $importfile = "{$CFG->dataroot}/{$COURSE->id}/{$form->choosefile}";
-        $realfilename = $form->choosefile;
-        if (file_exists($importfile)) {
-            $fileisgood = true;
-        } else {
-            print_error('uploadproblem', 'moodle', $form->choosefile);
-        }
-    } else {
-        $realfilename = $import_form->get_new_filename('newfile');
-        $importfile = "{$CFG->dataroot}/{$COURSE->id}/{$realfilename}";
-        if (!$result = $import_form->save_file('newfile', $importfile, true)) {
-            print_error('uploadproblem', 'moodle');
-        }else {
-            $fileisgood = true;
-        }
+    $realfilename = $import_form->get_new_filename('newfile');
+
+    $importfile = "{$CFG->dataroot}/temp/questionimport/{$realfilename}";
+    make_upload_directory('temp/questionimport');
+    if (!$result = $import_form->save_file('newfile', $importfile, true)) {
+        print_error('uploadproblem', 'moodle');
+    }else {
+        $fileisgood = true;
     }
 
     // process if we are happy file is ok
@@ -118,7 +108,7 @@ if ($form = $import_form->get_data()) {
         }
 
         // Process the uploaded file
-        if (! $qformat->importprocess()) {
+        if (! $qformat->importprocess($category)) {
             //TODO: need more detailed error info
             print_error('cannotimport', '', $thispageurl->out());
         }
@@ -137,7 +127,7 @@ if ($form = $import_form->get_data()) {
     }
 }
 
-echo $OUTPUT->heading_with_help($txt->importquestions, 'import', 'quiz');
+echo $OUTPUT->heading_with_help($txt->importquestions, 'importquestions', 'question');
 
 /// Print upload form
 $import_form->display();

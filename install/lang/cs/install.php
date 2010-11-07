@@ -29,11 +29,14 @@
  */
 
 $string['admindirname'] = 'Adresář pro správu (admin)';
+$string['availablelangs'] = 'Dostupné jazykové balíčky';
 $string['chooselanguagehead'] = 'Vyberte jazyk';
 $string['chooselanguagesub'] = 'Zvolte si jazyk PRO INSTALOVÁNÍ. Jazyk pro stránky Moodlu a pro uživatele budete moci vybrat později.';
+$string['clialreadyinstalled'] = 'Soubor config.php již existuje. Spusťte admin/cli/upgrade.php, pokud chcete provést upgrade vašich stránek.';
 $string['dataroot'] = 'Datový adresář';
 $string['dbprefix'] = 'Předpona tabulek';
 $string['dirroot'] = 'Adresář Moodlu';
+$string['environmenthead'] = 'Kontrola programového prostředí...';
 $string['installation'] = 'Instalace';
 $string['langdownloaderror'] = 'Bohužel, jazyk "{$a}" se nepodařilo nainstalovat. Instalace bude pokračovat v angličtine.';
 $string['memorylimithelp'] = '<p>Limit paměti pro PHP skripty je na vašem serveru momentálně nastaven na hodnotu {$a}.</p>

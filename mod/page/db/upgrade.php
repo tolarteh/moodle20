@@ -27,7 +27,7 @@
  *
  * The upgrade function in this file will attempt
  * to perform all the necessary actions to upgrade
- * your older installtion to the current version.
+ * your older installation to the current version.
  *
  * If there's something it cannot do itself, it
  * will tell you what you need to do.
@@ -38,18 +38,21 @@
  * Please do not forget to use upgrade_set_timeout()
  * before any action that may take longer time to finish.
  *
- * @package   mod-page
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage page
+ * @copyright  2009 Petr Skoda (http://skodak.org)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die;
 
 function xmldb_page_upgrade($oldversion) {
     global $CFG, $DB;
     require_once("$CFG->dirroot/mod/page/db/upgradelib.php");
 
     $dbman = $DB->get_manager();
-    $result = true;
 
 
-    return $result;
+
+    return true;
 }

@@ -18,9 +18,10 @@
 /**
  * This file defines a base class for all grading strategy editing forms.
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -59,7 +60,10 @@ class workshop_edit_strategy_form extends moodleform {
         $this->strategy = $this->_customdata['strategy'];
 
         $mform->addElement('hidden', 'workshopid', $this->workshop->id);        // workshopid
+        $mform->setType('workshopid', PARAM_INT);
+
         $mform->addElement('hidden', 'strategy', $this->workshop->strategy);    // strategy name
+        $mform->setType('strategy', PARAM_SAFEDIR);
 
         $this->definition_inner($mform);
 
@@ -81,7 +85,7 @@ class workshop_edit_strategy_form extends moodleform {
     /**
      * Add any strategy specific form fields.
      *
-     * @param stdclass $mform the form being built.
+     * @param stdClass $mform the form being built.
      */
     protected function definition_inner(&$mform) {
         // By default, do nothing.

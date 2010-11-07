@@ -1,11 +1,35 @@
 <?php
 
-/*
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Upgrade helper functions
+ *
  * This file is used for special upgrade functions - for example groups and gradebook.
  * These functions must use SQL and database related functions only- no other Moodle API,
  * because it might depend on db structures that are not yet present during upgrade.
  * (Do not use functions from accesslib.php, grades classes or group functions at all!)
+ *
+ * @package    core
+ * @subpackage admin
+ * @copyright  2007 Petr Skoda (http://skodak.org)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 function upgrade_fix_category_depths() {
     global $CFG, $DB;
@@ -62,6 +86,8 @@ function upgrade_migrate_files_courses() {
     global $DB, $CFG;
     require_once($CFG->libdir.'/filelib.php');
 
+    set_config('upgradenewfilemirgation', 1);
+
     $count = $DB->count_records('course');
     $pbar = new progress_bar('migratecoursefiles', 500, true);
 
@@ -80,6 +106,175 @@ function upgrade_migrate_files_courses() {
 }
 
 /**
+ * Moodle 2.0dev was using xx/xx/xx file pool directory structure, this migrates the existing files to xx/xx.
+ * This will not be executed in production upgrades...
+ * @return void
+ */
+function upgrade_simplify_overkill_pool_structure() {
+    global $CFG, $OUTPUT;
+
+    if (isset($CFG->upgradenewfilemirgation)) {
+        // newer upgrade, directory structure is in the form xx/xx already
+        unset_config('upgradenewfilemirgation');
+        return;
+    }
+
+    $filedir = $CFG->dataroot.'/filedir'; // hardcoded hack, do not use elsewhere!!
+
+    echo $OUTPUT->notification("Changing file pool directory structure, this may take a while...", 'notifysuccess');
+
+    $dir_l1 = new DirectoryIterator($filedir);
+    foreach ($dir_l1 as $d1) {
+        if ($d1->isDot() or $d1->isLink() or !$d1->isDir()) {
+            continue;
+        }
+        $name1 = $d1->getFilename();
+        if (strlen($name1) != 2) {
+            continue; //weird
+        }
+        $dir_l2 = new DirectoryIterator("$filedir/$name1");
+        foreach ($dir_l2 as $d2) {
+            if ($d2->isDot() or $d2->isLink() or !$d2->isDir()) {
+                continue;
+            }
+            $name2 = $d2->getFilename();
+            if (strlen($name2) != 2) {
+                continue; //weird
+            }
+            $dir_l3 = new DirectoryIterator("$filedir/$name1/$name2");
+            foreach ($dir_l3 as $d3) {
+                if ($d3->isDot() or $d3->isLink() or !$d3->isDir()) {
+                    continue;
+                }
+                $name3 = $d3->getFilename();
+                if (strlen($name3) != 2) {
+                    continue; //weird
+                }
+                $dir_l4 = new DirectoryIterator("$filedir/$name1/$name2/$name3");
+                foreach ($dir_l4 as $d4) {
+                    if (!$d4->isFile()) {
+                        continue; //. or ..
+                    }
+                    upgrade_set_timeout(60*5); // set up timeout, may also abort execution
+                    $newfile = "$filedir/$name1/$name2/".$d4->getFilename();
+                    $oldfile = "$filedir/$name1/$name2/$name3/".$d4->getFilename();
+                    if (!file_exists($newfile)) {
+                        rename($oldfile, $newfile);
+                    }
+                }
+                unset($d4);
+                unset($dir_l4);
+                rmdir("$filedir/$name1/$name2/$name3");
+            }
+            unset($d3);
+            unset($dir_l3); // release file handles
+        }
+        unset($d2);
+        unset($dir_l2); // release file handles
+    }
+}
+
+/**
+ * Internal function - do not use directly
+ */
+function upgrade_migrate_user_icons() {
+    global $CFG, $OUTPUT, $DB;
+
+    $fs = get_file_storage();
+
+    $icon = array('component'=>'user', 'filearea'=>'icon', 'itemid'=>0, 'filepath'=>'/');
+
+    $count = $DB->count_records('user', array('picture'=>1, 'deleted'=>0));
+    $pbar = new progress_bar('migratecoursefiles', 500, true);
+
+    $rs = $DB->get_recordset('user', array('picture'=>1, 'deleted'=>0), 'id ASC', 'id, picture');
+    $i = 0;
+    foreach ($rs as $user) {
+        $i++;
+        upgrade_set_timeout(60); /// Give upgrade at least 60 more seconds
+        $pbar->update($i, $count, "Migrated user icons $i/$count.");
+
+        $context = get_context_instance(CONTEXT_USER, $user->id);
+
+        if ($fs->file_exists($context->id, 'user', 'icon', 0, '/', 'f1.jpg')) {
+            // already converted!
+            continue;
+        }
+
+        $level1 = floor($user->id / 1000) * 1000;
+        $userdir = "$CFG->dataroot/user/$level1/$user->id";
+        if (!file_exists("$userdir/f1.jpg") or !file_exists("$userdir/f2.jpg")) {
+            $userdir = "$CFG->dataroot/users/$user->id";
+            if (!file_exists("$userdir/f1.jpg") or !file_exists("$userdir/f2.jpg")) {
+                // no image found, sorry
+                $user->picture = 0;
+                $DB->update_record('user', $user);
+                continue;
+            }
+        }
+
+        $icon['contextid'] = $context->id;
+        $icon['filename']  = 'f1.jpg';
+        $fs->create_file_from_pathname($icon, "$userdir/f1.jpg");
+        $icon['filename']  = 'f2.jpg';
+        $fs->create_file_from_pathname($icon, "$userdir/f2.jpg");
+    }
+    $rs->close();
+
+    // purge all old user image dirs
+    remove_dir("$CFG->dataroot/user");
+    remove_dir("$CFG->dataroot/users");
+}
+
+/**
+ * Internal function - do not use directly
+ */
+function upgrade_migrate_group_icons() {
+    global $CFG, $OUTPUT, $DB;
+
+    $fs = get_file_storage();
+
+    $icon = array('component'=>'group', 'filearea'=>'icon', 'filepath'=>'/');
+
+    $count = $DB->count_records('groups', array('picture'=>1));
+    $pbar = new progress_bar('migrategroupfiles', 500, true);
+
+    $rs = $DB->get_recordset('groups', array('picture'=>1), 'courseid ASC', 'id, picture, courseid');
+    $i = 0;
+    foreach ($rs as $group) {
+        $i++;
+        upgrade_set_timeout(60); /// Give upgrade at least 60 more seconds
+        $pbar->update($i, $count, "Migrated group icons  $i/$count.");
+
+        $context = get_context_instance(CONTEXT_COURSE, $group->courseid);
+
+        if ($fs->file_exists($context->id, 'group', 'icon', $group->id, '/', 'f1.jpg')) {
+            // already converted!
+            continue;
+        }
+
+        $groupdir = "$CFG->dataroot/groups/$group->id";
+        if (!file_exists("$groupdir/f1.jpg") or !file_exists("$groupdir/f2.jpg")) {
+            // no image found, sorry
+            $group->picture = 0;
+            $DB->update_record('groups', $group);
+            continue;
+        }
+
+        $icon['contextid'] = $context->id;
+        $icon['itemid']    = $group->id;
+        $icon['filename']  = 'f1.jpg';
+        $fs->create_file_from_pathname($icon, "$groupdir/f1.jpg");
+        $icon['filename']  = 'f2.jpg';
+        $fs->create_file_from_pathname($icon, "$groupdir/f2.jpg");
+    }
+    $rs->close();
+
+    // purge all old group image dirs
+    remove_dir("$CFG->dataroot/groups");
+}
+
+/**
  * Internal function - do not use directly
  */
 function upgrade_migrate_files_course($context, $path, $delete) {
@@ -91,6 +286,8 @@ function upgrade_migrate_files_course($context, $path, $delete) {
     }
     $items = new DirectoryIterator($fullpathname);
     $fs = get_file_storage();
+
+    $textlib = textlib_get_instance();
 
     foreach ($items as $item) {
         if ($item->isDot()) {
@@ -105,11 +302,13 @@ function upgrade_migrate_files_course($context, $path, $delete) {
         }
 
         if (strpos($path, '/backupdata/') === 0) {
-            $filearea = 'course_backup';
-            $filepath = substr($path, strlen('/backupdata'));
+            $component = 'backup';
+            $filearea  = 'course';
+            $filepath  = substr($path, strlen('/backupdata'));
         } else {
-            $filearea = 'course_content';
-            $filepath = $path;
+            $component = 'course';
+            $filearea  = 'legacy';
+            $filepath  = $path;
         }
 
         if ($item->isFile()) {
@@ -126,8 +325,13 @@ function upgrade_migrate_files_course($context, $path, $delete) {
                 continue;
             }
 
-            if (!$fs->file_exists($context->id, $filearea, '0', $filepath, $filename)) {
-                $file_record = array('contextid'=>$context->id, 'filearea'=>$filearea, 'itemid'=>0, 'filepath'=>$filepath, 'filename'=>$filename,
+            if ($textlib->strlen($filepath) > 255) {
+                echo $OUTPUT->notification(" File path longer than 255 chars, skipping: ".$fullpathname.$item->getFilename());
+                continue;
+            }
+
+            if (!$fs->file_exists($context->id, $component, $filearea, '0', $filepath, $filename)) {
+                $file_record = array('contextid'=>$context->id, 'component'=>$component, 'filearea'=>$filearea, 'itemid'=>0, 'filepath'=>$filepath, 'filename'=>$filename,
                                      'timecreated'=>$item->getCTime(), 'timemodified'=>$item->getMTime());
                 if ($fs->create_file_from_pathname($file_record, $fullpathname.$item->getFilename())) {
                     if ($delete_this) {
@@ -148,7 +352,7 @@ function upgrade_migrate_files_course($context, $path, $delete) {
             }
             $filepath = ($filepath.$dirname.'/');
             if ($filepath !== '/backupdata/') {
-                $fs->create_directory($context->id, $filearea, 0, $filepath);
+                $fs->create_directory($context->id, $component, $filearea, 0, $filepath);
             }
 
             //migrate recursively all subdirectories
@@ -203,8 +407,8 @@ function upgrade_migrate_files_blog() {
                 continue;
             }
 
-            if (!$fs->file_exists(SYSCONTEXTID, 'blog', $entry->id, '/', $filename)) {
-                $file_record = array('contextid'=>SYSCONTEXTID, 'filearea'=>'blog_attachment', 'itemid'=>$entry->id, 'filepath'=>'/', 'filename'=>$filename,
+            if (!$fs->file_exists(SYSCONTEXTID, 'blog', 'attachment', $entry->id, '/', $filename)) {
+                $file_record = array('contextid'=>SYSCONTEXTID, 'component'=>'blog', 'filearea'=>'attachment', 'itemid'=>$entry->id, 'filepath'=>'/', 'filename'=>$filename,
                                      'timecreated'=>filectime($pathname), 'timemodified'=>filemtime($pathname), 'userid'=>$entry->userid);
                 $fs->create_file_from_pathname($file_record, $pathname);
             }
@@ -230,7 +434,7 @@ function upgrade_migrate_files_blog() {
  *
  * Implemented because, at some point, specially in old installations upgraded along
  * multiple versions, sometimes the stuff above has ended being inconsistent, causing
- * problems here and there (noticeablely in backup/restore). MDL-16879
+ * problems here and there (noticeably in backup/restore). MDL-16879
  */
 function upgrade_fix_incorrect_mnethostids() {
 
@@ -394,59 +598,3 @@ function upgrade_cleanup_unwanted_block_contexts($contextidarray) {
     $DB->delete_records_select('role_names', 'contextid IN ('.$blockcontextidsstring.')');
     $DB->delete_records_select('context', 'id IN ('.$blockcontextidsstring.')');
 }
-
-/**
- * Shifts ratings from modules into the central rating table
- *
- * @param string $ratingssql sql to return the module's rating
- * @param string $modulename the name of the module
- * @return boolean success flag
- */
-/*function upgrade_module_ratings($ratingssql, $modulename) {
-    global $DB;
-    $contextid = null;
-    $contextarray = array();
-    $result = true;
-    $i=0;
-
-    $ratings = $DB->get_recordset_sql($ratingssql);
-
-    foreach ($ratings as $old_rating) {
-        if($i++%500==0) {
-            upgrade_set_timeout(60);//prevent a timeout
-        }
-
-        //all posts within a given forum, glossary etc will have the same context id so store them in an array
-        if( !array_key_exists($old_rating->mid, $contextarray) ) {
-            $sql = "SELECT cxt.id
-                      FROM {context} cxt
-                      JOIN {course_modules} cm ON cm.id = cxt.instanceid
-                      JOIN {modules} m ON cm.module = m.id
-                     WHERE m.name = :modulename AND cm.instance = :moduleinstanceid AND cxt.contextlevel = :contextmodule";
-            $params = array();
-            $params['modulename'] = $modulename;
-            $params['moduleinstanceid'] = $old_rating->mid;
-            $params['contextmodule'] = CONTEXT_MODULE;
-            $results = $DB->get_record_sql($sql, $params);
-            $contextarray[$old_rating->mid] = $results->id;
-        }
-        $contextid = $contextarray[$old_rating->mid];
-
-        $rating = new stdclass();
-        $rating->contextid = $contextid;
-        $rating->scaleid = $old_rating->scale;
-        $rating->itemid = $old_rating->itemid;
-        $rating->rating = $old_rating->rating;
-        $rating->userid = $old_rating->userid;
-        $rating->timecreated = $old_rating->timecreated;
-        $rating->timemodified = $old_rating->timemodified;
-
-        if( !$DB->insert_record('rating', $rating) ) {
-            return false;
-        }
-    }
-
-    $ratings->close();
-
-    return true;
-}*/

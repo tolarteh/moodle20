@@ -1,4 +1,4 @@
-<?php // $Id: _parse_propfind.php,v 1.1 2008-02-27 02:49:21 martinlanghoff Exp $
+<?php // $Id: _parse_propfind.php,v 1.1 2008/02/27 02:49:21 martinlanghoff Exp $
 /*
    +----------------------------------------------------------------------+
    | Copyright (c) 2002-2007 Christian Stocker, Hartmut Holzgraefe        |

@@ -29,11 +29,13 @@
  * Major Contributors
  *     - Alex Smith, Julian Sedding and Gustav Delius {@link http://maths.york.ac.uk/serving_maths}
  *
- * @package moodlecore
+ * @package    core
  * @subpackage question
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /// CONSTANTS ///////////////////////////////////
 
@@ -104,7 +106,7 @@ define("QUESTION_NUMANS_ADD", 3);
 /**
  * The options used when popping up a question preview window in Javascript.
  */
-define('QUESTION_PREVIEW_POPUP_OPTIONS', 'scrollbars=true&resizable=true&width=700&height=540');
+define('QUESTION_PREVIEW_POPUP_OPTIONS', 'scrollbars=yes&resizable=yes&width=700&height=540');
 
 /**#@+
  * Option flags for ->optionflags
@@ -211,7 +213,7 @@ function question_type_menu() {
 /**
  * Sort an array of question type names according to the question type sort order stored in
  * config_plugins. Entries for which there is no xxx_sortorder defined will go
- * at the end, sorted according to asort($inarray, SORT_LOCALE_STRING).
+ * at the end, sorted according to textlib_get_instance()->asort($inarray).
  * @param $inarray an array $qtype => $QTYPES[$qtype]->local_name().
  * @param $config get_config('question'), if you happen to have it around, to save one DB query.
  * @return array the sorted version of $inarray.
@@ -235,7 +237,7 @@ function question_sort_qtype_array($inarray, $config = null) {
         $outarray[$name] = $inarray[$name];
         unset($inarray[$name]);
     }
-    asort($inarray, SORT_LOCALE_STRING);
+    textlib_get_instance()->asort($inarray);
     return array_merge($outarray, $inarray);
 }
 
@@ -746,9 +748,7 @@ function question_delete_course_category($category, $newcategory, $feedback=true
         if (!$newcontext = get_context_instance(CONTEXT_COURSECAT, $newcategory->id)) {
             return false;
         }
-        if (!$DB->set_field('question_categories', 'contextid', $newcontext->id, array('contextid'=>$context->id))) {
-            return false;
-        }
+        $DB->set_field('question_categories', 'contextid', $newcontext->id, array('contextid'=>$context->id));
         if ($feedback) {
             $a = new stdClass;
             $a->oldplace = print_context_name($context);
@@ -775,7 +775,7 @@ function question_save_from_deletion($questionids, $newcontextid, $oldplace, $ne
 
     // Make a category in the parent context to move the questions to.
     if (is_null($newcategory)) {
-        $newcategory = new object();
+        $newcategory = new stdClass();
         $newcategory->parent = 0;
         $newcategory->contextid = $newcontextid;
         $newcategory->name = get_string('questionsrescuedfrom', 'question', $oldplace);
@@ -849,22 +849,35 @@ function question_delete_activity($cm, $feedback=true) {
  *
  * @global object
  * @param string $questionids a comma-separated list of question ids.
- * @param integer $newcategory the id of the category to move to.
+ * @param integer $newcategoryid the id of the category to move to.
  */
-function question_move_questions_to_category($questionids, $newcategory) {
-    global $DB;
+function question_move_questions_to_category($questionids, $newcategoryid) {
+    global $DB, $QTYPES;
 
-    $result = true;
+    $ids = explode(',', $questionids);
+    foreach ($ids as $questionid) {
+        $questionid = (int)$questionid;
+        $params = array();
+        $params[] = $questionid;
+        $sql = 'SELECT q.*, c.id AS contextid, c.contextlevel, c.instanceid, c.path, c.depth
+                  FROM {question} q, {question_categories} qc, {context} c
+                 WHERE q.category=qc.id AND q.id=? AND qc.contextid=c.id';
+        $question = $DB->get_record_sql($sql, $params);
+        $category = $DB->get_record('question_categories', array('id'=>$newcategoryid));
+        // process files
+        $QTYPES[$question->qtype]->move_files($question, $category);
+    }
+
 
     // Move the questions themselves.
-    $result = $result && $DB->set_field_select('question', 'category', $newcategory, "id IN ($questionids)");
+    $DB->set_field_select('question', 'category', $newcategoryid, "id IN ($questionids)");
 
     // Move any subquestions belonging to them.
-    $result = $result && $DB->set_field_select('question', 'category', $newcategory, "parent IN ($questionids)");
+    $DB->set_field_select('question', 'category', $newcategoryid, "parent IN ($questionids)");
 
     // TODO Deal with datasets.
 
-    return $result;
+    return true;
 }
 
 /**
@@ -1078,6 +1091,7 @@ function question_load_states(&$questions, &$states, $cmoptions, $attempt, $last
                 $states[$qid]->last_graded = clone($states[$qid]);
             }
         } else {
+
             if ($lastattemptid) {
                 // If the new attempt is to be based on this previous attempt.
                 // Find the responses from the previous attempt and save them to the new session
@@ -1102,7 +1116,7 @@ function question_load_states(&$questions, &$states, $cmoptions, $attempt, $last
                 unset($states[$qid]->id);
             } else {
                 // create a new empty state
-                $states[$qid] = new object;
+                $states[$qid] = new stdClass();
                 $states[$qid]->question = $qid;
                 $states[$qid]->responses = array('' => '');
                 $states[$qid]->raw_grade = 0;
@@ -1587,7 +1601,7 @@ function regrade_question_in_attempt($question, $attempt, $cmoptions, $verbose=f
             }
         }
         if ($changed){
-            $toinsert = new object();
+            $toinsert = new stdClass();
             $toinsert->oldgrade = round((float)$states[count($states)-1]->grade, 5);
             $toinsert->newgrade = round((float)$replaystate->grade, 5);
             $toinsert->attemptid = $attempt->uniqueid;
@@ -1818,15 +1832,14 @@ function question_apply_penalty_and_timelimit(&$question, &$state, $attempt, $cm
 * @param boolean $return If true the functions returns the link as a string
 */
 function print_question_icon($question, $return = false) {
-    global $QTYPES, $CFG;
+    global $QTYPES, $CFG, $OUTPUT;
 
     if (array_key_exists($question->qtype, $QTYPES)) {
         $namestr = $QTYPES[$question->qtype]->local_name();
     } else {
         $namestr = 'missingtype';
     }
-    $html = '<img src="' . $CFG->wwwroot . '/question/type/' .
-            $question->qtype . '/icon.gif" alt="' .
+    $html = '<img src="' . $OUTPUT->pix_url('icon', 'qtype_'.$question->qtype) . '" alt="' .
             $namestr . '" title="' . $namestr . '" />';
     if ($return) {
         return $html;
@@ -1941,9 +1954,8 @@ function question_process_comment($question, &$state, &$attempt, $comment, $grad
     // Update the comment and save it in the database
     $comment = trim($comment);
     $state->manualcomment = $comment;
-    if (!$DB->set_field('question_sessions', 'manualcomment', $comment, array('attemptid'=>$attempt->uniqueid, 'questionid'=>$question->id))) {
-        return get_string('errorsavingcomment', 'question', $question);
-    }
+    $state->newflaggedstate = $state->flagged;
+    $DB->set_field('question_sessions', 'manualcomment', $comment, array('attemptid'=>$attempt->uniqueid, 'questionid'=>$question->id));
 
     // Update the attempt if the score has changed.
     if ($grade !== '' && (abs($state->last_graded->grade - $grade) > 0.002 || $state->last_graded->event != QUESTION_EVENTMANUALGRADE)) {
@@ -2081,16 +2093,31 @@ function question_format_grade($cmoptions, $grade) {
  */
 function question_init_qengine_js() {
     global $CFG, $PAGE, $OUTPUT;
-    $config = array(
-        'actionurl' => $CFG->wwwroot . '/question/toggleflag.php',
-        'flagicon' => '' . $OUTPUT->pix_url('i/flagged'),
-        'unflagicon' => '' . $OUTPUT->pix_url('i/unflagged'),
-        'flagtooltip' => get_string('clicktoflag', 'question'),
-        'unflagtooltip' => get_string('clicktounflag', 'question'),
-        'flaggedalt' => get_string('flagged', 'question'),
-        'unflaggedalt' => get_string('notflagged', 'question'),
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $module = array(
+        'name' => 'core_question_flags',
+        'fullpath' => '/question/flags.js',
+        'requires' => array('base', 'dom', 'event-delegate', 'io-base'),
     );
-    $PAGE->requires->data_for_js('qengine_config', $config);
+    $actionurl = $CFG->wwwroot . '/question/toggleflag.php';
+    $flagattributes = array(
+        0 => array(
+            'src' => $OUTPUT->pix_url('i/unflagged') . '',
+            'title' => get_string('clicktoflag', 'question'),
+            'alt' => get_string('notflagged', 'question'),
+        ),
+        1 => array(
+            'src' => $OUTPUT->pix_url('i/flagged') . '',
+            'title' => get_string('clicktounflag', 'question'),
+            'alt' => get_string('flagged', 'question'),
+        ),
+    );
+    $PAGE->requires->js_init_call('M.core_question_flags.init',
+            array($actionurl, $flagattributes), false, $module);
+    $done = true;
 }
 
 /// FUNCTIONS THAT SIMPLY WRAP QUESTIONTYPE METHODS //////////////////////////////////
@@ -2107,12 +2134,10 @@ function question_init_qengine_js() {
  * @param array $states an array of question state objects, whose keys are question ids.
  *      Must contain the state of all the questions in $questionlist
  */
-function get_html_head_contributions($questionlist, &$questions, &$states) {
+function question_get_html_head_contributions($questionlist, &$questions, &$states) {
     global $CFG, $PAGE, $QTYPES;
 
     // The question engine's own JavaScript.
-    $PAGE->requires->yui2_lib('connection');
-    $PAGE->requires->js('/question/qengine.js');
     question_init_qengine_js();
 
     // Anything that questions on this page need.
@@ -2129,7 +2154,7 @@ function get_html_head_contributions($questionlist, &$questions, &$states) {
  * @param $question A question object. Only $question->qtype is used.
  * @return string Deprecated. Some HTML code that can go inside the head tag.
  */
-function get_editing_head_contributions($question) {
+function question_get_editing_head_contributions($question) {
     global $QTYPES;
     $QTYPES[$question->qtype]->get_editing_head_contributions();
 }
@@ -2146,9 +2171,9 @@ function get_editing_head_contributions($question) {
  * @param object $cmoptions  The options specified by the course module
  * @param object $options  An object specifying the rendering options.
  */
-function print_question(&$question, &$state, $number, $cmoptions, $options=null) {
+function print_question(&$question, &$state, $number, $cmoptions, $options=null, $context=null) {
     global $QTYPES;
-    $QTYPES[$question->qtype]->print_question($question, $state, $number, $cmoptions, $options);
+    $QTYPES[$question->qtype]->print_question($question, $state, $number, $cmoptions, $options, $context);
 }
 /**
  * Saves question options
@@ -2500,8 +2525,8 @@ function question_category_options($contexts, $top = false, $currentcat = 0, $po
         foreach ($categoriesarray as $contextstring => $optgroup){
             $group = array();
             foreach ($optgroup as $key=>$value) {
-                $key = str_replace($CFG->wwwroot, '', $key); 
-                $group[$key] = $value;                
+                $key = str_replace($CFG->wwwroot, '', $key);
+                $group[$key] = $value;
             }
             $popupcats[] = array($contextstring=>$group);
         }
@@ -2523,7 +2548,7 @@ function question_add_context_in_key($categories){
 function question_add_tops($categories, $pcontexts){
     $topcats = array();
     foreach ($pcontexts as $context){
-        $newcat = new object();
+        $newcat = new stdClass();
         $newcat->id = "0,$context";
         $newcat->name = get_string('top');
         $newcat->parent = -1;
@@ -2990,7 +3015,7 @@ function question_get_toggleflag_checksum($attemptid, $questionid, $sessionid, $
 }
 
 /**
- * Adds question bank setting links to the given navigaiton node if caps are met.
+ * Adds question bank setting links to the given navigation node if caps are met.
  *
  * @param navigation_node $navigationnode The navigation node to add the question branch to
  * @param stdClass $context
@@ -3175,4 +3200,203 @@ class question_edit_contexts {
             print_error('nopermissions', '', '', 'access question edit tab '.$tabname);
         }
     }
+}
+
+/**
+ * Rewrite question url, file_rewrite_pluginfile_urls always build url by
+ * $file/$contextid/$component/$filearea/$itemid/$pathname_in_text, so we cannot add
+ * extra questionid and attempted in url by it, so we create quiz_rewrite_question_urls
+ * to build url here
+ *
+ * @param string $text text being processed
+ * @param string $file the php script used to serve files
+ * @param int $contextid
+ * @param string $component component
+ * @param string $filearea filearea
+ * @param array $ids other IDs will be used to check file permission
+ * @param int $itemid
+ * @param array $options
+ * @return string
+ */
+function quiz_rewrite_question_urls($text, $file, $contextid, $component, $filearea, array $ids, $itemid, array $options=null) {
+    global $CFG;
+
+    $options = (array)$options;
+    if (!isset($options['forcehttps'])) {
+        $options['forcehttps'] = false;
+    }
+
+    if (!$CFG->slasharguments) {
+        $file = $file . '?file=';
+    }
+
+    $baseurl = "$CFG->wwwroot/$file/$contextid/$component/$filearea/";
+
+    if (!empty($ids)) {
+        $baseurl .= (implode('/', $ids) . '/');
+    }
+
+    if ($itemid !== null) {
+        $baseurl .= "$itemid/";
+    }
+
+    if ($options['forcehttps']) {
+        $baseurl = str_replace('http://', 'https://', $baseurl);
+    }
+
+    return str_replace('@@PLUGINFILE@@/', $baseurl, $text);
+}
+
+/**
+ * Called by pluginfile.php to serve files related to the 'question' core
+ * component and for files belonging to qtypes.
+ *
+ * For files that relate to questions in a question_attempt, then we delegate to
+ * a function in the component that owns the attempt (for example in the quiz,
+ * or in core question preview) to get necessary inforation.
+ *
+ * (Note that, at the moment, all question file areas relate to questions in
+ * attempts, so the If at the start of the last paragraph is always true.)
+ *
+ * Does not return, either calls send_file_not_found(); or serves the file.
+ *
+ * @param object $course course settings object
+ * @param object $context context object
+ * @param string $component the name of the component we are serving files for.
+ * @param string $filearea the name of the file area.
+ * @param array $args the remaining bits of the file path.
+ * @param bool $forcedownload whether the user must be forced to download the file.
+ */
+function question_pluginfile($course, $context, $component, $filearea, $args, $forcedownload) {
+    global $DB, $CFG;
+
+    list($context, $course, $cm) = get_context_info_array($context->id);
+    require_login($course, false, $cm);
+
+    if ($filearea === 'export') {
+        require_once($CFG->dirroot . '/question/editlib.php');
+        $contexts = new question_edit_contexts($context);
+        // check export capability
+        $contexts->require_one_edit_tab_cap('export');
+        $category_id = (int)array_shift($args);
+        $format      = array_shift($args);
+        $cattofile   = array_shift($args);
+        $contexttofile = array_shift($args);
+        $filename    = array_shift($args);
+
+        // load parent class for import/export
+        require_once($CFG->dirroot . '/question/format.php');
+        require_once($CFG->dirroot . '/question/editlib.php');
+        require_once($CFG->dirroot . '/question/format/' . $format . '/format.php');
+
+        $classname = 'qformat_' . $format;
+        if (!class_exists($classname)) {
+            send_file_not_found();
+        }
+
+        $qformat = new $classname();
+
+        if (!$category = $DB->get_record('question_categories', array('id' => $category_id))) {
+            send_file_not_found();
+        }
+
+        $qformat->setCategory($category);
+        $qformat->setContexts($contexts->having_one_edit_tab_cap('export'));
+        $qformat->setCourse($course);
+
+        if ($cattofile == 'withcategories') {
+            $qformat->setCattofile(true);
+        } else {
+            $qformat->setCattofile(false);
+        }
+
+        if ($contexttofile == 'withcontexts') {
+            $qformat->setContexttofile(true);
+        } else {
+            $qformat->setContexttofile(false);
+        }
+
+        if (!$qformat->exportpreprocess()) {
+            send_file_not_found();
+            print_error('exporterror', 'question', $thispageurl->out());
+        }
+
+        // export data to moodle file pool
+        if (!$content = $qformat->exportprocess(true)) {
+            send_file_not_found();
+        }
+
+        //DEBUG
+        //echo '<textarea cols=90 rows=20>';
+        //echo $content;
+        //echo '</textarea>';
+        //die;
+        send_file($content, $filename, 0, 0, true, true);
+    }
+
+    $attemptid = (int)array_shift($args);
+    $questionid = (int)array_shift($args);
+
+
+    if ($attemptid === 0) {
+        // preview
+        require_once($CFG->dirroot . '/question/previewlib.php');
+        return question_preview_question_pluginfile($course, $context,
+                $component, $filearea, $attemptid, $questionid, $args, $forcedownload);
+
+    } else {
+        $module = $DB->get_field('question_attempts', 'modulename',
+                array('id' => $attemptid));
+
+        $dir = get_component_directory($module);
+        if (!file_exists("$dir/lib.php")) {
+            send_file_not_found();
+        }
+        include_once("$dir/lib.php");
+
+        $filefunction = $module . '_question_pluginfile';
+        if (!function_exists($filefunction)) {
+            send_file_not_found();
+        }
+
+        $filefunction($course, $context, $component, $filearea, $attemptid, $questionid,
+                $args, $forcedownload);
+
+        send_file_not_found();
+    }
+}
+
+/**
+ * Final test for whether a studnet should be allowed to see a particular file.
+ * This delegates the decision to the question type plugin.
+ *
+ * @param object $question The question to be rendered.
+ * @param object $state    The state to render the question in.
+ * @param object $options  An object specifying the rendering options.
+ * @param string $component the name of the component we are serving files for.
+ * @param string $filearea the name of the file area.
+ * @param array $args the remaining bits of the file path.
+ * @param bool $forcedownload whether the user must be forced to download the file.
+ */
+function question_check_file_access($question, $state, $options, $contextid, $component,
+        $filearea, $args, $forcedownload) {
+    global $QTYPES;
+    return $QTYPES[$question->qtype]->check_file_access($question, $state, $options, $contextid, $component,
+            $filearea, $args, $forcedownload);
+}
+
+/**
+ * Create url for question export
+ *
+ * @param int $contextid, current context
+ * @param int $categoryid, categoryid
+ * @param string $format
+ * @param string $withcategories
+ * @param string $ithcontexts
+ * @param moodle_url export file url
+ */
+function question_make_export_url($contextid, $categoryid, $format, $withcategories, $withcontexts) {
+    global $CFG;
+    $urlbase = "$CFG->httpswwwroot/pluginfile.php";
+    return moodle_url::make_file_url($urlbase, "/$contextid/question/export/{$categoryid}/{$format}/{$withcategories}/{$withcontexts}/export.xml", true);
 }

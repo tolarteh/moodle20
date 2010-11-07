@@ -29,11 +29,13 @@
  */
 
 $string['admindirname'] = 'Директориум аdmin';
+$string['availablelangs'] = 'Достапни јазични пакети';
 $string['chooselanguagehead'] = 'Изберете јазик';
 $string['chooselanguagesub'] = 'Изберете јазик САМО за инсталацијата. Подоцна ќе можете да изберете јазик за страницата и за корисниците.';
 $string['dataroot'] = 'Директориум';
 $string['dbprefix'] = 'Префикс на табели';
 $string['dirroot'] = 'Moodle директориум';
+$string['environmenthead'] = 'Ја проверувам околината...';
 $string['installation'] = 'Инсталација';
 $string['langdownloaderror'] = 'За жал, јазикот "{$a}" не беше инсталиран. Инсталацискиот процес ќе продолжи на англиски.';
 $string['memorylimithelp'] = '<p>Прагот на меморијата кај PHP за Вашиот компјутер моментално е подесена на {$a}. </p>

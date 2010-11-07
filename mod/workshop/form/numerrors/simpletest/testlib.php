@@ -18,9 +18,10 @@
 /**
  * Unit tests for Number of errors grading logic
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    workshopform
+ * @subpackage numerrors
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -91,7 +92,7 @@ class workshop_numerrors_strategy_test extends UnitTestCase {
         $this->strategy->dimensions   = array();
         $this->strategy->mappings     = array();
         $grades = array();
-        // excercise SUT
+        // exercise SUT
         $suggested = $this->strategy->calculate_peer_grade($grades);
         // validate
         $this->assertNull($suggested);
@@ -108,7 +109,7 @@ class workshop_numerrors_strategy_test extends UnitTestCase {
         $grades[] = (object)array('dimensionid' => 108, 'grade' => '1.00000');
         $grades[] = (object)array('dimensionid' => 111, 'grade' => '1.00000');
         $grades[] = (object)array('dimensionid' => 109, 'grade' => '1.00000');
-        // excercise SUT
+        // exercise SUT
         $suggested = $this->strategy->calculate_peer_grade($grades);
         // validate
         $this->assertEqual($suggested, 100.00000);
@@ -131,7 +132,7 @@ class workshop_numerrors_strategy_test extends UnitTestCase {
         $grades[] = (object)array('dimensionid' => 111, 'grade' => '0.00000');
         $grades[] = (object)array('dimensionid' => 109, 'grade' => '1.00000');
 
-        // excercise SUT
+        // exercise SUT
         $suggested = $this->strategy->calculate_peer_grade($grades);
         // validate
         $this->assertEqual($suggested, 80.00000);
@@ -155,7 +156,7 @@ class workshop_numerrors_strategy_test extends UnitTestCase {
         $grades[] = (object)array('dimensionid' => 111, 'grade' => '0.00000');
         $grades[] = (object)array('dimensionid' => 109, 'grade' => '0.00000');
 
-        // excercise SUT
+        // exercise SUT
         $suggested = $this->strategy->calculate_peer_grade($grades);
         // validate
         $this->assertEqual($suggested, 10.00000);
@@ -179,7 +180,7 @@ class workshop_numerrors_strategy_test extends UnitTestCase {
         $grades[] = (object)array('dimensionid' => 111, 'grade' => '0.00000');
         $grades[] = (object)array('dimensionid' => 109, 'grade' => '0.00000');
 
-        // excercise SUT
+        // exercise SUT
         $suggested = $this->strategy->calculate_peer_grade($grades);
         // validate
         $this->assertEqual($suggested, 0.00000);
@@ -203,7 +204,7 @@ class workshop_numerrors_strategy_test extends UnitTestCase {
         $grades[] = (object)array('dimensionid' => 111, 'grade' => '1.00000');
         $grades[] = (object)array('dimensionid' => 109, 'grade' => '0.00000');
 
-        // excercise SUT
+        // exercise SUT
         $suggested = $this->strategy->calculate_peer_grade($grades);
         // validate
         $this->assertEqual($suggested, 33.00000);
@@ -227,7 +228,7 @@ class workshop_numerrors_strategy_test extends UnitTestCase {
         $grades[] = (object)array('dimensionid' => 111, 'grade' => '0.00000');
         $grades[] = (object)array('dimensionid' => 109, 'grade' => '1.00000');
 
-        // excercise SUT
+        // exercise SUT
         $suggested = $this->strategy->calculate_peer_grade($grades);
         // validate
         $this->assertEqual($suggested, 100.00000);
@@ -255,7 +256,7 @@ class workshop_numerrors_strategy_test extends UnitTestCase {
         $grades[] = (object)array('dimensionid' => 111, 'grade' => '0.00000');
         $grades[] = (object)array('dimensionid' => 109, 'grade' => '0.00000');
 
-        // excercise SUT
+        // exercise SUT
         $suggested = $this->strategy->calculate_peer_grade($grades);
         // validate
         $this->assertEqual($suggested, 5.00000);

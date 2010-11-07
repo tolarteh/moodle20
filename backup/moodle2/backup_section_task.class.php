@@ -40,7 +40,7 @@ class backup_section_task extends backup_task {
 
         // Check section exists
         if (!$section = $DB->get_record('course_sections', array('id' => $sectionid))) {
-            throw backup_task_exception('section_task_section_not_found', $sectionid);
+            throw new backup_task_exception('section_task_section_not_found', $sectionid);
         }
 
         $this->sectionid  = $sectionid;
@@ -89,21 +89,66 @@ class backup_section_task extends backup_task {
         $this->built = true;
     }
 
+    /**
+     * Exceptionally override the execute method, so, based in the section_included setting, we are able
+     * to skip the execution of one task completely
+     */
+    public function execute() {
+
+        // Find section_included_setting
+        if (!$this->get_setting_value('included')) {
+            $this->log('section skipped by _included setting', backup::LOG_DEBUG, $this->name);
+
+        } else { // Setting tells us it's ok to execute
+            parent::execute();
+        }
+    }
+
+    /**
+     * Specialisation that, first of all, looks for the setting within
+     * the task with the the prefix added and later, delegates to parent
+     * without adding anything
+     */
+    public function get_setting($name) {
+        $namewithprefix = 'section_' . $this->sectionid . '_' . $name;
+        $result = null;
+        foreach ($this->settings as $key => $setting) {
+            if ($setting->get_name() == $namewithprefix) {
+                if ($result != null) {
+                    throw new base_task_exception('multiple_settings_by_name_found', $namewithprefix);
+                } else {
+                    $result = $setting;
+                }
+            }
+        }
+        if ($result) {
+            return $result;
+        } else {
+            // Fallback to parent
+            return parent::get_setting($name);
+        }
+    }
+
 // Protected API starts here
 
     /**
      * Define the common setting that any backup section will have
      */
     protected function define_settings() {
+        global $DB;
 
         // All the settings related to this activity will include this prefix
         $settingprefix = 'section_' . $this->sectionid . '_';
 
         // All these are common settings to be shared by all sections
 
+        $section = $DB->get_record('course_sections', array('id' => $this->sectionid), '*', MUST_EXIST);
+        $course = $DB->get_record('course', array('id' => $section->course), '*', MUST_EXIST);
+
         // Define section_included (to decide if the whole task must be really executed)
         $settingname = $settingprefix . 'included';
         $section_included = new backup_section_included_setting($settingname, base_setting::IS_BOOLEAN, true);
+        $section_included->get_ui()->set_label(get_section_name($course, $section));
         $this->add_setting($section_included);
 
         // Define section_userinfo. Dependent of:

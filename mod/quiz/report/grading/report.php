@@ -53,11 +53,7 @@ class quiz_grading_report extends quiz_default_report {
             $viewoptions += array('gradenextungraded'=> $gradenextungraded);
         }
 
-
         $this->cm = $cm;
-
-        echo html_writer::script('', $CFG->wwwroot.'/lib/overlib/overlib.js');
-        echo html_writer::script('', $CFG->wwwroot.'/lib/overlib/overlib_cssstyle.js');
 
         $this->print_header_and_tabs($cm, $course, $quiz, $reportmode="grading");
 
@@ -109,8 +105,6 @@ class quiz_grading_report extends quiz_default_report {
         }
 
         add_to_log($course->id, "quiz", "manualgrading", "report.php?mode=grading&amp;q=$quiz->id", "$quiz->id", "$cm->id");
-
-        echo '<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>'; // for overlib
 
         if ($data = data_submitted()) {  // post data submitted, process it
             if (confirm_sesskey() && $this->users){
@@ -176,7 +170,7 @@ class quiz_grading_report extends quiz_default_report {
         }
         $qmenu = array();
         foreach ($gradeableqs as $qid => $questionformenu){
-            $a= new object();
+            $a= new stdClass();
             $a->number = $gradeableqs[$qid]->number;
             $a->name = $gradeableqs[$qid]->name;
             $a->gradedattempts =$qattempts[$qid]->gradedattempts;
@@ -194,7 +188,7 @@ class quiz_grading_report extends quiz_default_report {
         if (!$questionid){
             return true;
         }
-        $a= new object();
+        $a= new stdClass();
         $a->number = $question->number;
         $a->name = $question->name;
         $a->gradedattempts =$qattempts[$question->id]->gradedattempts;
@@ -266,12 +260,14 @@ class quiz_grading_report extends quiz_default_report {
 
         list($select, $from, $where, $params) = $this->attempts_sql($quiz->id, true, $question->id);
 
-        if($table->get_sql_where()) { // forgot what this does
-            $where .= 'AND '.$table->get_sql_where();
+        list($twhere, $tparams) = $table->get_sql_where();
+        if ($twhere) {
+            $where .= ' AND '.$twhere; //initial bar
+            $params = array_merge($params, $tparams);
         }
 
         // sorting of the table
-        if($sort = $table->get_sql_sort()) {
+        if ($sort = $table->get_sql_sort()) {
             $sort = 'ORDER BY '.$sort;  // seems like I would need to have u. or qa. infront of the ORDER BY attribues... but seems to work..
         } else {
             // my default sort rule
@@ -282,8 +278,8 @@ class quiz_grading_report extends quiz_default_report {
         $table->pagesize(QUIZ_REPORT_DEFAULT_PAGE_SIZE, $totalattempts);
 
         // get the attempts and process them
+        echo '<div id="tablecontainer">';
         if ($attempts = $DB->get_records_sql($select.$from.$where.$sort, $params, $table->get_page_start(), $table->get_page_size())) {
-            echo '<div id="tablecontainer">';
             // grade all link
             $links = "<strong><a href=\"report.php?mode=grading&amp;gradeall=1&amp;q=$quiz->id&amp;questionid=$question->id\">".get_string('gradeall', 'quiz_grading', $totalattempts).'</a></strong>';
             if ($ungraded>0){
@@ -296,8 +292,8 @@ class quiz_grading_report extends quiz_default_report {
             $table->add_separator();
             foreach($attempts as $attempt) {
 
-                //TODO: this is a performance problem, fetch user info elsewhere!!
-                $user = (object)array('id'=>$attempt->userid);
+                $user = clone($attempt);
+                $user->id = $user->userid;
                 $picture = $OUTPUT->user_picture($user, array('courseid'=>$quiz->course));
 
                 // link to student profile
@@ -320,12 +316,10 @@ class quiz_grading_report extends quiz_default_report {
             }
             $table->add_separator();
             $table->add_data_keyed(array('grade'=> $links));
-            // print everything here
-            $table->print_html();
-            echo '</div>';
-        } else {
-            echo $OUTPUT->notification(get_string('noattemptstoshow', 'quiz'));
         }
+        // print everything here
+        $table->print_html();
+        echo '</div>';
     }
 
 
@@ -362,7 +356,7 @@ class quiz_grading_report extends quiz_default_report {
             } else if ($userid){
                 echo $OUTPUT->heading(get_string('gradinguser','quiz_grading', $fullname), 3);
             } else if ($attemptid){
-                $a = new object();
+                $a = new stdClass();
                 $a->fullname = $fullname;
                 $a->attempt = $firstattempt->attempt;
                 echo $OUTPUT->heading(get_string('gradingattempt','quiz_grading', $a), 3);
@@ -397,7 +391,7 @@ class quiz_grading_report extends quiz_default_report {
                     $gradedclass = 'main';
                     $gradedstring = '';
                 }
-                $a = new object();
+                $a = new stdClass();
                 $a->fullname = fullname($attempt, true);
                 $a->attempt = $attempt->attempt;
 
@@ -429,7 +423,7 @@ class quiz_grading_report extends quiz_default_report {
         global $CFG, $DB;
         // this sql joins the attempts table and the user table
         $select = 'SELECT qa.id AS attemptid, qa.uniqueid, qa.attempt, qa.timefinish, qa.preview,
-                    u.id AS userid, u.firstname, u.lastname, u.picture ';
+                    u.id AS userid, u.firstname, u.lastname, u.picture, u.imagealt, u.email ';
         if ($wantstateevent && $questionid){
             $select .= ', qs.event ';
         }

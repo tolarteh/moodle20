@@ -60,21 +60,20 @@ class data_field_textarea extends data_field_base {
             $format = FORMAT_PLAIN;
         }
 
-        $editor = get_preferred_texteditor($format);
+        $editor = editors_get_preferred_editor($format);
         $strformats = format_text_menu();
         $formats =  $editor->get_supported_formats();
         foreach ($formats as $fid) {
             $formats[$fid] = $strformats[$fid];
         }
         $editor->use_editor($field, $options);
-        $str .= '<div><textarea id="'.$field.'" name="'.$field.'" rows="15" cols="80">'.s($text).'</textarea></div>';
+        $str .= '<div><textarea id="'.$field.'" name="'.$field.'" rows="'.$this->field->param3.'" cols="'.$this->field->param2.'">'.s($text).'</textarea></div>';
         $str .= '<div><select name="'.$field.'_content1">';
         foreach ($formats as $key=>$desc) {
             $selected = ($format == $key) ? 'selected="selected"' : '';
             $str .= '<option value="'.s($key).'" '.$selected.'>'.$desc.'</option>';
         }
         $str .= '</select>';
-        $str .= $OUTPUT->old_help_icon('textformat', get_string('helpformatting'), 'moodle');
         $str .= '</div>';
 
         $str .= '</div>';
@@ -93,12 +92,10 @@ class data_field_textarea extends data_field_base {
     function generate_sql($tablealias, $value) {
         global $DB;
 
-        $ILIKE = $DB->sql_ilike();
-
         static $i=0;
         $i++;
         $name = "df_picture_$i";
-        return array(" ({$tablealias}.fieldid = {$this->field->id} AND {$tablealias}.content $ILIKE :$name) ", array($name=>"%$value%"));
+        return array(" ({$tablealias}.fieldid = {$this->field->id} AND ".$DB->sql_like("{$tablealias}.content", ":$name", false).") ", array($name=>"%$value%"));
     }
 
     function print_after_form() {
@@ -108,7 +105,7 @@ class data_field_textarea extends data_field_base {
     function update_content($recordid, $value, $name='') {
         global $DB;
 
-        $content = new object;
+        $content = new stdClass();
         $content->fieldid = $this->field->id;
         $content->recordid = $recordid;
 

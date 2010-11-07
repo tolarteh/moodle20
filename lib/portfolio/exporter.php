@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @package    moodle
+ * @package    core
  * @subpackage portfolio
  * @author     Penny Leach <penny@catalyst.net.nz>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL
@@ -25,6 +25,8 @@
  *
  * This file contains the class definition for the exporter object.
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
 * The class that handles the various stages of the actual export
@@ -211,8 +213,7 @@ class portfolio_exporter {
         }
         if (!$this->alreadystolen[$stage] && $url = $this->instance->steal_control($stage)) {
             $this->save();
-            redirect($url);
-            break;
+            redirect($url); // does not return
         } else {
             $this->save();
         }
@@ -493,7 +494,7 @@ class portfolio_exporter {
         }
         $DB->delete_records('portfolio_tempdata', array('id' => $this->id));
         $fs = get_file_storage();
-        $fs->delete_area_files(SYSCONTEXTID, 'portfolio_exporter', $this->id);
+        $fs->delete_area_files(SYSCONTEXTID, 'portfolio', 'exporter', $this->id);
         $this->deleted = true;
         return true;
     }
@@ -788,8 +789,8 @@ class portfolio_exporter {
     public function zip_tempfiles($filename='portfolio-export.zip', $filepath='/final/') {
         $zipper = new zip_packer();
 
-        list ($contextid, $filearea, $itemid) = array_values($this->get_base_filearea());
-        if ($newfile = $zipper->archive_to_storage($this->get_tempfiles(), $contextid, $filearea, $itemid, $filepath, $filename, $this->user->id)) {
+        list ($contextid, $component, $filearea, $itemid) = array_values($this->get_base_filearea());
+        if ($newfile = $zipper->archive_to_storage($this->get_tempfiles(), $contextid, $component, $filearea, $itemid, $filepath, $filename, $this->user->id)) {
             return $newfile;
         }
         return false;
@@ -805,7 +806,7 @@ class portfolio_exporter {
     */
     public function get_tempfiles($skipfile='portfolio-export.zip') {
         $fs = get_file_storage();
-        $files = $fs->get_area_files(SYSCONTEXTID, 'portfolio_exporter', $this->id, '', false);
+        $files = $fs->get_area_files(SYSCONTEXTID, 'portfolio', 'exporter', $this->id, '', false);
         if (empty($files)) {
             return array();
         }
@@ -831,8 +832,9 @@ class portfolio_exporter {
     public function get_base_filearea() {
         return array(
             'contextid' => SYSCONTEXTID,
-            'filearea' => 'portfolio_exporter',
-            'itemid'   => $this->id,
+            'component' => 'portfolio',
+            'filearea'  => 'exporter',
+            'itemid'    => $this->id,
         );
     }
 
@@ -856,7 +858,7 @@ class portfolio_exporter {
 
     public static function print_cleaned_export($log, $instance=null) {
         global $CFG, $OUTPUT, $PAGE;
-        if (empty($instance) || !$instance instanceof portfolio_plugin) {
+        if (empty($instance) || !$instance instanceof portfolio_plugin_base) {
             $instance = portfolio_instance($log->portfolio);
         }
         $title = get_string('exportalreadyfinished', 'portfolio');

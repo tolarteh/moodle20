@@ -34,12 +34,14 @@
  *
  * For further documentation, visit {@link http://docs.moodle.org/en/DDL_functions}
  *
- * @package    moodlecore
- * @subpackage DDL
+ * @package    core
+ * @subpackage ddl
  * @copyright  2001-3001 Eloy Lafuente (stronk7) http://contiento.com
  *             2008 Petr Skoda                   http://skodak.org
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 // Add required library
 require_once($CFG->libdir.'/xmlize.php');
@@ -61,8 +63,6 @@ require_once($CFG->libdir.'/xmldb/xmldb_field.php');
 require_once($CFG->libdir.'/xmldb/xmldb_key.php');
 // Add required XMLDB DB classes
 require_once($CFG->libdir.'/xmldb/xmldb_index.php');
-// Add required XMLDB DB classes
-require_once($CFG->libdir.'/xmldb/xmldb_statement.php');
 
 require_once($CFG->libdir.'/ddl/sql_generator.php');
 require_once($CFG->libdir.'/ddl/database_manager.php');
@@ -105,7 +105,7 @@ class ddl_field_missing_exception extends ddl_exception {
      * @param string $debuginfo
      */
     function __construct($fieldname, $tablename, $debuginfo=null) {
-        $a = new object();
+        $a = new stdClass();
         $a->fieldname = $fieldname;
         $a->tablename = $tablename;
         parent::__construct('ddlfieldnotexist', $a, $debuginfo);
@@ -138,7 +138,7 @@ class ddl_change_structure_exception extends ddl_exception {
 class ddl_dependency_exception extends ddl_exception {
 
     function __construct($targettype, $targetname, $offendingtype, $offendingname, $debuginfo=null) {
-        $a = new object();
+        $a = new stdClass();
         $a->targettype = $targettype;
         $a->targetname = $targetname;
         $a->offendingtype = $offendingtype;

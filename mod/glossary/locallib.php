@@ -75,8 +75,8 @@ class glossary_full_portfolio_caller extends portfolio_module_caller_base {
         $this->multifiles = array();
         foreach (array_keys($entries) as $entry) {
             $this->keyedfiles[$entry] = array_merge(
-                $fs->get_area_files($context->id, 'glossary_attachment', $entry, "timemodified", false),
-                $fs->get_area_files($context->id, 'glossary_entry', $entry, "timemodified", false)
+                $fs->get_area_files($context->id, 'mod_glossary', 'attachment', $entry, "timemodified", false),
+                $fs->get_area_files($context->id, 'mod_glossary', 'entry', $entry, "timemodified", false)
             );
             $this->multifiles = array_merge($this->multifiles, $this->keyedfiles[$entry]);
         }
@@ -155,7 +155,7 @@ class glossary_full_portfolio_caller extends portfolio_module_caller_base {
                 $entry->published = $e->timecreated;
                 $entry->updated   = $e->timemodified;
                 if (!empty($this->keyedfiles[$e->id])) {
-                    $entry->add_attachments($this->keyedfiles[$e->id]);
+                    $writer->link_files($entry, $this->keyedfiles[$e->id], 'glossaryentry' . $e->id . 'file');
                     foreach ($this->keyedfiles[$e->id] as $file) {
                         $this->exporter->copy_existing_file($file);
                     }
@@ -259,11 +259,11 @@ class glossary_entry_portfolio_caller extends portfolio_module_caller_base {
                 $context = get_context_instance(CONTEXT_MODULE, $maincm->id);
             }
         }
-        $this->aliases = $DB->get_records('glossary_alias', array('entryid'=>$this->entryid));
+        $this->aliases = $DB->get_record('glossary_alias', array('entryid'=>$this->entryid));
         $fs = get_file_storage();
         $this->multifiles = array_merge(
-            $fs->get_area_files($context->id, 'glossary_attachment', $this->entry->id, "timemodified", false),
-            $fs->get_area_files($context->id, 'glossary_entry', $this->entry->id, "timemodified", false)
+            $fs->get_area_files($context->id, 'mod_glossary', 'attachment', $this->entry->id, "timemodified", false),
+            $fs->get_area_files($context->id, 'mod_glossary', 'entry', $this->entry->id, "timemodified", false)
         );
     }
 
@@ -315,7 +315,7 @@ class glossary_entry_portfolio_caller extends portfolio_module_caller_base {
             $entry->published = $this->entry->timecreated;
             $entry->updated = $this->entry->timemodified;
             if ($this->multifiles) {
-                $entry->add_attachments($this->multifiles);
+                $writer->link_files($entry, $this->multifiles, 'glossaryentry' . $this->entry->id . 'file');
             }
             if ($this->categories) {
                 foreach ($this->categories as $cat) {
@@ -374,9 +374,11 @@ class glossary_entry_portfolio_caller extends portfolio_module_caller_base {
     public static function entry_content($course, $cm, $glossary, $entry, $aliases, $format) {
         global $OUTPUT, $DB;
         $entry = clone $entry;
-        $options = new object();
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $options = new stdClass();
         $options->para = false;
         $options->trusted = $entry->definitiontrust;
+        $options->context = $context;
 
         $output = '<table class="glossarypost dictionary" cellspacing="0">' . "\n";
         $output .= '<tr valign="top">' . "\n";
@@ -386,10 +388,10 @@ class glossary_entry_portfolio_caller extends portfolio_module_caller_base {
         $output .= format_text($OUTPUT->heading('<span class="nolink">' . $entry->concept . '</span>', 3, 'nolink'), FORMAT_MOODLE, $options);
         $output .= '</div> ' . "\n";
 
-        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
-        $entry->definition = portfolio_rewrite_pluginfile_urls($entry->definition, $context->id, 'glossary_entry', $entry->id, $format);
+        $entry->definition = portfolio_rewrite_pluginfile_urls($entry->definition, $context->id, 'mod_glossary', 'entry', $entry->id, $format);
 
+        $options->overflowdiv = true;
         $output .= format_text($entry->definition, $entry->definitionformat, $options);
         if (isset($entry->footer)) {
             $output .= $entry->footer;
@@ -398,13 +400,14 @@ class glossary_entry_portfolio_caller extends portfolio_module_caller_base {
         $output .= '</td></tr>' . "\n";
 
         if (!empty($aliases)) {
+            $aliases = explode(',', $aliases->alias);
             $output .= '<tr valign="top"><td class="entrylowersection">';
             $key = (count($aliases) == 1) ? 'alias' : 'aliases';
             $output .= get_string($key, 'glossary') . ': ';
             foreach ($aliases as $alias) {
                 $output .= s($alias) . ',';
             }
-            $output .= substr($output, 0, -1);
+            $output = substr($output, 0, -1);
             $output .= '</td></tr>' . "\n";
         }
 
@@ -418,7 +421,7 @@ class glossary_entry_portfolio_caller extends portfolio_module_caller_base {
             $filecontext = $context;
         }
         $fs = get_file_storage();
-        if ($files = $fs->get_area_files($filecontext->id, 'glossary_attachment', $entry->id, "timemodified", false)) {
+        if ($files = $fs->get_area_files($filecontext->id, 'mod_glossary', 'attachment', $entry->id, "timemodified", false)) {
             $output .= '<table border="0" width="100%"><tr><td>' . "\n";
 
             foreach ($files as $file) {

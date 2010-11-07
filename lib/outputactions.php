@@ -21,10 +21,13 @@
  * Please see http://docs.moodle.org/en/Developement:How_Moodle_outputs_HTML
  * for an overview.
  *
- * @package   moodlecore
- * @copyright 2009 Nicolas Connault
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  2009 Nicolas Connault
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Helper class used by other components that involve an action on the page (URL or JS).
@@ -120,7 +123,7 @@ class popup_action extends component_action {
     /**
      * Constructor
      * @param string $event DOM event
-     * @param moodle_url $url A moodle_url object, required if no jsfunction is given
+     * @param moodle_url|string $url A moodle_url object, required if no jsfunction is given
      * @param string $method 'post' or 'get'
      * @param array  $params An array of popup parameters
      * @return void
@@ -146,8 +149,11 @@ class popup_action extends component_action {
                 $this->params[$var] = $params[$var];
             }
         }
-        
+
         $attributes = array('url' => $url->out(false), 'name' => $name, 'options' => $this->get_js_options($params));
+        if (!empty($params['fullscreen'])) {
+            $attributes['fullscreen'] = 1;
+        }
         parent::__construct($event, $this->jsfunction, $attributes);
     }
 

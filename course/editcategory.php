@@ -19,9 +19,12 @@ if ($id) {
     }
     $PAGE->set_url('/course/editcategory.php', array('id' => $id));
     $categorycontext = get_context_instance(CONTEXT_COURSECAT, $id);
+    $PAGE->set_context($categorycontext);
     require_capability('moodle/category:manage', $categorycontext);
     $strtitle = get_string('editcategorysettings');
     $editorcontext = $categorycontext;
+    $title = $strtitle;
+    $fullname = $category->name;
 } else {
     $parent = required_param('parent', PARAM_INT);
     $PAGE->set_url('/course/editcategory.php', array('parent' => $parent));
@@ -33,16 +36,21 @@ if ($id) {
     } else {
         $context = get_system_context();
     }
+    $PAGE->set_context($context);
     $category = new stdClass();
     $category->id = 0;
     $category->parent = $parent;
     require_capability('moodle/category:manage', $context);
     $strtitle = get_string("addnewcategory");
     $editorcontext = null;
+    $title = "$SITE->shortname: ".get_string('addnewcategory');
+    $fullname = $SITE->fullname;
 }
 
+$PAGE->set_pagelayout('admin');
+
 $editoroptions = array('maxfiles' => EDITOR_UNLIMITED_FILES, 'maxbytes'=>$CFG->maxbytes, 'trusttext'=>true);
-$category = file_prepare_standard_editor($category, 'description', $editoroptions, $editorcontext, 'category_description', $category->id);
+$category = file_prepare_standard_editor($category, 'description', $editoroptions, $editorcontext, 'coursecat', 'description', 0);
 
 $mform = new editcategory_form('editcategory.php', compact('category', 'editoroptions'));
 $mform->set_data($category);
@@ -82,38 +90,17 @@ if ($mform->is_cancelled()) {
         mark_context_dirty($newcategory->context->path);
     }
 
-    $newcategory = file_postupdate_standard_editor($newcategory, 'description', $editoroptions, $categorycontext, 'category_description', $newcategory->id);
+    $newcategory = file_postupdate_standard_editor($newcategory, 'description', $editoroptions, $categorycontext, 'coursecat', 'description', 0);
     $DB->update_record('course_categories', $newcategory);
     fix_course_sortorder();
 
     redirect('category.php?id='.$newcategory->id.'&categoryedit=on');
 }
 
-// Print the form
-$straddnewcategory = get_string('addnewcategory');
-$stradministration = get_string('administration');
-$strcategories = get_string('categories');
-$navlinks = array();
-
-if ($id) {
-    $PAGE->navbar->add($strtitle);
-    $title = $strtitle;
-    $fullname = $category->name;
-} else {
-    $PAGE->navbar->add($stradministration, new moodle_url('/admin/index.php'));
-    $PAGE->navbar->add($strcategories, new moodle_url('/course/index.php'));
-    $PAGE->navbar->add($straddnewcategory);
-    $title = "$SITE->shortname: $straddnewcategory";
-    $fullname = $SITE->fullname;
-}
-
 $PAGE->set_title($title);
 $PAGE->set_heading($fullname);
-$PAGE->set_focuscontrol($mform->focus());
 echo $OUTPUT->header();
 echo $OUTPUT->heading($strtitle);
-
 $mform->display();
-
 echo $OUTPUT->footer();
 

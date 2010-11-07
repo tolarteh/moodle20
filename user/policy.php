@@ -25,43 +25,49 @@
 
 require_once('../config.php');
 require_once($CFG->libdir.'/filelib.php');
+require_once($CFG->libdir.'/resourcelib.php');
 
 $agree = optional_param('agree', 0, PARAM_BOOL);
 
-$url = new moodle_url('/user/policy.php');
-if ($agree !== 0) {
-    $url->param('agree', $agree);
-}
-$PAGE->set_url($url);
+$PAGE->set_url('/user/policy.php');
 
-define('MESSAGE_WINDOW', true);  // This prevents the message window coming up
+define('MESSAGE_WINDOW', true);  // This prevents the message window coming up - TODO: this is a hack! (skodak)
 
 if (!isloggedin()) {
     require_login();
 }
 
+if (isguestuser()) {
+    $sitepolicy = $CFG->sitepolicyguest;
+} else {
+    $sitepolicy = $CFG->sitepolicy;
+}
+
+if (!empty($SESSION->wantsurl)) {
+    $return = $SESSION->wantsurl;
+} else {
+    $return = $CFG->wwwroot.'/';
+}
+
+if (empty($sitepolicy)) {
+    // nothing to agree to, sorry, hopefully we will not get to infinite loop
+    redirect($return);
+}
+
 if ($agree and confirm_sesskey()) {    // User has agreed
     if (!isguestuser()) {              // Don't remember guests
-        if (!$DB->set_field('user', 'policyagreed', 1, array('id'=>$USER->id))) {
-            print_error('cannotsaveagreement');
-        }
+        $DB->set_field('user', 'policyagreed', 1, array('id'=>$USER->id));
     }
     $USER->policyagreed = 1;
-
-    if (!empty($SESSION->wantsurl)) {
-        $wantsurl = $SESSION->wantsurl;
-        unset($SESSION->wantsurl);
-        redirect($wantsurl);
-    } else {
-        redirect($CFG->wwwroot.'/');
-    }
-    exit;
+    unset($SESSION->wantsurl);
+    redirect($return);
 }
 
 $strpolicyagree = get_string('policyagree');
 $strpolicyagreement = get_string('policyagreement');
 $strpolicyagreementclick = get_string('policyagreementclick');
 
+$PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
 $PAGE->set_title($strpolicyagreement);
 $PAGE->set_heading($SITE->fullname);
 $PAGE->navbar->add($strpolicyagreement);
@@ -69,20 +75,21 @@ $PAGE->navbar->add($strpolicyagreement);
 echo $OUTPUT->header();
 echo $OUTPUT->heading($strpolicyagreement);
 
-$mimetype = mimeinfo('type', $CFG->sitepolicy);
+$mimetype = mimeinfo('type', $sitepolicy);
 if ($mimetype == 'document/unknown') {
     //fallback for missing index.php, index.html
     $mimetype = 'text/html';
 }
 
-echo '<div class="noticebox">';
-echo '<object id="policyframe" data="'.$CFG->sitepolicy.'" type="'.$mimetype.'">';
 // we can not use our popups here, because the url may be arbitrary, see MDL-9823
-echo '<a href="'.$CFG->sitepolicy.'" onclick="this.target=\'_blank\'">'.$strpolicyagreementclick.'</a>';
-echo '</object></div>';
+$clicktoopen = '<a href="'.$sitepolicy.'" onclick="this.target=\'_blank\'">'.$strpolicyagreementclick.'</a>';
+
+echo '<div class="noticebox">';
+echo resourcelib_embed_general($sitepolicy, $strpolicyagreement, $clicktoopen, $mimetype);
+echo '</div>';
 
 $formcontinue = new single_button(new moodle_url('policy.php', array('agree'=>1)), get_string('yes'));
-$formcancel = new single_button($CFG->wwwroot.'/login/logout.php', get_string('no'));
+$formcancel = new single_button(new moodle_url($CFG->wwwroot.'/login/logout.php', array('agree'=>0)), get_string('no'));
 echo $OUTPUT->confirm($strpolicyagree, $formcontinue, $formcancel);
 
 echo $OUTPUT->footer();

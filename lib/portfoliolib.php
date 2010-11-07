@@ -23,11 +23,13 @@
  * Major Contributors
  *     - Penny Leach <penny@catalyst.net.nz>
  *
- * @package    moodlecore
+ * @package    core
  * @subpackage portfolio
  * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 // require some of the sublibraries first.
 // this is not an exhaustive list, the others are pulled in as they're needed
@@ -267,6 +269,7 @@ class portfolio_add_button {
         $url = new moodle_url('/portfolio/add.php');
         foreach ($this->callbackargs as $key => $value) {
             if (!empty($value) && !is_string($value) && !is_numeric($value)) {
+                $a = new stdClass();
                 $a->key = $key;
                 $a->value = print_r($value, true);
                 debugging(get_string('nonprimative', 'portfolio', $a));
@@ -345,7 +348,7 @@ class portfolio_add_button {
                 $formoutput .= "\n" . '</form>';
             break;
             case PORTFOLIO_ADD_ICON_LINK:
-                $linkoutput .= '"><img src="' . $OUTPUT->pix_url('t/portfolio') . '" alt=' . $addstr .'" /></a>';
+                $linkoutput .= '"><img src="' . $OUTPUT->pix_url('t/portfolio') . '" alt="' . $addstr .'" /></a>';
             break;
             case PORTFOLIO_ADD_TEXT_LINK:
                 $linkoutput .= '">' . $addstr .'</a>';
@@ -948,7 +951,7 @@ function portfolio_cron() {
                 $e = portfolio_exporter::rewaken_object($d->id);
                 $e->process_stage_cleanup(true);
             } catch (Exception $e) {
-                mtrade('Exception thrown in portfolio cron while cleaning up ' . $d->id . ': ' . $e->getMessage());
+                mtrace('Exception thrown in portfolio cron while cleaning up ' . $d->id . ': ' . $e->getMessage());
             }
         }
     }
@@ -1100,7 +1103,7 @@ function portfolio_insane_notify_admins($insane, $instances=false) {
     $smallbody = get_string('insanebodysmall', 'portfolio', $a);
 
     foreach ($admins as $admin) {
-        $eventdata = new object();
+        $eventdata = new stdClass();
         $eventdata->modulename = 'portfolio';
         $eventdata->component = 'portfolio';
         $eventdata->name = 'notices';
@@ -1116,19 +1119,13 @@ function portfolio_insane_notify_admins($insane, $instances=false) {
 }
 
 function portfolio_export_pagesetup($PAGE, $caller) {
-    // for build navigation
-    if (!$course = $caller->get('course')) {
-        $course = $courseid;
-    }
-
-    // set up the course so that build_navigation works nice
-    $PAGE->set_course($course);
+    // set up the context so that build_navigation works nice
+    $caller->set_context($PAGE);
 
     list($extranav, $cm) = $caller->get_navigation();
 
     // and now we know the course for sure and maybe the cm, call require_login with it
-    // todo this will have to change when we have things exporting content outside the course context (eg blogs)
-    require_login($course, false, $cm);
+    require_login($PAGE->course, false, $cm);
 
     foreach ($extranav as $navitem) {
         $PAGE->navbar->add($navitem['name']);
@@ -1181,7 +1178,7 @@ function portfolio_existing_exports_by_plugin($userid) {
  * callback function from {@link portfolio_rewrite_pluginfile_urls}
  * looks through preg_replace matches and replaces content with whatever the active portfolio export format says
  */
-function portfolio_rewrite_pluginfile_url_callback($contextid,  $filearea, $itemid, $format, $options, $matches) {
+function portfolio_rewrite_pluginfile_url_callback($contextid, $component, $filearea, $itemid, $format, $options, $matches) {
     $matches = $matches[0]; // no internal matching
     $dom = new DomDocument();
     if (!$dom->loadXML($matches)) {
@@ -1208,8 +1205,8 @@ function portfolio_rewrite_pluginfile_url_callback($contextid,  $filearea, $item
         $filename = array_pop($bits);
         $filepath = implode('/', $bits);
     }
-    if (!$file = $fs->get_file($contextid, $filearea, $itemid, $filepath, $filename)) {
-        debugging("Couldn\t find a file from the embedded path info context $contextid filearea $filearea itemid $itemid filepath $filepath name $filename");
+    if (!$file = $fs->get_file($contextid, $component, $filearea, $itemid, $filepath, $filename)) {
+        debugging("Couldn\t find a file from the embedded path info context $contextid component $component filearea $filearea itemid $itemid filepath $filepath name $filename");
         return $matches;
     }
     if (empty($options)) {
@@ -1227,6 +1224,7 @@ function portfolio_rewrite_pluginfile_url_callback($contextid,  $filearea, $item
  *
  * @param string           $text the text to search through
  * @param int              $contextid normal file_area arguments
+ * @param string           $component
  * @param string           $filearea  normal file_area arguments
  * @param int              $itemid    normal file_area arguments
  * @param portfolio_format $format    the portfolio export format
@@ -1234,9 +1232,9 @@ function portfolio_rewrite_pluginfile_url_callback($contextid,  $filearea, $item
  *
  * @return string
  */
-function portfolio_rewrite_pluginfile_urls($text, $contextid, $filearea, $itemid, $format, $options=null) {
+function portfolio_rewrite_pluginfile_urls($text, $contextid, $component, $filearea, $itemid, $format, $options=null) {
     $pattern = '/(<[^<]*?="@@PLUGINFILE@@\/[^>]*?(?:\/>|>.*?<\/[^>]*?>))/';
-    $callback = partial('portfolio_rewrite_pluginfile_url_callback', $contextid, $filearea, $itemid, $format, $options);
+    $callback = partial('portfolio_rewrite_pluginfile_url_callback', $contextid, $component, $filearea, $itemid, $format, $options);
     return preg_replace_callback($pattern, $callback, $text);
 }
 // this function has to go last, because the regexp screws up syntax highlighting in some editors

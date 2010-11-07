@@ -18,12 +18,13 @@
 /**
  * Local stuff for meta course enrolment plugin.
  *
- * @package   enrol_meta
- * @copyright 2010 Petr Skoda  {@link http://skodak.org}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage meta
+ * @copyright  2010 Petr Skoda {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die;
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Event handler for meta enrolment plugin.
@@ -59,7 +60,7 @@ class enrol_meta_handler {
         $plugin = enrol_get_plugin('meta');
         if ($disabled = $plugin->get_config('nosyncroleids')) {
             if (in_array($ra->roleid, explode(',', $disabled))) {
-                continue;
+                return true;
             }
         }
 
@@ -173,7 +174,7 @@ class enrol_meta_handler {
         //note: do not test if plugin enabled, we want to keep removing previously linked courses
 
         // does anything want to sync with this parent?
-        if (!$enrols = $DB->get_records('enrol', array('customint1'=>$parentcontext->instanceid, 'enrol'=>'meta'), 'id ASC')) {
+        if (!$enrols = $DB->get_records('enrol', array('customint1'=>$course->id, 'enrol'=>'meta'), 'id ASC')) {
             return true;
         }
 

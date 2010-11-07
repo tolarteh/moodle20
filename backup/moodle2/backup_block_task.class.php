@@ -45,7 +45,7 @@ abstract class backup_block_task extends backup_task {
 
         // Check blockid exists
         if (!$block = $DB->get_record('block_instances', array('id' => $blockid))) {
-            throw backup_task_exception('block_task_block_instance_not_found', $blockid);
+            throw new backup_task_exception('block_task_block_instance_not_found', $blockid);
         }
 
         $this->blockid    = $blockid;
@@ -127,6 +127,15 @@ abstract class backup_block_task extends backup_task {
             return;
         }
 
+        // If "child" of activity task and it has been excluded, nothing to do
+        if (!empty($this->moduleid)) {
+            $includedsetting = $this->modulename . '_' . $this->moduleid . '_included';
+            if (!$this->get_setting_value($includedsetting)) {
+                $this->built = true;
+                return;
+            }
+        }
+
         // Add some extra settings that related processors are going to need
         $this->add_setting(new backup_activity_generic_setting(backup::VAR_BLOCKID, base_setting::IS_INTEGER, $this->blockid));
         $this->add_setting(new backup_activity_generic_setting(backup::VAR_BLOCKNAME, base_setting::IS_FILENAME, $this->blockname));
@@ -142,7 +151,7 @@ abstract class backup_block_task extends backup_task {
         $this->add_step(new backup_block_instance_structure_step('block_commons', 'block.xml'));
 
         // Here we add all the common steps for any block and, in the point of interest
-        // we call to define_my_steps() is order to get the particular ones inserted in place.
+        // we call to define_my_steps() in order to get the particular ones inserted in place.
         $this->define_my_steps();
 
         // Generate the roles file (optionally role assignments and always role overrides)
@@ -187,6 +196,11 @@ abstract class backup_block_task extends backup_task {
     abstract protected function define_my_steps();
 
     /**
+     * Define one array() of fileareas that each block controls
+     */
+    abstract public function get_fileareas();
+
+    /**
      * Define one array() of configdata attributes
      * that need to be processed by the contenttransformer
      */
@@ -196,5 +210,7 @@ abstract class backup_block_task extends backup_task {
      * Code the transformations to perform in the block in
      * order to get transportable (encoded) links
      */
-    abstract static public function encode_content_links($content);
+    static public function encode_content_links($content) {
+        throw new coding_exception('encode_content_links() method needs to be overridden in each subclass of backup_block_task');
+    }
 }

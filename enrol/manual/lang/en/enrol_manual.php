@@ -18,9 +18,10 @@
 /**
  * Strings for component 'enrol_manual', language 'en', branch 'MOODLE_20_STABLE'
  *
- * @package   enrol_manual
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage manual
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 $string['assignrole'] = 'Assignrole';
@@ -29,13 +30,15 @@ $string['defaultperiod_desc'] = 'Default length of the default enrolment period 
 $string['enrolledincourserole'] = 'Enrolled in "{$a->course}" as "{$a->role}"';
 $string['enrolusers'] = 'Enrol users';
 $string['manual:config'] = 'Configure manual enrol instances';
-$string['manual:manage'] = 'Manage enrolled users';
+$string['manual:enrol'] = 'Enrol users';
+$string['manual:manage'] = 'Manage user enrolments';
 $string['manual:unenrol'] = 'Unenrol users from the course';
 $string['manual:unenrolself'] = 'Unenrol self from the course';
 $string['pluginname'] = 'Manual enrolments';
-$string['pluginname_desc'] = 'Internal enrolments is a basic enrolment plugin which allows simple user enrolments. It should be kept enabled in most cases. Some other plugins such as self enrolment may use this pugin internally.';
+$string['pluginname_desc'] = 'The manual enrolments plugin allows users to be enrolled manually via a link in the course administration settings, by a user with appropriate permissions such as a teacher. The plugin should normally be enabled, since certain other enrolment plugins, such as self enrolment, require it.';
 $string['status'] = 'Enable manual enrolments';
 $string['status_desc'] = 'Allow course access of internally enrolled users. This should be kept enabled in most cases.';
+$string['status_help'] = 'This setting determines whether users can be enrolled manually, via a link in the course administration settings, by a user with appropriate permissions such as a teacher.';
 $string['statusenabled'] = 'Enabled';
 $string['statusdisabled'] = 'Disabled';
 $string['unenrolselfconfirm'] = 'Do you really want to unenrol yourself from course "{$a}"?';

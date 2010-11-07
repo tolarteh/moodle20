@@ -106,12 +106,14 @@
     if ($PAGE->user_allowed_editing()) {
         if (($edit == 1) and confirm_sesskey()) {
             $USER->editing = 1;
+            redirect($PAGE->url);
         } else if (($edit == 0) and confirm_sesskey()) {
             $USER->editing = 0;
             if(!empty($USER->activitycopy) && $USER->activitycopycourse == $course->id) {
                 $USER->activitycopy       = false;
                 $USER->activitycopycourse = NULL;
             }
+            redirect($PAGE->url);
         }
 
         if ($hide && confirm_sesskey()) {
@@ -127,6 +129,9 @@
                 if (!move_section($course, $section, $move)) {
                     echo $OUTPUT->notification('An error occurred while moving a section');
                 }
+                // Clear the navigation cache at this point so that the affects
+                // are seen immediatly on the navigation.
+                $PAGE->navigation->clear_cache();
             }
         }
     } else {
@@ -187,8 +192,8 @@
         $PAGE->requires->js_init_call('M.core_completion.init');
     }
 
-    // We are currently keeping the button here from 1.x to help new teachers figure out 
-    // what to do, even though the link also appears in the course admin block.  It also 
+    // We are currently keeping the button here from 1.x to help new teachers figure out
+    // what to do, even though the link also appears in the course admin block.  It also
     // means you can back out of a situation where you removed the admin block. :)
     if ($PAGE->user_allowed_editing()) {
         $buttons = $OUTPUT->edit_button(new moodle_url('/course/view.php', array('id' => $course->id)));
@@ -205,12 +210,15 @@
         // go to another page, (c) clicks Back button - the page will
         // automatically reload. Otherwise it would start with the wrong tick
         // values.
-        print '<form action="."><div><input type="hidden" id="completion_dynamic_change"
-          name="completion_dynamic_change" value="0" /></div></form>';
+        echo html_writer::start_tag('form', array('action'=>'.', 'method'=>'get'));
+        echo html_writer::start_tag('div');
+        echo html_writer::empty_tag('input', array('type'=>'hidden', 'id'=>'completion_dynamic_change', 'name'=>'completion_dynamic_change', 'value'=>'0'));
+        echo html_writer::end_tag('div');
+        echo html_writer::end_tag('form');
     }
 
     // Course wrapper start.
-    echo '<div class="course-content">';
+    echo html_writer::start_tag('div', array('class'=>'course-content'));
 
     $modinfo =& get_fast_modinfo($COURSE);
     get_all_mods($course->id, $mods, $modnames, $modnamesplural, $modnamesused);
@@ -240,16 +248,15 @@
     // Include the actual course format.
     require($CFG->dirroot .'/course/format/'. $course->format .'/format.php');
     // Content wrapper end.
-    echo "</div>\n\n";
+
+    echo html_writer::end_tag('div');
 
     // Use AJAX?
     if ($useajax && has_capability('moodle/course:manageactivities', $context)) {
         // At the bottom because we want to process sections and activities
         // after the relevant html has been generated. We're forced to do this
         // because of the way in which lib/ajax/ajaxcourse.js is written.
-
-        echo '<script type="text/javascript" ';
-        echo "src=\"{$CFG->wwwroot}/lib/ajax/ajaxcourse.js\"></script>\n";
+        echo html_writer::script(false, new moodle_url('/lib/ajax/ajaxcourse.js'));
         $COURSE->javascriptportal->print_javascript($course->id);
     }
 

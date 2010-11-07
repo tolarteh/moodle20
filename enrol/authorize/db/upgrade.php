@@ -9,7 +9,7 @@
 //
 // The upgrade function in this file will attempt
 // to perform all the necessary actions to upgrade
-// your older installtion to the current version.
+// your older installation to the current version.
 //
 // If there's something it cannot do itself, it
 // will tell you what you need to do.
@@ -24,22 +24,10 @@ function xmldb_enrol_authorize_upgrade($oldversion) {
     global $CFG, $DB, $OUTPUT;
 
     $dbman = $DB->get_manager();
-    $result = true;
 
     //===== 1.9.0 upgrade line ======//
 
-    if ($result && $oldversion < 2008020500 && enrol_is_enabled('authorize')) {
-        require_once($CFG->dirroot.'/enrol/authorize/localfuncs.php');
-        if (!check_curl_available()) {
-            echo $OUTPUT->notification("You are using the authorize.net enrolment plugin for payment handling but cUrl is not available.
-                    PHP must be compiled with cURL+SSL support (--with-curl --with-openssl)");
-        }
-
-        /// authorize savepoint reached
-        upgrade_plugin_savepoint($result, 2008020500, 'enrol', 'authorize');
-    }
-
-    if ($result && $oldversion < 2008092700) {
+    if ($oldversion < 2008092700) {
         /// enrol_authorize.transid
         /// Define index transid (not unique) to be dropped form enrol_authorize
         $table = new xmldb_table('enrol_authorize');
@@ -77,11 +65,11 @@ function xmldb_enrol_authorize_upgrade($oldversion) {
         $dbman->add_index($table, $index);
 
         /// authorize savepoint reached
-        upgrade_plugin_savepoint($result, 2008092700, 'enrol', 'authorize');
+        upgrade_plugin_savepoint(true, 2008092700, 'enrol', 'authorize');
     }
 
     /// Dropping all enums/check contraints from core. MDL-18577
-    if ($result && $oldversion < 2009042700) {
+    if ($oldversion < 2009042700) {
 
     /// Changing list of values (enum) of field paymentmethod on table enrol_authorize to none
         $table = new xmldb_table('enrol_authorize');
@@ -91,10 +79,19 @@ function xmldb_enrol_authorize_upgrade($oldversion) {
         $dbman->drop_enum_from_field($table, $field);
 
         /// authorize savepoint reached
-        upgrade_plugin_savepoint($result, 2009042700, 'enrol', 'authorize');
+        upgrade_plugin_savepoint(true, 2009042700, 'enrol', 'authorize');
     }
 
-    return $result;
+    // Add instanceid field to enrol_authorize table
+    if ($oldversion < 2010081203) {
+        $table = new xmldb_table('enrol_authorize');
+        $field = new xmldb_field('instanceid');
+        if (!$dbman->field_exists($table, $field)) {
+            $field->set_attributes(XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'userid');
+            $dbman->add_field($table, $field);
+        }
+        upgrade_plugin_savepoint(true, 2010081203, 'enrol', 'authorize');
+    }
+
+    return true;
 }
-
-

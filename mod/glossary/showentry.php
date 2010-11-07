@@ -40,6 +40,12 @@ if ($eid) {
     print_error('invalidelementid');
 }
 
+if ($popup) {
+    $PAGE->set_pagelayout('popup');
+} else {
+    $PAGE->set_pagelayout('course');
+}
+
 if ($entries) {
     foreach ($entries as $key => $entry) {
         // Need to get the course where the entry is,
@@ -59,7 +65,9 @@ if ($entries) {
                 continue;
             }
         }
-        $entries[$key]->footer = "<p style=\"text-align:right\">&raquo;&nbsp;<a href=\"$CFG->wwwroot/mod/glossary/view.php?g=$entry->glossaryid\">".format_string($entry->glossaryname,true)."</a></p>";
+        if (!$popup) {
+            $entries[$key]->footer = "<p style=\"text-align:right\">&raquo;&nbsp;<a href=\"$CFG->wwwroot/mod/glossary/view.php?g=$entry->glossaryid\">".format_string($entry->glossaryname,true)."</a></p>";
+        }
         add_to_log($entry->courseid, 'glossary', 'view entry', "showentry.php?eid=$entry->id", $entry->id, $entry->cmid);
     }
 }
@@ -89,4 +97,3 @@ if ($popup) {
 
 /// Show one reduced footer
 echo $OUTPUT->footer();
-

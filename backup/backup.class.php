@@ -40,7 +40,9 @@ abstract class backup implements checksumable {
 
     // Backup format
     const FORMAT_MOODLE  = 'moodle2';
+    const FORMAT_MOODLE1 = 'moodle1';
     const FORMAT_IMSCC   = 'imscc';
+    const FORMAT_UNKNOWN = 'unknown';
 
     // Interactive
     const INTERACTIVE_YES = true;
@@ -52,19 +54,28 @@ abstract class backup implements checksumable {
     const MODE_HUB      = 30;
     const MODE_SAMESITE = 40;
 
+    // Target (new/existing/current/adding/deleting)
+    const TARGET_CURRENT_DELETING = 0;
+    const TARGET_CURRENT_ADDING   = 1;
+    const TARGET_NEW_COURSE       = 2;
+    const TARGET_EXISTING_DELETING= 3;
+    const TARGET_EXISTING_ADDING  = 4;
+
     // Execution mode
     const EXECUTION_INMEDIATE = 1;
     const EXECUTION_DELAYED   = 2;
 
     // Status of the backup_controller
     const STATUS_CREATED     = 100;
-    const STATUS_PLANNED     = 200;
-    const STATUS_CONFIGURED  = 300;
-    const STATUS_SETTING_UI  = 400;
-    const STATUS_AWAITING    = 500;
-    const STATUS_EXECUTING   = 600;
-    const STATUS_FINISHED_OK = 700;
-    const STATUS_FINISHED_ERR= 800;
+    const STATUS_REQUIRE_CONV= 200;
+    const STATUS_PLANNED     = 300;
+    const STATUS_CONFIGURED  = 400;
+    const STATUS_SETTING_UI  = 500;
+    const STATUS_NEED_PRECHECK=600;
+    const STATUS_AWAITING    = 700;
+    const STATUS_EXECUTING   = 800;
+    const STATUS_FINISHED_ERR= 900;
+    const STATUS_FINISHED_OK =1000;
 
     // Logging levels
     const LOG_DEBUG   = 50;
@@ -90,9 +101,13 @@ abstract class backup implements checksumable {
     const VAR_BACKUPID   = -1001; // To reference the backupid being processed
     const VAR_BASEPATH   = -1011; // To reference the dir where the file is generated
 
+    // Type of operation
+    const OPERATION_BACKUP  ='backup'; // We are performing one backup
+    const OPERATION_RESTORE ='restore';// We are performing one restore
+
     // Version (to keep CFG->backup_version (and release) updated automatically)
-    const VERSION = 2010050500;
-    const RELEASE = '2.0 Preview 1';
+    const VERSION = 2010092100;
+    const RELEASE = '2.0 RC1';
 }
 
 /*

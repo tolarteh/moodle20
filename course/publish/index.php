@@ -27,8 +27,8 @@
 */
 
 require('../../config.php');
-require_once($CFG->dirroot.'/admin/registration/lib.php');
-require_once($CFG->dirroot.'/course/publish/lib.php');
+require_once($CFG->dirroot . '/' . $CFG->admin . '/registration/lib.php');
+require_once($CFG->dirroot . '/course/publish/lib.php');
 
 $id = optional_param('id', 0, PARAM_INT);
 $hubname = optional_param('hubname', 0, PARAM_TEXT);
@@ -37,6 +37,22 @@ $huburl = optional_param('huburl', 0, PARAM_URL);
 $course = $DB->get_record('course', array('id'=>$id), '*', MUST_EXIST);
 
 require_login($course);
+
+$PAGE->set_url('/course/publish/index.php', array('id' => $course->id));
+$PAGE->set_pagelayout('course');
+$PAGE->set_title(get_string('course') . ': ' . $course->fullname);
+$PAGE->set_heading($course->fullname);
+
+//check that the PHP xmlrpc extension is enabled
+if (!extension_loaded('xmlrpc')) {
+    $notificationerror = $OUTPUT->doc_link('admin/environment/php_extension/xmlrpc', '');
+    $notificationerror .= get_string('xmlrpcdisabledpublish', 'hub');
+    echo $OUTPUT->header();
+    echo $OUTPUT->heading(get_string('publishcourse', 'hub', $course->shortname), 3, 'main');
+    echo $OUTPUT->notification($notificationerror);
+    echo $OUTPUT->footer();
+    die();
+}
 
 if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE, $id))) {
 
@@ -53,16 +69,18 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
         } else {
             //get all site courses registered on this hub
             $function = 'hub_get_courses';
-            $params = array('', 1, 1, array( 'allsitecourses' => 1));
+            $params = array('search' => '', 'downloadable' => 1,
+                'enrollable' => 1, 'options' => array( 'allsitecourses' => 1));
             $serverurl = $hub->huburl."/local/hub/webservice/webservices.php";
             require_once($CFG->dirroot."/webservice/xmlrpc/lib.php");
-            $xmlrpcclient = new webservice_xmlrpc_client();
-            $sitecourses = $xmlrpcclient->call($serverurl, $hub->token, $function, $params);
+            $xmlrpcclient = new webservice_xmlrpc_client($serverurl, $hub->token);
+            $result = $xmlrpcclient->call($function, $params);
+            $sitecourses = $result['courses'];
 
             //update status for all these course
             foreach ($sitecourses as $sitecourse) {
                 //get the publication from the hub course id
-                $publication = $publicationmanager->get_publication($sitecourse['id']);
+                $publication = $publicationmanager->get_publication($sitecourse['id'], $hub->huburl);
                 if (!empty($publication)) {
                     $publication->status = $sitecourse['privacy'];
                     $publication->timechecked = time();
@@ -78,12 +96,6 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
         }
     }
 
-
-    $PAGE->set_url('/course/publish/index.php', array('id' => $course->id));
-    $PAGE->set_pagelayout('course');
-    $PAGE->set_title(get_string('course') . ': ' . $course->fullname);
-    $PAGE->set_heading($course->fullname);
-
     //if the site os registered on no hub display an error page
     $registrationmanager = new registration_manager();
     $registeredhubs = $registrationmanager->get_registered_on_hubs();
@@ -96,8 +108,7 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
     }
 
     $renderer = $PAGE->get_renderer('core', 'publish');
-
-   
+  
     /// UNPUBLISH
     $cancel = optional_param('cancel', 0, PARAM_BOOL);
     if (!empty($cancel) and confirm_sesskey()) {
@@ -119,11 +130,11 @@ if (has_capability('moodle/course:publish', get_context_instance(CONTEXT_COURSE,
             //unpublish the publication by web service
             $registeredhub = $registrationmanager->get_registeredhub($huburl);
             $function = 'hub_unregister_courses';
-            $params = array(array( $publication->hubcourseid));
+            $params = array('courseids' => array( $publication->hubcourseid));
             $serverurl = $huburl."/local/hub/webservice/webservices.php";
             require_once($CFG->dirroot."/webservice/xmlrpc/lib.php");
-            $xmlrpcclient = new webservice_xmlrpc_client();
-            $result = $xmlrpcclient->call($serverurl, $registeredhub->token, $function, $params);
+            $xmlrpcclient = new webservice_xmlrpc_client($serverurl, $registeredhub->token);
+            $result = $xmlrpcclient->call($function, $params);
 
             //delete the publication from the database
             $publicationmanager->delete_publication($publicationid);

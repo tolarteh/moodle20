@@ -22,7 +22,7 @@ $courseid = optional_param('courseid', 0, PARAM_INT);
 $wizardnow = optional_param('wizardnow', '', PARAM_ALPHA);
 $movecontext = optional_param('movecontext', 0, PARAM_BOOL); // Switch to make
         // question uneditable - form is displayed to edit category only
-$returnurl = optional_param('returnurl', 0, PARAM_LOCALURL);
+$originalreturnurl = optional_param('returnurl', 0, PARAM_LOCALURL);
 $appendqnumstring = optional_param('appendqnumstring', '', PARAM_ALPHA);
 $inpopup = optional_param('inpopup', 0, PARAM_BOOL);
 
@@ -48,8 +48,8 @@ if ($wizardnow !== '') {
 if ($movecontext !== 0) {
     $url->param('movecontext', $movecontext);
 }
-if ($returnurl !== 0) {
-    $url->param('returnurl', $returnurl);
+if ($originalreturnurl !== 0) {
+    $url->param('returnurl', $originalreturnurl);
 }
 if ($appendqnumstring !== '') {
     $url->param('appendqnumstring', $appendqnumstring);
@@ -58,6 +58,17 @@ if ($inpopup !== 0) {
     $url->param('inpopup', $inpopup);
 }
 $PAGE->set_url($url);
+
+if ($originalreturnurl) {
+    if (strpos($originalreturnurl, '/') !== 0) {
+        throw new coding_exception("returnurl must be a local URL starting with '/'. $originalreturnurl was given.");
+    }
+    $returnurl = new moodle_url($originalreturnurl);
+} else if ($cmid) {
+    $returnurl = new moodle_url('/question/edit.php', array('cmid' => $cmid));
+} else {
+    $returnurl = new moodle_url('/question/edit.php', array('courseid' => $courseid));
+}
 
 if ($movecontext && !$id){
     print_error('questiondoesnotexist', 'question', $returnurl);
@@ -69,6 +80,7 @@ if ($cmid){
     $thiscontext = get_context_instance(CONTEXT_MODULE, $cmid);
 } elseif ($courseid) {
     require_login($courseid, false);
+    $PAGE->set_pagelayout('course');
     $thiscontext = get_context_instance(CONTEXT_COURSE, $courseid);
     $module = null;
     $cm = null;
@@ -76,10 +88,6 @@ if ($cmid){
     print_error('missingcourseorcmid', 'question');
 }
 $contexts = new question_edit_contexts($thiscontext);
-
-if (!$returnurl) {
-    $returnurl = "{$CFG->wwwroot}/question/edit.php?courseid={$COURSE->id}";
-}
 
 if (optional_param('addcancel', false, PARAM_BOOL)) {
     redirect($returnurl);
@@ -104,7 +112,7 @@ if ($id) {
 
 } else if ($categoryid) {
     // Category, but no qtype. They probably came from the addquestion.php
-    // script without choosing a question type. Send them back. 
+    // script without choosing a question type. Send them back.
     $addurl = new moodle_url('/question/addquestion.php', $url->params());
     $addurl->param('validationerror', 1);
     redirect($addurl);
@@ -149,6 +157,8 @@ if ($id) {
 } else  { // creating a new question
     require_capability('moodle/question:add', $categorycontext);
     $formeditable = true;
+    $question->formoptions->canedit = question_has_capability_on($question, 'edit');
+    $question->formoptions->canmove = (question_has_capability_on($question, 'move') && $addpermission);
     $question->formoptions->repeatelements = true;
     $question->formoptions->movecontext = false;
 }
@@ -179,7 +189,7 @@ if ($formeditable && $id){
 }
 
 $toform->appendqnumstring = $appendqnumstring;
-$toform->returnurl = $returnurl;
+$toform->returnurl = $originalreturnurl;
 $toform->movecontext = $movecontext;
 if ($cm !== null){
     $toform->cmid = $cm->id;
@@ -187,16 +197,19 @@ if ($cm !== null){
 } else {
     $toform->courseid = $COURSE->id;
 }
+
 $toform->inpopup = $inpopup;
+
 $mform->set_data($toform);
 
 if ($mform->is_cancelled()){
     if ($inpopup) {
         close_window();
     } else {
-        $nexturl = new moodle_url($returnurl);
-        $nexturl->param('lastchanged', $question->id);
-        redirect($nexturl->out());
+        if (!empty($question->id)) {
+            $returnurl->param('lastchanged', $question->id);
+        }
+        redirect($returnurl->out(false));
     }
 } elseif ($fromform = $mform->get_data()) {
     /// If we are saving as a copy, break the connection to the old question.
@@ -225,10 +238,7 @@ if ($mform->is_cancelled()){
     }
 
     /// Ensure we redirect back to the category the question is being saved into.
-    $returnurl = new moodle_url($returnurl);
     $returnurl->param('category', $fromform->category);
-    // TODO: it is sloppy to pass arounf full URLs through page parameters and some servers do not like that
-    $returnurl = $returnurl->out(false);
 
     /// Call the appropriate method.
     if ($movecontext) {
@@ -236,14 +246,14 @@ if ($mform->is_cancelled()){
         $tocontext = get_context_instance_by_id($tocontextid);
         require_capability('moodle/question:add', $tocontext);
         if (get_filesdir_from_context($categorycontext) != get_filesdir_from_context($tocontext)){
-            $movecontexturl  = new moodle_url('/question/contextmoveq.php',
-                                            array('returnurl' => $returnurl,
-                                                    'ids'=>$question->id,
-                                                    'tocatid'=> $tocatid));
+            $movecontexturl  = new moodle_url('/question/contextmoveq.php', array(
+                    'returnurl' => str_replace($CFG->wwwroot, '', $returnurl->out(false)),
+                    'ids' => $question->id,
+                    'tocatid' => $tocatid));
             if ($cmid){
                 $movecontexturl->param('cmid', $cmid);
             } else {
-                $movecontexturl->param('courseid', $COURSE->id);
+                $movecontexturl->param('courseid', $courseid);
             }
             redirect($movecontexturl);
         }
@@ -261,21 +271,25 @@ if ($mform->is_cancelled()){
             echo $OUTPUT->notification(get_string('changessaved'), '');
             close_window(3);
         } else {
-            $nexturl = new moodle_url($returnurl);
-            $nexturl->param('lastchanged', $question->id);
-            if($appendqnumstring) {
-                $nexturl->params(array($appendqnumstring=>($question->id), "sesskey"=>sesskey(), "cmid"=>$cmid));
+            $returnurl->param('lastchanged', $question->id);
+            if ($appendqnumstring) {
+                $returnurl->param($appendqnumstring, $question->id);
+                $returnurl->param('sesskey', sesskey());
+                $returnurl->param('cmid', $cmid);
             }
-            redirect($nexturl);
+            redirect($returnurl);
         }
     } else {
-        $nexturlparams = array('returnurl'=>$returnurl, 'appendqnumstring'=>$appendqnumstring);
+        $nexturlparams = array(
+                'returnurl' => $originalreturnurl,
+                'appendqnumstring' => $appendqnumstring);
         if (isset($fromform->nextpageparam) && is_array($fromform->nextpageparam)){
-            $nexturlparams += $fromform->nextpageparam;//useful for passing data to the next page which is not saved in the database
+            //useful for passing data to the next page which is not saved in the database.
+            $nexturlparams += $fromform->nextpageparam;
         }
         $nexturlparams['id'] = $question->id;
         $nexturlparams['wizardnow'] = $fromform->wizard;
-        $nexturl = new moodle_url('question.php', $nexturlparams);
+        $nexturl = new moodle_url('/question/question.php', $nexturlparams);
         if ($cmid){
             $nexturl->param('cmid', $cmid);
         } else {

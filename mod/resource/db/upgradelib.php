@@ -18,10 +18,13 @@
 /**
  * Resource module upgrade related helper functions
  *
- * @package   mod-resource
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage resource
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die;
 
 /**
  * Migrate resource module data from 1.9 resource_old table to new resource table
@@ -58,7 +61,7 @@ function resource_20_migrate() {
             // public site files
             $path = $matches[2];
 
-            $resource = new object();
+            $resource = new stdClass();
             $resource->id           = $candidate->oldid;
             $resource->tobemigrated = 0;
             $resource->mainfile     = $path;
@@ -67,8 +70,8 @@ function resource_20_migrate() {
 
             $context     = get_context_instance(CONTEXT_MODULE, $candidate->cmid);
             $sitecontext = get_context_instance(CONTEXT_COURSE, $siteid);
-            $file_record = array('contextid'=>$context->id, 'filearea'=>'resource_content', 'itemid'=>0);
-            if ($file = $fs->get_file_by_hash(sha1($sitecontext->id.'course_content0'.$path))) {
+            $file_record = array('contextid'=>$context->id, 'component'=>'mod_resourse', 'filearea'=>'content', 'itemid'=>0);
+            if ($file = $fs->get_file_by_hash(sha1("/$sitecontext->id/course/legacy/content/0".$path))) {
                 try {
                     $fs->create_file_from_storedfile($file_record, $file);
                 } catch (Exception $x) {
@@ -80,7 +83,7 @@ function resource_20_migrate() {
             // current course files
             $path = $matches[2];
 
-            $resource = new object();
+            $resource = new stdClass();
             $resource->id           = $candidate->oldid;
             $resource->tobemigrated = 0;
             $resource->mainfile     = $path;
@@ -93,7 +96,7 @@ function resource_20_migrate() {
             }
 
             // try migration of main file - ignore if does not exist
-            if ($file = resourcelib_try_file_migration($resource->mainfile, $candidate->cmid, $candidate->course, 'resource_content', 0)) {
+            if ($file = resourcelib_try_file_migration($resource->mainfile, $candidate->cmid, $candidate->course, 'mod_resource', 'content', 0)) {
                 $resource->mainfile = $file->get_filepath().$file->get_filename();
             }
 
@@ -114,7 +117,7 @@ function resource_20_migrate() {
             preg_match("/^[^?#]+/", $path, $matches);
             $parts = $matches[0];
 
-            $resource = new object();
+            $resource = new stdClass();
             $resource->id           = $candidate->oldid;
             $resource->tobemigrated = 0;
             $resource->mainfile     = $path;
@@ -127,7 +130,7 @@ function resource_20_migrate() {
             }
 
             // try migration of main file - ignore if does not exist
-            if ($file = resourcelib_try_file_migration($resource->mainfile, $candidate->cmid, $candidate->course, 'resource_content', 0)) {
+            if ($file = resourcelib_try_file_migration($resource->mainfile, $candidate->cmid, $candidate->course, 'mod_resource', 'content', 0)) {
                 $resource->mainfile = $file->get_filepath().$file->get_filename();
             }
         }
@@ -175,9 +178,9 @@ function resource_20_migrate() {
 }
 
 /**
- * This function creates resource_old table adn copies all data
+ * This function creates resource_old table and copies all data
  * from resource table, this functions has to be called from
- * all modules that are sucessors of old resource module types.
+ * all modules that are successors of old resource module types.
  * @return bool true if migration required, false if not
  */
 function resource_20_prepare_migration() {
@@ -185,7 +188,7 @@ function resource_20_prepare_migration() {
 
     $dbman = $DB->get_manager();
 
-    // If tresource not created yet, this is probably a new install
+    // If the resource not created yet, this is probably a new install
     $table = new xmldb_table('resource');
     if (!$dbman->table_exists($table)) {
         return false;
@@ -198,6 +201,12 @@ function resource_20_prepare_migration() {
         //already executed
         return true;
     }
+
+    // fix invalid NULL popup and options data in old mysql databases
+    $sql = "UPDATE {resource} SET popup = ? WHERE popup IS NULL";
+    $DB->execute($sql, array($DB->sql_empty()));
+    $sql = "UPDATE {resource} SET options = ? WHERE options IS NULL";
+    $DB->execute($sql, array($DB->sql_empty()));
 
     // Adding fields to table resource_old
     $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
@@ -234,20 +243,11 @@ function resource_20_prepare_migration() {
         return false;
     }
 
-    // find out if resource contains new 2.0dev fields already
-    $table = new xmldb_table('resource');
-    $field = new xmldb_field('introformat', XMLDB_TYPE_INTEGER, '4', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0', 'intro');
-    if ($dbman->field_exists($table, $field)) {
-        $sql = "INSERT INTO {resource_old} (oldid, course, name, type, reference, intro, introformat, alltext, popup, options, timemodified, cmid)
-                SELECT r.id, r.course, r.name, r.type, r.reference, r.intro, r.introformat, r.alltext, r.popup, r.options, r.timemodified, cm.id
-                  FROM {resource} r
-             LEFT JOIN {course_modules} cm ON (r.id = cm.instance AND cm.module = :module)";
-    } else {
-        $sql = "INSERT INTO {resource_old} (oldid, course, name, type, reference, intro, introformat, alltext, popup, options, timemodified, cmid)
-                SELECT r.id, r.course, r.name, r.type, r.reference, r.summary, 0, r.alltext, r.popup, r.options, r.timemodified, cm.id
-                  FROM {resource} r
-             LEFT JOIN {course_modules} cm ON (r.id = cm.instance AND cm.module = :module)";
-    }
+    // copy old data, the intro text format was FORMAT_MOODLE==0
+    $sql = "INSERT INTO {resource_old} (oldid, course, name, type, reference, intro, introformat, alltext, popup, options, timemodified, cmid)
+            SELECT r.id, r.course, r.name, r.type, r.reference, r.summary, 0, r.alltext, r.popup, r.options, r.timemodified, cm.id
+              FROM {resource} r
+         LEFT JOIN {course_modules} cm ON (r.id = cm.instance AND cm.module = :module)";
 
     $DB->execute($sql, array('module'=>$module));
 
@@ -258,7 +258,7 @@ function resource_20_prepare_migration() {
  * Migrate old resource type to new module, updates all related info, keeps the context id.
  * @param string $modname name of new module
  * @param object $candidate old instance from resource_old
- * @param object $newinstance new module instance to be insterted into db
+ * @param object $newinstance new module instance to be inserted into db
  * @return mixed false if error, object new instance with id if success
  */
 function resource_migrate_to_module($modname, $candidate, $newinstance) {

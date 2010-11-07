@@ -143,7 +143,7 @@ class MoodleQuickForm_editor extends HTML_QuickForm_element {
         $str = $this->_getTabs();
         $str .= '<div>';
 
-        $editor = get_preferred_texteditor($format);
+        $editor = editors_get_preferred_editor($format);
         $strformats = format_text_menu();
         $formats =  $editor->get_supported_formats();
         foreach ($formats as $fid) {
@@ -161,36 +161,50 @@ class MoodleQuickForm_editor extends HTML_QuickForm_element {
                 $draftitemid = $this->_values['itemid'];
             }
 
-            $args = new stdclass;
+            $args = new stdClass();
             // need these three to filter repositories list
             $args->accepted_types = array('image');
             $args->return_types = (FILE_INTERNAL | FILE_EXTERNAL);
             $args->context = $ctx;
             $args->env = 'filepicker';
-
+            // advimage plugin
             $image_options = initialise_filepicker($args);
-
-            $args->accepted_types = array('video', 'media');
-            $media_options = initialise_filepicker($args);
-
+            $image_options->context = $ctx;
             $image_options->client_id = uniqid();
-            $media_options->client_id = uniqid();
             $image_options->maxbytes = $this->_options['maxbytes'];
-            $media_options->maxbytes  = $this->_options['maxbytes'];
-            $image_options->maxfiles = 1;
-            $media_options->maxfiles = 1;
             $image_options->env = 'editor';
-            $media_options->env = 'editor';
             $image_options->itemid = $draftitemid;
+
+            // moodlemedia plugin
+            $args->accepted_types = array('video', 'audio');
+            $media_options = initialise_filepicker($args);
+            $media_options->context = $ctx;
+            $media_options->client_id = uniqid();
+            $media_options->maxbytes  = $this->_options['maxbytes'];
+            $media_options->env = 'editor';
             $media_options->itemid = $draftitemid;
+
+            // advlink plugin
+            $args->accepted_types = '*';
+            $link_options = initialise_filepicker($args);
+            $link_options->context = $ctx;
+            $link_options->client_id = uniqid();
+            $link_options->maxbytes  = $this->_options['maxbytes'];
+            $link_options->env = 'editor';
+            $link_options->itemid = $draftitemid;
+
             $fpoptions['image'] = $image_options;
             $fpoptions['media'] = $media_options;
+            $fpoptions['link'] = $link_options;
         }
 
     /// print text area - TODO: add on-the-fly switching, size configuration, etc.
         $editor->use_editor($id, $this->_options, $fpoptions);
 
-        $str .= '<div><textarea id="'.$id.'" name="'.$elname.'[text]" rows="15" cols="80">';
+        $rows = empty($this->_attributes['rows']) ? 15 : $this->_attributes['rows'];
+        $cols = empty($this->_attributes['cols']) ? 80 : $this->_attributes['cols'];
+
+        $str .= '<div><textarea id="'.$id.'" name="'.$elname.'[text]" rows="'.$rows.'" cols="'.$cols.'">';
         $str .= s($text);
         $str .= '</textarea></div>';
 
@@ -208,20 +222,23 @@ class MoodleQuickForm_editor extends HTML_QuickForm_element {
         if (!during_initial_install() && empty($CFG->adminsetuppending)) {
             // 0 means no files, -1 unlimited
             if ($maxfiles != 0 ) {
-                $str .= '<div><input type="hidden" name="'.$elname.'[itemid]" value="'.$draftitemid.'" /></div>';
-                $str .= '<div id="'.$id.'_filemanager">';
-                $editorurl = new moodle_url("$CFG->wwwroot/repository/filepicker.php", array(
+                $str .= '<input type="hidden" name="'.$elname.'[itemid]" value="'.$draftitemid.'" />';
+
+                // used by non js editor only
+                $editorurl = new moodle_url("$CFG->wwwroot/repository/draftfiles_manager.php", array(
                     'action'=>'browse',
                     'env'=>'editor',
                     'itemid'=>$draftitemid,
                     'subdirs'=>$subdirs,
                     'maxbytes'=>$maxbytes,
+                    'maxfiles'=>$maxfiles,
                     'ctx_id'=>$ctx->id,
-                    'course'=>$PAGE->course->id
+                    'course'=>$PAGE->course->id,
+                    'sesskey'=>sesskey(),
                     ));
-                $str .= html_writer::link($editorurl->out(false), get_string('manageeditorfiles'), array('target'=>'_blank'));
-                //$str .= '<object type="text/html" data="'.$editorurl.'" height="160" width="600" style="border:1px solid #000">Error</object>';
-                $str .= '</div>';
+                $str .= '<noscript>';
+                $str .= "<div><object type='text/html' data='$editorurl' height='160' width='600' style='border:1px solid #000'></object></div>";
+                $str .= '</noscript>';
             }
         }
 

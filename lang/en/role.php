@@ -52,6 +52,7 @@ $string['assignedroles'] = 'Assigned roles';
 $string['assignmentcontext'] = 'Assignment context';
 $string['assignmentoptions'] = 'Assignment options';
 $string['assignrolenameincontext'] = 'Assign role \'{$a->role}\' in {$a->context}';
+$string['assignrole'] = 'Assign role';
 $string['assignroles'] = 'Assign roles';
 $string['assignroles_help'] = 'By assigning a role to a user in a context, you are granting them the permissions contained in that role, for the current context and all lower contexts. For example, if a user is assigned the role of student in a course, they will also have the role of student for all activities and blocks within the course.';
 $string['assignroles_link'] = 'admin/roles/assign';
@@ -102,6 +103,10 @@ $string['confirmaddadmin'] = 'Do you really want to add user <strong>{$a}</stron
 $string['confirmdeladmin'] = 'Do you really want to remove user <strong>{$a}</strong> from the list of site administrators?';
 $string['confirmroleprevent'] = 'Do you really want to remove <strong>{$a->role}</strong> from the list of allowed roles for capability {$a->cap} in context {$a->context}?';
 $string['confirmroleunprohibit'] = 'Do you really want to remove <strong>{$a->role}</strong> from the list of prohibited roles for capability {$a->cap} in context {$a->context}?';
+$string['confirmunassign'] = 'Are you sure you wish to remove this role from this user?';
+$string['confirmunassigntitle'] = 'Confirm role change';
+$string['confirmunassignyes'] = 'Remove';
+$string['confirmunassignno'] = 'Cancel';
 $string['context'] = 'Context';
 $string['course:activityvisibility'] = 'Hide/show activities';
 $string['course:bulkmessaging'] = 'Send a message to many people';
@@ -219,6 +224,7 @@ $string['neededroles'] = 'Roles with permission';
 $string['nocapabilitiesincontext'] = 'No capabilities available in this context';
 $string['noneinthisx'] = 'None in this {$a}';
 $string['noneinthisxmatching'] = 'No users matching \'{$a->search}\' in this {$a->contexttype}';
+$string['noroles'] = 'No roles';
 $string['noroleassignments'] = 'This user does not have any role assignments anywhere in this site.';
 $string['notabletoassignroleshere'] = 'You are not able to assign any roles here';
 $string['notabletooverrideroleshere'] = 'You are not able to override the permissions on any roles here';
@@ -239,7 +245,7 @@ $string['overridesbycontext'] = 'Overrides (by context)';
 $string['permission'] = 'Permission';
 $string['permission_help'] = 'Permissions are capability settings. There are 4 options:
 
-* Inherit - The permission without any override active i.e. the same permission as in a higher (less specific) context
+* Not set
 * Allow - Permission is granted for the capability
 * Prevent - Permission is removed for the capability, even if allowed in a higher context
 * Prohibit - Permission is completely denied  and cannot be overridden at any lower (more specific) context';
@@ -317,8 +323,6 @@ $string['site:config'] = 'Change site configuration';
 $string['site:doanything'] = 'Allowed to do everything';
 $string['site:doclinks'] = 'Show links to offsite docs';
 $string['site:import'] = 'Import other courses into a course';
-$string['site:langeditlocal'] = 'Customize local translation';
-$string['site:langeditmaster'] = 'Edit master language packages';
 $string['site:manageblocks'] = 'Manage blocks on a page';
 $string['site:mnetloginfromremote'] = 'Login from a remote Moodle';
 $string['site:mnetlogintoremote'] = 'Roam to a remote Moodle';
@@ -346,12 +350,14 @@ $string['user:editownmessageprofile'] = 'Edit own user messaging profile';
 $string['user:editownprofile'] = 'Edit own user profile';
 $string['user:editprofile'] = 'Edit user profile';
 $string['user:loginas'] = 'Login as other users';
-$string['user:manageblocks'] = 'Manager blocks on user profile of other users';
-$string['user:manageownblocks'] = 'Manager blocks on own public user profile';
+$string['user:manageblocks'] = 'Manage blocks on user profile of other users';
+$string['user:manageownblocks'] = 'Manage blocks on own public user profile';
+$string['user:manageownfiles'] = 'Manage files on own private file areas';
 $string['user:managesyspages'] = 'Configure default page layout for public user profiles';
 $string['user:readuserblogs'] = 'See all user blogs';
 $string['user:readuserposts'] = 'See all user posts';
 $string['user:update'] = 'Update user profiles';
+$string['user:viewalldetails'] = 'View user full information';
 $string['user:viewdetails'] = 'View user profiles';
 $string['user:viewhiddendetails'] = 'View hidden details of users';
 $string['user:viewuseractivitiesreport'] = 'See user activity reports';

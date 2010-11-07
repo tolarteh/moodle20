@@ -20,10 +20,13 @@
  *
  * This plugin synchronises enrolment and roles with external database table.
  *
- * @package   enrol_database
- * @copyright 2010 Petr Skoda {@link http://skodak.org}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage database
+ * @copyright  2010 Petr Skoda {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Database enrolment plugin implementation.
@@ -50,15 +53,180 @@ class enrol_database_plugin extends enrol_plugin {
     }
 
     /**
-     * Forces synchronisation of user enrolments with external database.
+     * Forces synchronisation of user enrolments with external database,
+     * does not create new courses.
      *
      * @param object $user user record
      * @return void
      */
-    public function sync_user_enrolments($user = NULL) {
+    public function sync_user_enrolments($user) {
+        global $CFG, $DB;
 
-        //TODO: full sync with external system is very expensive, it could cause big perf problems if we did that during each log-in,
-        //      so do the sync only once in a while or rely on cron
+        // we do not create courses here intentionally because it requires full sync and is slow
+        if (!$this->get_config('dbtype') or !$this->get_config('dbhost') or !$this->get_config('remoteenroltable') or !$this->get_config('remotecoursefield') or !$this->get_config('remoteuserfield')) {
+            return;
+        }
+
+        $table            = $this->get_config('remoteenroltable');
+        $coursefield      = strtolower($this->get_config('remotecoursefield'));
+        $userfield        = strtolower($this->get_config('remoteuserfield'));
+        $rolefield        = strtolower($this->get_config('remoterolefield'));
+
+        $localrolefield   = $this->get_config('localrolefield');
+        $localuserfield   = $this->get_config('localuserfield');
+        $localcoursefiled = $this->get_config('localcoursefield');
+
+        $unenrolaction    = $this->get_config('unenrolaction');
+        $defaultrole      = $this->get_config('defaultrole');
+
+        $ignorehidden     = $this->get_config('ignorehiddencourses');
+
+        // create roles mapping
+        $allroles = get_all_roles();
+        if (!isset($allroles[$defaultrole])) {
+            $defaultrole = 0;
+        }
+        $roles = array();
+        foreach ($allroles as $role) {
+            $roles[$role->$localrolefield] = $role->id;
+        }
+
+        $enrols = array();
+        $instances = array();
+
+        $extdb = $this->db_init();
+
+        // read remote enrols and create instances
+        $sql = $this->db_get_sql($table, array($userfield=>$user->$localuserfield), array(), false);
+
+        if ($rs = $extdb->Execute($sql)) {
+            if (!$rs->EOF) {
+                while ($fields = $rs->FetchRow()) {
+                    $fields = $this->db_decode($fields);
+
+                    if (empty($fields[$coursefield])) {
+                        // missing course info
+                        continue;
+                    }
+                    if (!$course = $DB->get_record('course', array($localcoursefiled=>$fields[$coursefield]), 'id,visible')) {
+                        continue;
+                    }
+                    if (!$course->visible and $ignorehidden) {
+                        continue;
+                    }
+
+                    if (empty($fields[$rolefield]) or !isset($roles[$fields[$rolefield]])) {
+                        if (!$defaultrole) {
+                            // role is mandatory
+                            continue;
+                        }
+                        $roleid = $defaultrole;
+                    } else {
+                        $roleid = $roles[$fields[$rolefield]];
+                    }
+
+                    if (empty($enrols[$course->id])) {
+                        $enrols[$course->id] = array();
+                    }
+                    $enrols[$course->id][] = $roleid;
+
+                    if ($instance = $DB->get_record('enrol', array('courseid'=>$course->id, 'enrol'=>'database'), '*', IGNORE_MULTIPLE)) {
+                        $instances[$course->id] = $instance;
+                        continue;
+                    }
+
+                    $enrolid = $this->add_instance($course);
+                    $instances[$course->id] = $DB->get_record('enrol', array('id'=>$enrolid));
+                }
+            }
+            $rs->Close();
+            $extdb->Close();
+        } else {
+            // bad luck, something is wrong with the db connection
+            $extdb->Close();
+            return;
+        }
+
+        // enrol user into courses and sync roles
+        foreach ($enrols as $courseid => $roles) {
+            if (!isset($instances[$courseid])) {
+                // ignored
+                continue;
+            }
+            $instance = $instances[$courseid];
+
+            if ($e = $DB->get_record('user_enrolments', array('userid'=>$user->id, 'enrolid'=>$instance->id))) {
+                // reenable enrolment when previously disable enrolment refreshed
+                if ($e->status == ENROL_USER_SUSPENDED) {
+                    $DB->set_field('user_enrolments', 'status', ENROL_USER_ACTIVE, array('enrolid'=>$instance->id, 'userid'=>$user->id));
+                }
+            } else {
+                $roleid = reset($roles);
+                $this->enrol_user($instance, $user->id, $roleid);
+            }
+
+            if (!$context = get_context_instance(CONTEXT_COURSE, $instance->courseid)) {
+                //weird
+                continue;
+            }
+            $current = $DB->get_records('role_assignments', array('contextid'=>$context->id, 'userid'=>$user->id, 'component'=>'enrol_database', 'itemid'=>$instance->id), '', 'id, roleid');
+
+            $existing = array();
+            foreach ($current as $r) {
+                if (in_array($r->id, $roles)) {
+                    $existing[$r->roleid] = $r->roleid;
+                } else {
+                    role_unassign($r->roleid, $user->id, $context->id, 'enrol_database', $instance->id);
+                }
+            }
+            foreach ($roles as $rid) {
+                if (!isset($existing[$rid])) {
+                    role_assign($rid, $user->id, $context->id, 'enrol_database', $instance->id);
+                }
+            }
+        }
+
+        // unenrol as necessary
+        $sql = "SELECT e.*, c.visible AS cvisible, ue.status AS ustatus
+                  FROM {enrol} e
+                  JOIN {user_enrolments} ue ON ue.enrolid = e.id
+                  JOIN {course} c ON c.id = e.courseid
+                 WHERE ue.userid = :userid AND e.enrol = 'database'";
+        $rs = $DB->get_recordset_sql($sql, array('userid'=>$user->id));
+        foreach ($rs as $instance) {
+            if (!$instance->cvisible and $ignorehidden) {
+                continue;
+            }
+
+            if (!$context = get_context_instance(CONTEXT_COURSE, $instance->courseid)) {
+                //weird
+                continue;
+            }
+
+            if (!empty($enrols[$instance->courseid])) {
+                // we want this user enrolled
+                continue;
+            }
+
+            // deal with enrolments removed from external table
+            if ($unenrolaction == ENROL_EXT_REMOVED_UNENROL) {
+                // unenrol
+                $this->unenrol_user($instance, $user->id);
+
+            } else if ($unenrolaction == ENROL_EXT_REMOVED_KEEP) {
+                // keep - only adding enrolments
+
+            } else if ($unenrolaction == ENROL_EXT_REMOVED_SUSPEND or $unenrolaction == ENROL_EXT_REMOVED_SUSPENDNOROLES) {
+                // disable
+                if ($instance->ustatus != ENROL_USER_SUSPENDED) {
+                    $DB->set_field('user_enrolments', 'status', ENROL_USER_SUSPENDED, array('enrolid'=>$instance->id, 'userid'=>$user->id));
+                }
+                if ($unenrolaction == ENROL_EXT_REMOVED_SUSPENDNOROLES) {
+                    role_unassign_all(array('contextid'=>$context->id, 'userid'=>$user->id, 'component'=>'enrol_database', 'itemid'=>$instance->id));
+                }
+            }
+        }
+        $rs->close();
     }
 
     /**
@@ -76,22 +244,25 @@ class enrol_database_plugin extends enrol_plugin {
 
         // we may need a lot of memory here
         @set_time_limit(0);
-        @raise_memory_limit("512M");
+        raise_memory_limit(MEMORY_HUGE);
 
         $extdb = $this->db_init();
 
         // second step is to sync instances and users
-        $table          = $this->get_config('remoteenroltable');
-        $coursefield    = strtolower($this->get_config('remotecoursefield'));
-        $userfield      = strtolower($this->get_config('remoteuserfield'));
-        $rolefield      = strtolower($this->get_config('remoterolefield'));
-        $localrolefield = $this->get_config('localrolefield');
-        $localuserfield = $this->get_config('localuserfield');
-        $unenrolaction  = $this->get_config('unenrolaction');
+        $table            = $this->get_config('remoteenroltable');
+        $coursefield      = strtolower($this->get_config('remotecoursefield'));
+        $userfield        = strtolower($this->get_config('remoteuserfield'));
+        $rolefield        = strtolower($this->get_config('remoterolefield'));
+
+        $localrolefield   = $this->get_config('localrolefield');
+        $localuserfield   = $this->get_config('localuserfield');
+        $localcoursefiled = $this->get_config('localcoursefield');
+
+        $unenrolaction    = $this->get_config('unenrolaction');
+        $defaultrole      = $this->get_config('defaultrole');
 
         // create roles mapping
         $allroles = get_all_roles();
-        $defaultrole = $this->get_config('defaultrole');
         if (!isset($allroles[$defaultrole])) {
             $defaultrole = 0;
         }
@@ -101,7 +272,6 @@ class enrol_database_plugin extends enrol_plugin {
         }
 
         // first find all existing courses with enrol instance
-        $localcoursefiled = $this->get_config('localcoursefield');
         $sql = "SELECT c.id, c.visible, c.$localcoursefiled AS mapping, e.id AS enrolid
                   FROM {course} c
                   JOIN {enrol} e ON (e.courseid = c.id AND e.enrol = 'database')";
@@ -130,7 +300,7 @@ class enrol_database_plugin extends enrol_plugin {
                     if (!empty($mapping) and !isset($existing[$mapping])) {
                         $params['mapping'] = $mapping;
                         if ($course = $DB->get_record_sql($sql, $params, IGNORE_MULTIPLE)) {
-                            $new = new object();
+                            $new = new stdClass();
                             $new->id      = $course->id;
                             $new->visible = $course->visible;
                             $new->mapping = $mapping;
@@ -255,7 +425,7 @@ class enrol_database_plugin extends enrol_plugin {
             }
 
             // deal with enrolments removed from external table
-            if ($unenrolaction == 0) {
+            if ($unenrolaction == ENROL_EXT_REMOVED_UNENROL) {
                 // unenrol
                 if (!empty($requested_roles)) {
                     // we might get some error or connection problem, better not unenrol everybody
@@ -267,10 +437,10 @@ class enrol_database_plugin extends enrol_plugin {
                     }
                 }
 
-            } else if ($unenrolaction == 1) {
+            } else if ($unenrolaction == ENROL_EXT_REMOVED_KEEP) {
                 // keep - only adding enrolments
 
-            } else if ($unenrolaction == 2) {
+            } else if ($unenrolaction == ENROL_EXT_REMOVED_SUSPEND or $unenrolaction == ENROL_EXT_REMOVED_SUSPENDNOROLES) {
                 // disable
                 foreach ($current_status as $userid=>$status) {
                     if (isset($requested_roles[$userid])) {
@@ -278,6 +448,9 @@ class enrol_database_plugin extends enrol_plugin {
                     }
                     if ($status != ENROL_USER_SUSPENDED) {
                         $DB->set_field('user_enrolments', 'status', ENROL_USER_SUSPENDED, array('enrolid'=>$instance->id, 'userid'=>$userid));
+                    }
+                    if ($unenrolaction == ENROL_EXT_REMOVED_SUSPENDNOROLES) {
+                        role_unassign_all(array('contextid'=>$context->id, 'userid'=>$userid, 'component'=>'enrol_database', 'itemid'=>$instance->id));
                     }
                 }
             }
@@ -304,7 +477,7 @@ class enrol_database_plugin extends enrol_plugin {
 
         // we may need a lot of memory here
         @set_time_limit(0);
-        @raise_memory_limit("512M");
+        raise_memory_limit(MEMORY_HUGE);
 
         $extdb = $this->db_init();
 
@@ -346,7 +519,7 @@ class enrol_database_plugin extends enrol_plugin {
                         // invalid category id, better to skip
                         continue;
                     }
-                    $course = new object();
+                    $course = new stdClass();
                     $course->fullname  = $fields[$fullname];
                     $course->shortname = $fields[$shortname];
                     $course->idnumber  = $idnumber ? $fields[$idnumber] : NULL;
@@ -373,10 +546,10 @@ class enrol_database_plugin extends enrol_plugin {
                     unset($template->shortname);
                     unset($template->idnumber);
                 } else {
-                    $template = new object();
+                    $template = new stdClass();
                 }
             } else {
-                $template = new object();
+                $template = new stdClass();
             }
             if (!$DB->record_exists('course_categories', array('id'=>$defaultcategory))) {
                 $categories = $DB->get_records('course_categories', array(), 'sortorder', 'id', 0, 1);

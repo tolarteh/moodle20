@@ -18,23 +18,28 @@
 /**
  * category enrolment plugin event handler definition.
  *
- * @package   enrol_category
- * @copyright 2010 Petr Skoda {@link http://skodak.org}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage category
+ * @copyright  2010 Petr Skoda {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /* List of handlers */
 $handlers = array (
     'role_assigned' => array (
         'handlerfile'      => '/enrol/category/locallib.php',
         'handlerfunction'  => array('enrol_category_handler', 'role_assigned'),
-        'schedule'         => 'instant'
+        'schedule'         => 'instant',
+        'internal'         => 1,
     ),
 
     'role_unassigned' => array (
         'handlerfile'      => '/enrol/category/locallib.php',
         'handlerfunction'  => array('enrol_category_handler', 'role_unassigned'),
-        'schedule'         => 'instant'
+        'schedule'         => 'instant',
+        'internal'         => 1,
     ),
 
 );

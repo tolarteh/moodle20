@@ -171,7 +171,7 @@ if (!empty($delete) and confirm_sesskey()) {
 /// Create a default category if necessary
 if (!$categories = get_categories()) {    /// No category yet!
     // Try and make one
-    $tempcat = new object();
+    $tempcat = new stdClass();
     $tempcat->name = get_string('miscellaneous');
     $tempcat->id = $DB->insert_record('course_categories', $tempcat);
     $tempcat->context = get_context_instance(CONTEXT_COURSECAT, $tempcat->id);
@@ -267,6 +267,7 @@ echo '<div class="buttons">';
 if (has_capability('moodle/course:create', $systemcontext)) {
     // print create course link to first category
     $options = array('category' => $CFG->defaultrequestcategory);
+    $options['returnto'] = 'topcat';
     echo $OUTPUT->single_button(new moodle_url('edit.php', $options), get_string('addnewcourse'), 'get');
 }
 
@@ -298,7 +299,7 @@ function print_category_edit($category, $displaylist, $parentslist, $depth=-1, $
         $str->hide     = get_string('hide');
         $str->show     = get_string('show');
         $str->cohorts  = get_string('cohorts', 'cohort');
-        $str->spacer = '<img src="'.$CFG->wwwroot.'/pix/spacer.gif" class="iconsmall" alt="" /> ';
+        $str->spacer = $OUTPUT->spacer().' ';
     }
 
     if (!empty($category)) {

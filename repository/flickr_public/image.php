@@ -18,8 +18,10 @@
 /**
  * moodle_image class
  *
- * @author Dongsheng Cai <dongsheng@moodle.com>
- * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
+ * @package    repository
+ * @subpackage flickr_public
+ * @author     Dongsheng Cai <dongsheng@moodle.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU Public License
  */
 class moodle_image {
     private $imagepath;
@@ -30,6 +32,7 @@ class moodle_image {
     private $backup;
 
     function __construct($img) {
+        ini_set('gd.jpeg_ignore_warning', 1);
         if(!function_exists('imagecreatefrompng')
             and !function_exists('imagecreatefromjpeg')) {
             throw new moodle_exception('gdnotexist');

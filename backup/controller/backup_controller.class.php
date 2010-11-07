@@ -51,6 +51,7 @@ class backup_controller extends backup implements loggable {
     protected $interactive; // yes/no
     protected $mode;   // Purpose of the backup (default settings)
     protected $userid; // user id executing the backup
+    protected $operation; // Type of operation (backup/restore)
 
     protected $status; // Current status of the controller (created, planned, configured...)
 
@@ -64,6 +65,16 @@ class backup_controller extends backup implements loggable {
 
     protected $checksum; // Cache @checksumable results for lighter @is_checksum_correct() uses
 
+    /**
+     * Constructor for the backup controller class.
+     *
+     * @param int $type Type of the backup; One of backup::TYPE_1COURSE, TYPE_1SECTION, TYPE_1ACTIVITY
+     * @param int $id The ID of the item to backup; e.g the course id
+     * @param int $format The backup format to use; Most likely backup::FORMAT_MOODLE
+     * @param bool $interactive Whether this backup will require user interaction; backup::INTERACTIVE_YES or INTERACTIVE_NO
+     * @param int $mode One of backup::MODE_GENERAL, MODE_IMPORT, MODE_SAMESITE, MODE_HUB
+     * @param int $userid The id of the user making the backup
+     */
     public function __construct($type, $id, $format, $interactive, $mode, $userid){
         $this->type = $type;
         $this->id   = $id;
@@ -75,6 +86,7 @@ class backup_controller extends backup implements loggable {
 
         // Apply some defaults
         $this->execution = backup::EXECUTION_INMEDIATE;
+        $this->operation = backup::OPERATION_BACKUP;
         $this->executiontime = 0;
         $this->checksum = '';
 
@@ -145,6 +157,8 @@ class backup_controller extends backup implements loggable {
         // TODO: Check it's a correct status
         $this->status = $status;
         // Ensure that, once set to backup::STATUS_AWAITING, controller is stored in DB
+        // Note: never save_controller() after STATUS_EXECUTING or the whole controller,
+        // containing all the steps will be sent to DB. 100% (monster) useless.
         if ($status == backup::STATUS_AWAITING) {
             $this->save_controller();
             $this->logger = self::load_controller($this->backupid)->logger; // wakeup loggers
@@ -179,6 +193,7 @@ class backup_controller extends backup implements loggable {
                             'interactive-'. $this->interactive .
                             'mode-'       . $this->mode .
                             'userid-'     . $this->userid .
+                            'operation-'  . $this->operation .
                             'status-'     . $this->status .
                             'execution-'  . $this->execution .
                             'plan-'       . backup_general_helper::array_checksum_recursive(array($this->plan)) .
@@ -198,6 +213,10 @@ class backup_controller extends backup implements loggable {
 
     public function get_type() {
         return $this->type;
+    }
+
+    public function get_operation() {
+        return $this->operation;
     }
 
     public function get_id() {
@@ -247,6 +266,10 @@ class backup_controller extends backup implements loggable {
         return $this->logger;
     }
 
+    /**
+     * Executes the backup
+     * @return void Throws and exception of completes
+     */
     public function execute_plan() {
         return $this->plan->execute();
     }
@@ -257,17 +280,6 @@ class backup_controller extends backup implements loggable {
 
     public function log($message, $level, $a = null, $depth = null, $display = false) {
         backup_helper::log($message, $level, $a, $depth, $display, $this->logger);
-    }
-
-
-// Protected API starts here
-
-    protected function calculate_backupid() {
-        // Current epoch time + type + id + format + interactive + mode + userid
-        // should be unique enough. Add one random part at the end
-        $this->backupid = md5(time() . '-' . $this->type . '-' . $this->id . '-' . $this->format . '-' .
-                              $this->interactive . '-' . $this->mode . '-' . $this->userid . '-' .
-                              random_string(20));
     }
 
     public function save_controller() {
@@ -284,6 +296,16 @@ class backup_controller extends backup implements loggable {
         $controller = backup_controller_dbops::load_controller($backupid);
         $controller->log('loading controller from db', backup::LOG_DEBUG);
         return $controller;
+    }
+
+// Protected API starts here
+
+    protected function calculate_backupid() {
+        // Current epoch time + type + id + format + interactive + mode + userid + operation
+        // should be unique enough. Add one random part at the end
+        $this->backupid = md5(time() . '-' . $this->type . '-' . $this->id . '-' . $this->format . '-' .
+                              $this->interactive . '-' . $this->mode . '-' . $this->userid . '-' .
+                              $this->operation . '-' . random_string(20));
     }
 
     protected function load_plan() {

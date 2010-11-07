@@ -18,21 +18,24 @@
 /**
  * Strings for component 'imscp', language 'en', branch 'MOODLE_20_STABLE'
  *
- * @package   imscp
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage imscp
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 $string['areabackup'] = 'Package archive';
 $string['areacontent'] = 'Content';
 $string['contentheader'] = 'Content';
 $string['deploymenterror'] = 'Content package error!';
-$string['imscpadministration'] = 'IMSCP Administration';
 $string['keepold'] = 'Archive packages';
 $string['keepoldexplain'] = 'How many packages should be archived?';
+$string['imscp:view'] = 'View IMS Content';
 $string['modulename'] = 'IMS content package';
 $string['modulename_help'] = 'An IMS content package allows for packages created according to the IMS Content Packaging specification to be displayed in the course.';
 $string['modulenameplural'] = 'IMS content packages';
 $string['navigation'] = 'Navigation';
 $string['packagefile'] = 'Package file';
+$string['pluginadministration'] = 'IMSCP administration';
+$string['pluginname'] = 'IMS content package';
 $string['toc'] = 'TOC';

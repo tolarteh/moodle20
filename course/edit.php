@@ -29,6 +29,7 @@ require_once('edit_form.php');
 
 $id         = optional_param('id', 0, PARAM_INT);       // course id
 $categoryid = optional_param('category', 0, PARAM_INT); // course category - can be changed in edit form
+$returnto = optional_param('returnto', 0, PARAM_ALPHANUM); // generic navigation return page switch
 
 $PAGE->set_pagelayout('admin');
 $PAGE->set_url('/course/edit.php');
@@ -41,7 +42,7 @@ if ($id) { // editing course
     }
 
     $course = $DB->get_record('course', array('id'=>$id), '*', MUST_EXIST);
-    require_login($course->id);
+    require_login($course);
     $category = $DB->get_record('course_categories', array('id'=>$course->category), '*', MUST_EXIST);
     $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
     require_capability('moodle/course:update', $coursecontext);
@@ -51,8 +52,10 @@ if ($id) { // editing course
     $course = null;
     require_login();
     $category = $DB->get_record('course_categories', array('id'=>$categoryid), '*', MUST_EXIST);
-    require_capability('moodle/course:create', get_context_instance(CONTEXT_COURSECAT, $category->id));
+    $catcontext = get_context_instance(CONTEXT_COURSECAT, $category->id);
+    require_capability('moodle/course:create', $catcontext);
     $PAGE->url->param('category',$categoryid);
+    $PAGE->set_context($catcontext);
 
 } else {
     require_login();
@@ -74,21 +77,31 @@ if (!empty($course)) {
         }
     }
     $course->allowedmods = $allowedmods;
-    $course = file_prepare_standard_editor($course, 'summary', $editoroptions, $coursecontext, 'course_summary', 0);
+    $course = file_prepare_standard_editor($course, 'summary', $editoroptions, $coursecontext, 'course', 'summary', 0);
 
 } else {
-    $course = file_prepare_standard_editor($course, 'summary', $editoroptions, null, 'course_summary', null);
+    $course = file_prepare_standard_editor($course, 'summary', $editoroptions, null, 'course', 'summary', null);
 }
 
 // first create the form
-$editform = new course_edit_form(NULL, array('course'=>$course, 'category'=>$category, 'editoroptions'=>$editoroptions));
-
+$editform = new course_edit_form(NULL, array('course'=>$course, 'category'=>$category, 'editoroptions'=>$editoroptions, 'returnto'=>$returnto));
 if ($editform->is_cancelled()) {
-    if (empty($course)) {
-        redirect($CFG->wwwroot.'/');
-    } else {
-        redirect($CFG->wwwroot.'/course/view.php?id='.$course->id);
-    }
+        switch ($returnto) {
+            case 'category':
+                $url = new moodle_url($CFG->wwwroot.'/course/category.php', array('id'=>$categoryid));
+                break;
+            case 'topcat':
+                $url = new moodle_url($CFG->wwwroot.'/course/');
+                break;
+            default:
+                if (!empty($course->id)) {
+                    $url = new moodle_url($CFG->wwwroot.'/course/view.php', array('id'=>$course->id));
+                } else {
+                    $url = new moodle_url($CFG->wwwroot.'/course/');
+                }
+                break;
+        }
+        redirect($url);
 
 } else if ($data = $editform->get_data()) {
     // process data if submitted
@@ -100,28 +113,38 @@ if ($editform->is_cancelled()) {
         // Get the context of the newly created course
         $context = get_context_instance(CONTEXT_COURSE, $course->id, MUST_EXIST);
 
-        // try to deal with course creators - enrol them internally with default role
         if (!empty($CFG->creatornewroleid) and !is_viewing($context, NULL, 'moodle/role:assign') and !is_enrolled($context, NULL, 'moodle/role:assign')) {
+            // deal with course creators - enrol them internally with default role
             enrol_try_internal_enrol($course->id, $USER->id, $CFG->creatornewroleid);
-        }
 
-        // Redirect to manual enrolment page if possible
-        $instances = enrol_get_instances($course->id, true);
-        foreach($instances as $instance) {
-            if ($plugin = enrol_get_plugin($instance->enrol)) {
-                if ($link = $plugin->get_manual_enrol_link($instance)) {
-                    redirect($link);
+        }
+        if (!is_enrolled($context)) {
+            // Redirect to manual enrolment page if possible
+            $instances = enrol_get_instances($course->id, true);
+            foreach($instances as $instance) {
+                if ($plugin = enrol_get_plugin($instance->enrol)) {
+                    if ($plugin->get_manual_enrol_link($instance)) {
+                        // we know that the ajax enrol UI will have an option to enrol
+                        redirect(new moodle_url('/enrol/users.php', array('id'=>$course->id)));
+                    }
                 }
             }
         }
-
-        redirect($CFG->wwwroot."/course/view.php?id=$course->id");
-
     } else {
         // Save any changes to the files used in the editor
         update_course($data, $editoroptions);
-        redirect($CFG->wwwroot."/course/view.php?id=$course->id");
     }
+
+    switch ($returnto) {
+        case 'category':
+        case 'topcat': //redirecting to where the new course was created by default.
+            $url = new moodle_url($CFG->wwwroot.'/course/category.php', array('id'=>$categoryid));
+            break;
+        default:
+            $url = new moodle_url($CFG->wwwroot.'/course/view.php', array('id'=>$course->id));
+            break;
+    }
+    redirect($url);
 }
 
 
@@ -148,7 +171,6 @@ if (!empty($course->id)) {
 
 $PAGE->set_title($title);
 $PAGE->set_heading($fullname);
-$PAGE->set_focuscontrol($editform->focus());
 
 echo $OUTPUT->header();
 echo $OUTPUT->heading($streditcoursesettings);

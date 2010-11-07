@@ -103,13 +103,18 @@ abstract class backup_structure_dbops extends backup_dbops {
         }
     }
 
-    public static function annotate_files($backupid, $contextid, $filearea, $itemid) {
+    public static function annotate_files($backupid, $contextid, $component, $filearea, $itemid) {
         global $DB;
         $sql = 'SELECT id
                   FROM {files}
                  WHERE contextid = ?
-                   AND filearea = ?';
-        $params = array($contextid, $filearea);
+                   AND component = ?';
+        $params = array($contextid, $component);
+
+        if (!is_null($filearea)) { // Add filearea to query and params if necessary
+            $sql .= ' AND filearea = ?';
+            $params[] = $filearea;
+        }
 
         if (!is_null($itemid)) { // Add itemid to query and params if necessary
             $sql .= ' AND itemid = ?';
@@ -138,7 +143,7 @@ abstract class backup_structure_dbops extends backup_dbops {
             }
         }
         $rs->close();
-        // All the remaining 'user' annotations can be safely deleted
+        // All the remaining $itemname annotations can be safely deleted
         $DB->delete_records('backup_ids_temp', array('backupid' => $backupid, 'itemname' => $itemname));
     }
 

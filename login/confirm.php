@@ -1,13 +1,38 @@
 <?php
 
-require_once("../config.php");
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-$data = optional_param('data', '', PARAM_CLEAN);  // Formatted as:  secret/username
+/**
+ * Confirm self registered user.
+ *
+ * @package    core
+ * @subpackage auth
+ * @copyright  1999 Martin Dougiamas  http://dougiamas.com
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
-$p = optional_param('p', '', PARAM_ALPHANUM);     // Old parameter:  secret
-$s = optional_param('s', '', PARAM_CLEAN);        // Old parameter:  username
+require('../config.php');
+
+$data = optional_param('data', '', PARAM_RAW);  // Formatted as:  secret/username
+
+$p = optional_param('p', '', PARAM_ALPHANUM);   // Old parameter:  secret
+$s = optional_param('s', '', PARAM_RAW);        // Old parameter:  username
 
 $PAGE->set_url('/login/confirm.php');
+$PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
 
 if (empty($CFG->registerauth)) {
     print_error('cannotusepage2');
@@ -21,7 +46,7 @@ if (!$authplugin->can_confirm()) {
 if (!empty($data) || (!empty($p) && !empty($s))) {
 
     if (!empty($data)) {
-        $dataelements = explode('/',$data, 2); // Stop after 1st slash. Rest is username. MDL-7647
+        $dataelements = explode('/', $data, 2); // Stop after 1st slash. Rest is username. MDL-7647
         $usersecret = $dataelements[0];
         $username   = $dataelements[1];
     } else {
@@ -50,7 +75,7 @@ if (!empty($data) || (!empty($p) && !empty($s))) {
         // The user has confirmed successfully, let's log them in
 
         if (!$user = get_complete_user_data('username', $username)) {
-            print_error('cannotfinduser', '', '', $username);
+            print_error('cannotfinduser', '', '', s($username));
         }
 
         complete_user_login($user);

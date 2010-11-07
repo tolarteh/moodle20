@@ -39,8 +39,8 @@ require_login($course);
 $context = get_context_instance(CONTEXT_COURSE, $course->id);
 require_capability('moodle/course:update', $context);
 
-$editoroptions = array('maxfiles' => EDITOR_UNLIMITED_FILES, 'maxbytes'=>$CFG->maxbytes, 'trusttext'=>false, 'noclean'=>true);
-$section = file_prepare_standard_editor($section, 'summary', $editoroptions, $context, 'course_section', $section->id);
+$editoroptions = array('context'=>$context ,'maxfiles' => EDITOR_UNLIMITED_FILES, 'maxbytes'=>$CFG->maxbytes, 'trusttext'=>false, 'noclean'=>true);
+$section = file_prepare_standard_editor($section, 'summary', $editoroptions, $context, 'course', 'section', $section->id);
 $section->usedefaultname = (is_null($section->name));
 $mform = new editsection_form(null, array('course'=>$course, 'editoroptions'=>$editoroptions));
 $mform->set_data($section); // set current value
@@ -55,11 +55,12 @@ if ($mform->is_cancelled()){
     } else {
         $section->name = null;
     }
-    $data = file_postupdate_standard_editor($data, 'summary', $editoroptions, $context, 'course_section', $section->id);
+    $data = file_postupdate_standard_editor($data, 'summary', $editoroptions, $context, 'course', 'section', $section->id);
     $section->summary = $data->summary;
     $section->summaryformat = $data->summaryformat;
     $DB->update_record('course_sections', $section);
     add_to_log($course->id, "course", "editsection", "editsection.php?id=$section->id", "$section->section");
+    $PAGE->navigation->clear_cache();
     redirect("view.php?id=$course->id");
 }
 
@@ -72,7 +73,7 @@ $PAGE->set_heading($course->fullname);
 $PAGE->navbar->add($stredit);
 echo $OUTPUT->header();
 
-echo $OUTPUT->heading_with_help($strsummaryof, 'summaries');
+echo $OUTPUT->heading($strsummaryof);
 
 $mform->display();
 echo $OUTPUT->footer();

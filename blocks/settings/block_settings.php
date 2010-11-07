@@ -50,7 +50,6 @@ class block_settings extends block_base {
     function init() {
         $this->blockname = get_class($this);
         $this->title = get_string('pluginname', $this->blockname);
-        $this->version = 2009082800;
     }
 
     /**
@@ -58,6 +57,16 @@ class block_settings extends block_base {
      * @return bool Returns true
      */
     function instance_allow_multiple() {
+        return false;
+    }
+
+    /**
+     * The settings block cannot be hidden by default as it is integral to
+     * the navigation of Moodle.
+     *
+     * @return false
+     */
+    function  instance_can_be_hidden() {
         return false;
     }
 
@@ -139,13 +148,5 @@ class block_settings extends block_base {
 
         $this->contentgenerated = true;
         return true;
-    }
-
-    function html_attributes() {
-        $attributes = parent::html_attributes();
-        if (!empty($this->config->enablehoverexpansion) && $this->config->enablehoverexpansion == 'yes') {
-            $attributes['class'] .= ' block_js_expansion';
-        }
-        return $attributes;
     }
 }

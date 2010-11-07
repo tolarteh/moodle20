@@ -18,12 +18,13 @@
 /**
  * Support for external API
  *
- * @package    moodlecore
+ * @package    core
  * @subpackage webservice
  * @copyright  2009 Moodle Pty Ltd (http://moodle.com)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Returns detailed function information
@@ -166,15 +167,13 @@ class external_api {
                     if ($subdesc->required == VALUE_REQUIRED) {
                         throw new invalid_parameter_exception(get_string('errormissingkey', 'webservice', $key));
                     }
-                    if ($subdesc instanceof external_value) {
-                            if ($subdesc->required == VALUE_DEFAULT) {
-                                try {
-                                    $result[$key] = self::validate_parameters($subdesc, $subdesc->default);
-                                } catch (invalid_parameter_exception $e) {
-                                    throw new webservice_parameter_exception('invalidextparam',$key);
-                                }
-                            }
+                    if ($subdesc->required == VALUE_DEFAULT) {
+                        try {
+                            $result[$key] = self::validate_parameters($subdesc, $subdesc->default);
+                        } catch (invalid_parameter_exception $e) {
+                            throw new webservice_parameter_exception('invalidextparam',$key);
                         }
+                    }
                 } else {
                     try {
                         $result[$key] = self::validate_parameters($subdesc, $params[$key]);
@@ -237,21 +236,21 @@ class external_api {
             foreach ($description->keys as $key=>$subdesc) {
                 if (!array_key_exists($key, $response)) {
                     if ($subdesc->required == VALUE_REQUIRED) {
-                        throw new invalid_response_exception(get_string('errormissingkey', 'webservice', $key));
+                        throw new webservice_parameter_exception('errorresponsemissingkey', $key);
                     }
                     if ($subdesc instanceof external_value) {
-                            if ($subdesc->required == VALUE_DEFAULT) {
-                                try {
+                        if ($subdesc->required == VALUE_DEFAULT) {
+                            try {
                                     $result[$key] = self::clean_returnvalue($subdesc, $subdesc->default);
-                                } catch (invalid_response_exception $e) {
-                                    throw new webservice_parameter_exception('invalidextresponse',$key);
-                                }
+                            } catch (Exception $e) {
+                                    throw new webservice_parameter_exception('invalidextresponse',$key." (".$e->debuginfo.")");
                             }
                         }
+                    }
                 } else {
                     try {
                         $result[$key] = self::clean_returnvalue($subdesc, $response[$key]);
-                    } catch (invalid_response_exception $e) {
+                    } catch (Exception $e) {
                         //it's ok to display debug info as here the information is useful for ws client/dev
                         throw new webservice_parameter_exception('invalidextresponse',$key." (".$e->debuginfo.")");
                     }
@@ -320,15 +319,19 @@ abstract class external_description {
     public $desc;
     /** @property bool $required element value required, null not allowed */
     public $required;
+    /** @property mixed $default default value */
+    public $default;
 
     /**
      * Contructor
      * @param string $desc
      * @param bool $required
+     * @param mixed $default
      */
-    public function __construct($desc, $required) {
+    public function __construct($desc, $required, $default) {
         $this->desc = $desc;
         $this->required = $required;
+        $this->default = $default;
     }
 }
 
@@ -338,8 +341,6 @@ abstract class external_description {
 class external_value extends external_description {
     /** @property mixed $type value type PARAM_XX */
     public $type;
-    /** @property mixed $default default value */
-    public $default;
     /** @property bool $allownull allow null values */
     public $allownull;
 
@@ -351,10 +352,10 @@ class external_value extends external_description {
      * @param mixed $default
      * @param bool $allownull
      */
-    public function __construct($type, $desc='', $required=VALUE_REQUIRED, $default=null, $allownull=NULL_ALLOWED) {
-        parent::__construct($desc, $required);
+    public function __construct($type, $desc='', $required=VALUE_REQUIRED,
+            $default=null, $allownull=NULL_ALLOWED) {
+        parent::__construct($desc, $required, $default);
         $this->type      = $type;
-        $this->default   = $default;
         $this->allownull = $allownull;
     }
 }
@@ -371,9 +372,11 @@ class external_single_structure extends external_description {
      * @param array $keys
      * @param string $desc
      * @param bool $required
+     * @param array $default
      */
-    public function __construct(array $keys, $desc='', $required=VALUE_REQUIRED) {
-        parent::__construct($desc, $required);
+    public function __construct(array $keys, $desc='',
+            $required=VALUE_REQUIRED, $default=null) {
+        parent::__construct($desc, $required, $default);
         $this->keys = $keys;
     }
 }
@@ -390,9 +393,11 @@ class external_multiple_structure extends external_description {
      * @param external_description $content
      * @param string $desc
      * @param bool $required
+     * @param array $default
      */
-    public function __construct(external_description $content, $desc='', $required=VALUE_REQUIRED) {
-        parent::__construct($desc, $required);
+    public function __construct(external_description $content, $desc='',
+            $required=VALUE_REQUIRED, $default=null) {
+        parent::__construct($desc, $required, $default);
         $this->content = $content;
     }
 }
@@ -416,7 +421,7 @@ function external_generate_token($tokentype, $serviceorid, $userid, $contextorid
             throw new moodle_exception('tokengenerationfailed');
         }
     } while ($DB->record_exists('external_tokens', array('token'=>$generatedtoken)));
-    $newtoken = new object();
+    $newtoken = new stdClass();
     $newtoken->token = $generatedtoken;
     if (!is_object($serviceorid)){
         $service = $DB->get_record('external_services', array('id' => $serviceorid));

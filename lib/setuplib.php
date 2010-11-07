@@ -21,31 +21,48 @@
  * setup process, before any of the main libraries are
  * loaded.
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /// Debug levels ///
 /** no warnings at all */
-define ('DEBUG_NONE', 0);
+define('DEBUG_NONE', 0);
 /** E_ERROR | E_PARSE */
-define ('DEBUG_MINIMAL', 5);
+define('DEBUG_MINIMAL', 5);
 /** E_ERROR | E_PARSE | E_WARNING | E_NOTICE */
-define ('DEBUG_NORMAL', 15);
+define('DEBUG_NORMAL', 15);
 /** E_ALL without E_STRICT for now, do show recoverable fatal errors */
-define ('DEBUG_ALL', 6143);
+define('DEBUG_ALL', 6143);
 /** DEBUG_ALL with extra Moodle debug messages - (DEBUG_ALL | 32768) */
-define ('DEBUG_DEVELOPER', 38911);
+define('DEBUG_DEVELOPER', 38911);
+
+/** Remove any memory limits */
+define('MEMORY_UNLIMITED', -1);
+/** Standard memory limit for given platform */
+define('MEMORY_STANDARD', -2);
+/**
+ * Large memory limit for given platform - used in cron, upgrade, and other places that need a lot of memory.
+ * Can be overridden with $CFG->extramemorylimit setting.
+ */
+define('MEMORY_EXTRA', -3);
+/** Extremely large memory limit - not recommended for standard scripts */
+define('MEMORY_HUGE', -4);
 
 /**
  * Simple class. It is usually used instead of stdClass because it looks
  * more familiar to Java developers ;-) Do not use for type checking of
- * function parameters.
+ * function parameters. Please use stdClass instead.
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @deprecated since 2.0
  */
 class object extends stdClass {};
 
@@ -55,9 +72,10 @@ class object extends stdClass {};
  * Although this class is defined here, you cannot throw a moodle_exception until
  * after moodlelib.php has been included (which will happen very soon).
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  2008 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class moodle_exception extends Exception {
     public $errorcode;
@@ -99,6 +117,11 @@ class moodle_exception extends Exception {
  * Course/activity access exception.
  *
  * This exception is thrown from require_login()
+ *
+ * @package    core
+ * @subpackage lib
+ * @copyright  2010 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class require_login_exception extends moodle_exception {
     function __construct($debuginfo) {
@@ -126,11 +149,23 @@ class webservice_parameter_exception extends moodle_exception {
 /**
  * Exceptions indicating user does not have permissions to do something
  * and the execution can not continue.
+ *
+ * @package    core
+ * @subpackage lib
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class required_capability_exception extends moodle_exception {
     function __construct($context, $capability, $errormessage, $stringfile) {
         $capabilityname = get_capability_string($capability);
-        parent::__construct($errormessage, $stringfile, get_context_url($context), $capabilityname);
+        if ($context->contextlevel == CONTEXT_MODULE and preg_match('/:view$/', $capability)) {
+            // we can not go to mod/xx/view.php because we most probably do not have cap to view it, let's go to course instead
+            $paranetcontext = get_context_instance_by_id(get_parent_contextid($context));
+            $link = get_context_url($paranetcontext);
+        } else {
+            $link = get_context_url($context);
+        }
+        parent::__construct($errormessage, $stringfile, $link, $capabilityname);
     }
 }
 
@@ -138,9 +173,10 @@ class required_capability_exception extends moodle_exception {
  * Exception indicating programming error, must be fixed by a programer. For example
  * a core API might throw this type of exception if a plugin calls it incorrectly.
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  2008 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class coding_exception extends moodle_exception {
     /**
@@ -158,6 +194,11 @@ class coding_exception extends moodle_exception {
  * This exception is not supposed to be thrown when processing
  * user submitted data in forms. It is more suitable
  * for WS and other low level stuff.
+ *
+ * @package    core
+ * @subpackage lib
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class invalid_parameter_exception extends moodle_exception {
     /**
@@ -192,9 +233,10 @@ class invalid_response_exception extends moodle_exception {
  * default case, to just in case something really weird is going on, and
  * $context->contextlevel is invalid - rather than ignoring this possibility.
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  2009 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class invalid_state_exception extends moodle_exception {
     /**
@@ -204,6 +246,24 @@ class invalid_state_exception extends moodle_exception {
      */
     function __construct($hint, $debuginfo=null) {
         parent::__construct('invalidstatedetected', 'debug', '', $hint, $debuginfo);
+    }
+}
+
+/**
+ * An exception that indicates incorrect permissions in $CFG->dataroot
+ *
+ * @package    core
+ * @subpackage lib
+ * @copyright  2010 Petr Skoda {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class invalid_dataroot_permissions extends moodle_exception {
+    /**
+     * Constructor
+     * @param string $debuginfo optional more detailed information
+     */
+    function __construct($debuginfo = NULL) {
+        parent::__construct('invaliddatarootpermissions', 'error', '', NULL, $debuginfo);
     }
 }
 
@@ -251,6 +311,23 @@ function default_exception_handler($ex) {
     }
 
     exit(1); // General error code
+}
+
+/**
+ * Default error handler, prevents some white screens.
+ * @param int $errno
+ * @param string $errstr
+ * @param string $errfile
+ * @param int $errline
+ * @param array $errcontext
+ * @return bool false means use default error handler
+ */
+function default_error_handler($errno, $errstr, $errfile, $errline, $errcontext) {
+    if ($errno == 4096) {
+        //fatal catchable error
+        throw new coding_exception('PHP catchable fatal error', $errstr);
+    }
+    return false;
 }
 
 /**
@@ -394,7 +471,7 @@ function get_exception_info($ex) {
         }
     }
 
-    $info = new object();
+    $info = new stdClass();
     $info->message     = $message;
     $info->errorcode   = $errorcode;
     $info->backtrace   = $backtrace;
@@ -525,9 +602,14 @@ function initialise_fullme() {
     // $CFG->sslproxy specifies if external SSL appliance is used
     // (That is, the Moodle server uses http, with an external box translating everything to https).
     if (empty($CFG->sslproxy)) {
-        if ($rurl['scheme'] == 'http' and $wwwroot['scheme'] == 'https') {
+        if ($rurl['scheme'] === 'http' and $wwwroot['scheme'] === 'https') {
             print_error('sslonlyaccess', 'error');
         }
+    } else {
+        if ($wwwroot['scheme'] !== 'https') {
+            throw new coding_exception('Must use https address in wwwroot when ssl proxy enabled!');
+        }
+        $rurl['scheme'] = 'https'; // make moodle believe it runs on https, squid or something else it doing it
     }
 
     // $CFG->reverseproxy specifies if reverse proxy server used.
@@ -537,7 +619,9 @@ function initialise_fullme() {
         if (($rurl['host'] != $wwwroot['host']) or
                 (!empty($wwwroot['port']) and $rurl['port'] != $wwwroot['port'])) {
             // Explain the problem and redirect them to the right URL
-            define('NO_MOODLE_COOKIES', true);
+            if (!defined('NO_MOODLE_COOKIES')) {
+                define('NO_MOODLE_COOKIES', true);
+            }
             redirect($CFG->wwwroot, get_string('wwwrootmismatch', 'error', $CFG->wwwroot), 3);
         }
     }
@@ -598,17 +682,7 @@ function setup_get_remote_url() {
     if (stripos($_SERVER['SERVER_SOFTWARE'], 'apache') !== false) {
         //Apache server
         $rurl['scheme']   = empty($_SERVER['HTTPS']) ? 'http' : 'https';
-        $rurl['fullpath'] = $_SERVER['REQUEST_URI']; // TODO: verify this is always properly encoded
-
-    } else if (stripos($_SERVER['SERVER_SOFTWARE'], 'lighttpd') !== false) {
-        //lighttpd - not officially supported
-        $rurl['scheme']   = empty($_SERVER['HTTPS']) ? 'http' : 'https';
-        $rurl['fullpath'] = $_SERVER['REQUEST_URI']; // TODO: verify this is always properly encoded
-
-    } else if (stripos($_SERVER['SERVER_SOFTWARE'], 'nginx') !== false) {
-        //nginx - not officially supported
-        $rurl['scheme']   = empty($_SERVER['HTTPS']) ? 'http' : 'https';
-        $rurl['fullpath'] = $_SERVER['REQUEST_URI']; // TODO: verify this is always properly encoded
+        $rurl['fullpath'] = $_SERVER['REQUEST_URI'];
 
     } else if (stripos($_SERVER['SERVER_SOFTWARE'], 'iis') !== false) {
         //IIS - needs a lot of tweaking to make it work
@@ -624,6 +698,18 @@ function setup_get_remote_url() {
         }
         $_SERVER['REQUEST_URI'] = $rurl['fullpath']; // extra IIS compatibility
 
+/* NOTE: following servers are not fully tested! */
+
+    } else if (stripos($_SERVER['SERVER_SOFTWARE'], 'lighttpd') !== false) {
+        //lighttpd - not officially supported
+        $rurl['scheme']   = empty($_SERVER['HTTPS']) ? 'http' : 'https';
+        $rurl['fullpath'] = $_SERVER['REQUEST_URI']; // TODO: verify this is always properly encoded
+
+    } else if (stripos($_SERVER['SERVER_SOFTWARE'], 'nginx') !== false) {
+        //nginx - not officially supported
+        $rurl['scheme']   = empty($_SERVER['HTTPS']) ? 'http' : 'https';
+        $rurl['fullpath'] = $_SERVER['REQUEST_URI']; // TODO: verify this is always properly encoded
+
      } else if (stripos($_SERVER['SERVER_SOFTWARE'], 'cherokee') !== false) {
          //cherokee - not officially supported
          $rurl['scheme']   = ($_SERVER['HTTPS'] == 'off') ? 'http' : 'https';
@@ -633,6 +719,11 @@ function setup_get_remote_url() {
          //zeus - not officially supported
          $rurl['scheme']   = ($_SERVER['HTTPS'] == 'off') ? 'http' : 'https';
          $rurl['fullpath'] = $_SERVER['REQUEST_URI']; // TODO: verify this is always properly encoded
+
+    } else if (stripos($_SERVER['SERVER_SOFTWARE'], 'LiteSpeed') !== false) {
+        //LiteSpeed - not officially supported
+        $rurl['scheme']   = ($_SERVER['HTTPS'] == 'off') ? 'http' : 'https';
+        $rurl['fullpath'] = $_SERVER['REQUEST_URI']; // TODO: verify this is always properly encoded
 
      } else {
         throw new moodle_exception('unsupportedwebserver', 'error', '', $_SERVER['SERVER_SOFTWARE']);
@@ -653,7 +744,7 @@ function init_performance_info() {
 
     global $PERF, $CFG, $USER;
 
-    $PERF = new object();
+    $PERF = new stdClass();
     $PERF->logwrites = 0;
     if (function_exists('microtime')) {
         $PERF->starttime = microtime();
@@ -694,16 +785,51 @@ function during_initial_install() {
  * Function to raise the memory limit to a new value.
  * Will respect the memory limit if it is higher, thus allowing
  * settings in php.ini, apache conf or command line switches
- * to override it
+ * to override it.
  *
- * The memory limit should be expressed with a string (eg:'64M')
+ * The memory limit should be expressed with a constant
+ * MEMORY_STANDARD, MEMORY_EXTRA or MEMORY_HUGE.
+ * It is possible to use strings or integers too (eg:'128M').
  *
- * @param string $newlimit the new memory limit
- * @return bool
+ * @param mixed $newlimit the new memory limit
+ * @return bool success
  */
 function raise_memory_limit($newlimit) {
+    global $CFG;
 
-    if (empty($newlimit)) {
+    if ($newlimit == MEMORY_UNLIMITED) {
+        ini_set('memory_limit', -1);
+        return true;
+
+    } else if ($newlimit == MEMORY_STANDARD) {
+        if (PHP_INT_SIZE > 4) {
+            $newlimit = get_real_size('128M'); // 64bit needs more memory
+        } else {
+            $newlimit = get_real_size('96M');
+        }
+
+    } else if ($newlimit == MEMORY_EXTRA) {
+        if (PHP_INT_SIZE > 4) {
+            $newlimit = get_real_size('384M'); // 64bit needs more memory
+        } else {
+            $newlimit = get_real_size('256M');
+        }
+        if (!empty($CFG->extramemorylimit)) {
+            $extra = get_real_size($CFG->extramemorylimit);
+            if ($extra > $newlimit) {
+                $newlimit = $extra;
+            }
+        }
+
+    } else if ($newlimit == MEMORY_HUGE) {
+        $newlimit = get_real_size('2G');
+
+    } else {
+        $newlimit = get_real_size($newlimit);
+    }
+
+    if ($newlimit <= 0) {
+        debugging('Invalid memory limit specified.');
         return false;
     }
 
@@ -711,16 +837,15 @@ function raise_memory_limit($newlimit) {
     if (empty($cur)) {
         // if php is compiled without --enable-memory-limits
         // apparently memory_limit is set to ''
-        $cur=0;
+        $cur = 0;
     } else {
         if ($cur == -1){
             return true; // unlimited mem!
         }
-      $cur = get_real_size($cur);
+        $cur = get_real_size($cur);
     }
 
-    $new = get_real_size($newlimit);
-    if ($new > $cur) {
+    if ($newlimit > $cur) {
         ini_set('memory_limit', $newlimit);
         return true;
     }
@@ -746,7 +871,7 @@ function reduce_memory_limit($newlimit) {
     if (empty($cur)) {
         // if php is compiled without --enable-memory-limits
         // apparently memory_limit is set to ''
-        $cur=0;
+        $cur = 0;
     } else {
         if ($cur == -1){
             return true; // unlimited mem!
@@ -766,14 +891,17 @@ function reduce_memory_limit($newlimit) {
 /**
  * Converts numbers like 10M into bytes.
  *
- * @param mixed $size The size to be converted
- * @return mixed
+ * @param string $size The size to be converted
+ * @return int
  */
-function get_real_size($size=0) {
+function get_real_size($size = 0) {
     if (!$size) {
         return 0;
     }
     $scan = array();
+    $scan['GB'] = 1073741824;
+    $scan['Gb'] = 1073741824;
+    $scan['G'] = 1073741824;
     $scan['MB'] = 1048576;
     $scan['Mb'] = 1048576;
     $scan['M'] = 1048576;
@@ -800,7 +928,7 @@ function get_real_size($size=0) {
  */
 function redirect_if_major_upgrade_required() {
     global $CFG;
-    $lastmajordbchanges = 2010061600;
+    $lastmajordbchanges = 2010070300;
     if (empty($CFG->version) or (int)$CFG->version < $lastmajordbchanges or
             during_initial_install() or !empty($CFG->adminsetuppending)) {
         try {
@@ -817,56 +945,82 @@ function redirect_if_major_upgrade_required() {
 }
 
 /**
- * Create a directory.
+ * Function to check if a directory exists and by default create it if not exists.
  *
- * @uses $CFG
- * @param string $directory  a string of directory names under $CFG->dataroot eg  stuff/assignment/1
- * param bool $shownotices If true then notification messages will be printed out on error.
- * @return string|false Returns full path to directory if successful, false if not
+ * Previously this was accepting paths only from dataroot, but we now allow
+ * files outside of dataroot if you supply custom paths for some settings in config.php.
+ * This function does not verify that the directory is writable.
+ *
+ * @param string $dir absolute directory path
+ * @param boolean $create directory if does not exist
+ * @param boolean $recursive create directory recursively
+ * @return boolean true if directory exists or created, false otherwise
  */
-function make_upload_directory($directory, $shownotices=true) {
-
+function check_dir_exists($dir, $create = true, $recursive = true) {
     global $CFG;
 
-    $currdir = $CFG->dataroot;
+    umask(0000); // just in case some evil code changed it
 
-    umask(0000);
-
-    if (!file_exists($currdir)) {
-        if (!mkdir($currdir, $CFG->directorypermissions, true) or !is_writable($currdir)) {
-            if ($shownotices) {
-                echo '<div class="notifyproblem" align="center">ERROR: You need to create the directory '.
-                     $currdir .' with web server write access</div>'."<br />\n";
-            }
-            return false;
-        }
+    if (is_dir($dir)) {
+        return true;
     }
 
-    // Make sure a .htaccess file is here, JUST IN CASE the files area is in the open
-    if (!file_exists($currdir.'/.htaccess')) {
-        if ($handle = fopen($currdir.'/.htaccess', 'w')) {   // For safety
+    if (!$create) {
+        return false;
+    }
+
+    return mkdir($dir, $CFG->directorypermissions, $recursive);
+}
+
+/**
+ * Create a directory in dataroot and make sure it is writable.
+ *
+ * @param string $directory  a string of directory names under $CFG->dataroot eg  temp/something
+ * @param bool $exceptiononerror throw exception if error encountered
+ * @return string|false Returns full path to directory if successful, false if not; may throw exception
+ */
+function make_upload_directory($directory, $exceptiononerror = true) {
+    global $CFG;
+
+    // Make sure a .htaccess file is here, JUST IN CASE the files area is in the open and .htaccess is supported
+    if (!file_exists("$CFG->dataroot/.htaccess")) {
+        if ($handle = fopen("$CFG->dataroot/.htaccess", 'w')) {   // For safety
             @fwrite($handle, "deny from all\r\nAllowOverride None\r\nNote: this file is broken intentionally, we do not want anybody to undo it in subdirectory!\r\n");
             @fclose($handle);
         }
     }
 
-    $dirarray = explode('/', $directory);
+    $dir = "$CFG->dataroot/$directory";
 
-    foreach ($dirarray as $dir) {
-        $currdir = $currdir .'/'. $dir;
-        if (! file_exists($currdir)) {
-            if (! mkdir($currdir, $CFG->directorypermissions)) {
-                if ($shownotices) {
-                    echo '<div class="notifyproblem" align="center">ERROR: Could not find or create a directory ('.
-                         $currdir .')</div>'."<br />\n";
-                }
-                return false;
-            }
-            //@chmod($currdir, $CFG->directorypermissions);  // Just in case mkdir didn't do it
+    if (file_exists($dir) and !is_dir($dir)) {
+        if ($exceptiononerror) {
+            throw new coding_exception($dir.' directory can not be created, file with the same name already exists.');
+        } else {
+            return false;
         }
     }
 
-    return $currdir;
+    umask(0000); // just in case some evil code changed it
+
+    if (!file_exists($dir)) {
+        if (!mkdir($dir, $CFG->directorypermissions, true)) {
+            if ($exceptiononerror) {
+                throw new invalid_dataroot_permissions($dir.' can not be created, check permissions.');
+            } else {
+                return false;
+            }
+        }
+    }
+
+    if (!is_writable($dir)) {
+        if ($exceptiononerror) {
+            throw new invalid_dataroot_permissions($dir.' is not writable, check permissions.');
+        } else {
+            return false;
+        }
+    }
+
+    return $dir;
 }
 
 function init_memcached() {
@@ -958,18 +1112,24 @@ class bootstrap_renderer {
             $recursing = is_early_init($backtrace);
         }
 
+        $earlymethods = array(
+            'fatal_error' => 'early_error',
+            'notification' => 'early_notification',
+        );
+
         // If lib/outputlib.php has been loaded, call it.
         if (!empty($PAGE) && !$recursing) {
+            if (array_key_exists($method, $earlymethods)) {
+                //prevent PAGE->context warnings - exceptions might appear before we set any context
+                $PAGE->set_context(null);
+            }
             $PAGE->initialise_theme_and_output();
             return call_user_func_array(array($OUTPUT, $method), $arguments);
         }
 
         $this->initialising = true;
+
         // Too soon to initialise $OUTPUT, provide a couple of key methods.
-        $earlymethods = array(
-            'fatal_error' => 'early_error',
-            'notification' => 'early_notification',
-        );
         if (array_key_exists($method, $earlymethods)) {
             return call_user_func_array(array('bootstrap_renderer', $earlymethods[$method]), $arguments);
         }
@@ -1035,6 +1195,7 @@ width: 80%; -moz-border-radius: 20px; padding: 15px">
                     $e->stacktrace = format_backtrace($backtrace, true);
                 }
             }
+            @header('Content-Type: application/json');
             echo json_encode($e);
             return;
         }

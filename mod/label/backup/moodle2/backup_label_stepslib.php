@@ -16,10 +16,10 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package moodlecore
- * @subpackage backup-moodle2
- * @copyright 2010 onwards Eloy Lafuente (stronk7) {@link http://stronk7.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage label
+ * @copyright  2010 onwards Eloy Lafuente (stronk7) {@link http://stronk7.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /**
@@ -50,7 +50,7 @@ class backup_label_activity_structure_step extends backup_activity_structure_ste
         // (none)
 
         // Define file annotations
-        $label->annotate_files(array('label_intro'), null); // This file area hasn't itemid
+        $label->annotate_files('mod_label', 'intro', null); // This file area hasn't itemid
 
         // Return the root element (label), wrapped into standard activity structure
         return $this->prepare_activity_structure($label);

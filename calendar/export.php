@@ -79,7 +79,10 @@ if ($course !== NULL) {
 }
 $PAGE->set_url($url);
 
-require_login();
+require_login($course);
+if (!$course) {
+    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM)); //TODO: wrong
+}
 
 if (empty($CFG->enablecalendarexport)) {
     die('no export');
@@ -120,15 +123,13 @@ $strcalendar = get_string('calendar', 'calendar');
 $prefsbutton = calendar_preferences_button();
 
 // Print title and header
-$link = calendar_get_link_href(CALENDAR_URL.'view.php?view=upcoming&amp;course='.$calendar->courseid.'&amp;',
-                                   $now['mday'], $now['mon'], $now['year']);
-$PAGE->navbar->add(get_string('calendar', 'calendar'), new moodle_url($link));
+$link = new moodle_url(CALENDAR_URL.'view.php', array('view'=>'upcoming', 'course'=>$calendar->courseid));
+$PAGE->navbar->add(get_string('calendar', 'calendar'), calendar_get_link_href($link, $now['mday'], $now['mon'], $now['year']));
 $PAGE->navbar->add($pagetitle);
 
 $PAGE->set_title($site->shortname.': '.$strcalendar.': '.$pagetitle);
 $PAGE->set_heading($COURSE->fullname);
 $PAGE->set_button($prefsbutton);
-$PAGE->set_focuscontrol('pw_all');
 $PAGE->set_pagelayout('standard');
 
 $renderer = $PAGE->get_renderer('core_calendar');

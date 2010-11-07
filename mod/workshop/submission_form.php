@@ -18,9 +18,10 @@
 /**
  * Submit an assignment or edit the already submitted work
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -53,8 +54,16 @@ class workshop_submission_form extends moodleform {
         }
 
         $mform->addElement('hidden', 'id', $current->id);
+        $mform->setType('id', PARAM_INT);
+
         $mform->addElement('hidden', 'cmid', $workshop->cm->id);
+        $mform->setType('cmid', PARAM_INT);
+
         $mform->addElement('hidden', 'edit', 1);
+        $mform->setType('edit', PARAM_INT);
+
+        $mform->addElement('hidden', 'example', 0);
+        $mform->setType('hidden', PARAM_INT);
 
         $this->add_action_buttons();
 
@@ -65,6 +74,21 @@ class workshop_submission_form extends moodleform {
         global $CFG, $USER, $DB;
 
         $errors = parent::validation($data, $files);
+
+        if (empty($data['id']) and empty($data['example'])) {
+            // make sure there is no submission saved meanwhile from another browser window
+            $sql = "SELECT COUNT(s.id)
+                      FROM {workshop_submissions} s
+                      JOIN {workshop} w ON (s.workshopid = w.id)
+                      JOIN {course_modules} cm ON (w.id = cm.instance)
+                      JOIN {modules} m ON (m.name = 'workshop' AND m.id = cm.module)
+                     WHERE cm.id = ? AND s.authorid = ? AND s.example = 0";
+
+            if ($DB->count_records_sql($sql, array($data['cmid'], $USER->id))) {
+                $errors['title'] = get_string('err_multiplesubmissions', 'mod_workshop');
+            }
+        }
+
         return $errors;
     }
 }

@@ -22,9 +22,10 @@
  * It uses the standard core Moodle formslib. For more info about them, please
  * visit: http://docs.moodle.org/en/Development:lib/formslib.php
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -55,7 +56,7 @@ class mod_workshop_mod_form extends moodleform_mod {
         if (!empty($CFG->formatstringstriptags)) {
             $mform->setType('name', PARAM_TEXT);
         } else {
-            $mform->setType('name', PARAM_CLEAN);
+            $mform->setType('name', PARAM_CLEANHTML);
         }
         $mform->addRule('name', null, 'required', null, 'client');
         $mform->addRule('name', get_string('maximumchars', '', 255), 'maxlength', 255, 'client');
@@ -169,7 +170,7 @@ class mod_workshop_mod_form extends moodleform_mod {
         $mform->addElement('date_time_selector', 'assessmentend', $label, array('optional' => true));
         $mform->setAdvanced('assessmentend');
 
-        // Common module settinga, Restrict availability, Activity completion etc. ----
+        // Common module settings, Restrict availability, Activity completion etc. ----
         $features = array('groups'=>true, 'groupings'=>true, 'groupmembersonly'=>true,
                 'outcomes'=>true, 'gradecat'=>false, 'idnumber'=>false);
 
@@ -192,7 +193,7 @@ class mod_workshop_mod_form extends moodleform_mod {
             // editing an existing workshop - let us prepare the added editor elements (intro done automatically)
             $draftitemid = file_get_submitted_draft_itemid('instructauthors');
             $data['instructauthorseditor']['text'] = file_prepare_draft_area($draftitemid, $this->context->id,
-                                'workshop_instructauthors', false,
+                                'mod_workshop', 'instructauthors', 0,
                                 workshop::instruction_editors_options($this->context),
                                 $data['instructauthors']);
             $data['instructauthorseditor']['format'] = $data['instructauthorsformat'];
@@ -200,7 +201,7 @@ class mod_workshop_mod_form extends moodleform_mod {
 
             $draftitemid = file_get_submitted_draft_itemid('instructreviewers');
             $data['instructreviewerseditor']['text'] = file_prepare_draft_area($draftitemid, $this->context->id,
-                                'workshop_instructreviewers', false,
+                                'mod_workshop', 'instructreviewers', 0,
                                 workshop::instruction_editors_options($this->context),
                                 $data['instructreviewers']);
             $data['instructreviewerseditor']['format'] = $data['instructreviewersformat'];
@@ -208,12 +209,12 @@ class mod_workshop_mod_form extends moodleform_mod {
         } else {
             // adding a new workshop instance
             $draftitemid = file_get_submitted_draft_itemid('instructauthors');
-            file_prepare_draft_area($draftitemid, null, null, null);    // no context, no filearea yet
-            $data['instructauthorseditor'] = array('text' => '', 'format' => FORMAT_HTML, 'itemid' => $draftitemid);
+            file_prepare_draft_area($draftitemid, null, 'mod_workshop', 'instructauthors', 0);    // no context yet, itemid not used
+            $data['instructauthorseditor'] = array('text' => '', 'format' => editors_get_preferred_format(), 'itemid' => $draftitemid);
 
             $draftitemid = file_get_submitted_draft_itemid('instructreviewers');
-            file_prepare_draft_area($draftitemid, null, null, null);    // no context, no filearea yet
-            $data['instructreviewerseditor'] = array('text' => '', 'format' => FORMAT_HTML, 'itemid' => $draftitemid);
+            file_prepare_draft_area($draftitemid, null, 'mod_workshop', 'instructreviewers', 0);    // no context yet, itemid not used
+            $data['instructreviewerseditor'] = array('text' => '', 'format' => editors_get_preferred_format(), 'itemid' => $draftitemid);
         }
     }
 }

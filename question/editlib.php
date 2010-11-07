@@ -801,9 +801,9 @@ class question_bank_view {
         }
 
         // Create the url of the new question page to forward to.
-        // TODO: it is sloppy to pass around full URLs through page parameters and some servers do not like that
-        $this->editquestionurl = new moodle_url("$CFG->wwwroot/question/question.php",
-                array('returnurl' => urlencode($pageurl->out(false))));
+        $returnurl = str_replace($CFG->wwwroot, '', $pageurl->out(false));
+        $this->editquestionurl = new moodle_url('/question/question.php',
+                array('returnurl' => $returnurl));
         if ($cm !== null){
             $this->editquestionurl->param('cmid', $cm->id);
         } else {
@@ -1159,6 +1159,7 @@ class question_bank_view {
     protected function print_category_info($category) {
         $formatoptions = new stdClass;
         $formatoptions->noclean = true;
+        $formatoptions->overflowdiv = true;
         echo '<div class="boxaligncenter">';
         echo format_text($category->info, FORMAT_MOODLE, $formatoptions, $this->course->id);
         echo "</div>\n";
@@ -1174,8 +1175,7 @@ class question_bank_view {
         echo '<div class="choosecategory">';
         $catmenu = question_category_options($contexts, false, 0, true);
 
-        $editurl = new moodle_url('/question/edit.php', $pageurl->params());
-        $select = new single_select($editurl, 'category', $catmenu, $current, null, 'catmenu');
+        $select = new single_select($this->baseurl, 'category', $catmenu, $current, null, 'catmenu');
         $select->set_label(get_string('selectacategory', 'question'));
         echo $OUTPUT->render($select);
         echo "</div>\n";
@@ -1401,7 +1401,7 @@ class question_bank_view {
                     $questionids[] = $key;
                 }
             }
-            if ($questionids){
+            if ($questionids) {
                 list($usql, $params) = $DB->get_in_or_equal($questionids);
                 $sql = "SELECT q.*, c.contextid FROM {question} q, {question_categories} c WHERE q.id $usql AND c.id = q.category";
                 if (!$questions = $DB->get_records_sql($sql, $params)){
@@ -1416,17 +1416,18 @@ class question_bank_view {
                         $checkforfiles = true;
                     }
                 }
-                $returnurl = $this->baseurl->out(true, array('category'=>"$tocategoryid,$contextid"));
+                $returnurl = $this->baseurl->out(false, array('category' => "$tocategoryid,$contextid"));
                 if (!$checkforfiles){
                     if (!question_move_questions_to_category(implode(',', $questionids), $tocategory->id)) {
                         print_error('errormovingquestions', 'question', $returnurl, $questionids);
                     }
                     redirect($returnurl);
                 } else {
+                    $returnurl = str_replace($CFG->wwwroot . '/', '', $returnurl);
                     $movecontexturl  = new moodle_url('/question/contextmoveq.php',
                                                     array('returnurl' => $returnurl,
-                                                            'ids'=>$questionids,
-                                                            'tocatid'=> $tocategoryid));
+                                                            'ids' => implode(',', $questionids),
+                                                            'tocatid' => $tocategoryid));
                     if (!empty($cm->id)){
                         $movecontexturl->param('cmid', $cm->id);
                     } else {
@@ -1447,10 +1448,7 @@ class question_bank_view {
                             $questionid = (int)$questionid;
                             question_require_capability_on($questionid, 'edit');
                             if ($DB->record_exists('quiz_question_instances', array('question' => $questionid))) {
-                                if (!$DB->set_field('question', 'hidden', 1, array('id' => $questionid))) {
-                                    question_require_capability_on($questionid, 'edit');
-                                    print_error('cannothidequestion', 'question');
-                                }
+                                $DB->set_field('question', 'hidden', 1, array('id' => $questionid));
                             } else {
                                 delete_question($questionid);
                             }
@@ -1466,9 +1464,7 @@ class question_bank_view {
         // Unhide a question
         if(($unhide = optional_param('unhide', '', PARAM_INT)) and confirm_sesskey()) {
             question_require_capability_on($unhide, 'edit');
-            if(!$DB->set_field('question', 'hidden', 0, array('id' => $unhide))) {
-                print_error('cannotunhidequestion', 'question');
-            }
+            $DB->set_field('question', 'hidden', 0, array('id' => $unhide));
             redirect($this->baseurl);
         }
     }
@@ -1556,6 +1552,9 @@ function question_edit_setup($edittab, $baseurl, $requirecmid = false, $requirec
         } else {
             $thiscontext = null;
         }
+    }
+    if (strpos($baseurl, '/question/') === 0) {
+        navigation_node::override_active_url($thispageurl);
     }
 
     if ($thiscontext){
@@ -1667,7 +1666,7 @@ $QUESTION_EDITTABCAPS = question_edit_contexts::$CAPS;
  * Make sure user is logged in as required in this context.
  */
 function require_login_in_context($contextorid = null){
-    global $DB;
+    global $DB, $CFG;
     if (!is_object($contextorid)){
         $context = get_context_instance_by_id($contextorid);
     } else {
@@ -1778,7 +1777,6 @@ function create_new_question_button($categoryid, $params, $caption, $tooltip = '
     $url = new moodle_url('/question/addquestion.php', $params);
     echo $OUTPUT->single_button($url, $caption, 'get', array('disabled'=>$disabled, 'title'=>$tooltip));
 
-    echo $OUTPUT->old_help_icon('types', get_string('createnewquestion', 'question'), 'question');
     $PAGE->requires->yui2_lib('dragdrop');
     $PAGE->requires->yui2_lib('container');
     if (!$choiceformprinted) {

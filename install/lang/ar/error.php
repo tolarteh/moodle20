@@ -28,10 +28,12 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['cannotcreatelangdir'] = 'لم يتم أنشاء دليل اللغة';
-$string['cannotdownloadcomponents'] = 'لم يتم تنزيل بعض العناصر';
-$string['cannotdownloadzipfile'] = 'لم يتم تنزيل بعض الملف المضغوط';
-$string['cannotfindcomponent'] = 'لم يتم العثور على العنصر';
+$string['cannotcreatelangdir'] = 'لا يمكن إنشاء مجلد اللغة';
+$string['cannotcreatetempdir'] = 'لا يمكن إنشاء المجلد المؤقت';
+$string['cannotdownloadcomponents'] = 'لم يتم تحميل العناصر';
+$string['cannotdownloadzipfile'] = 'لم يتم تحميل الملف المضغوط';
+$string['cannotfindcomponent'] = 'لم يتم العثور على المكون';
 $string['cannotsavemd5file'] = 'لم يتم حفظ ملف  md5';
 $string['cannotsavezipfile'] = 'لم يتم حفظ الملف المضغوط';
 $string['cannotunzipfile'] = 'لم يتم فك الملف المضغوط';
+$string['missingrequiredfield'] = 'بعض الحقول المطلوبة مفقودة';

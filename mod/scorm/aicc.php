@@ -49,14 +49,23 @@
         }
 
         if ($sco = scorm_get_sco($scoid, SCO_ONLY)) {
-            if (!$scorm = $DB->get_record('scorm','id',$sco->scorm)) {
+            if (!$scorm = $DB->get_record('scorm',array('id'=>$sco->scorm))) {
                 print_error('cannotcallscript');
             }
         } else {
             print_error('cannotcallscript');
         }
+        $aiccrequest = "MOODLE scoid: $scoid"
+                     . "\r\nMOODLE mode: $mode"
+                     . "\r\nMOODLE status: $status"
+                     . "\r\nMOODLE attempt: $attempt"
+                     . "\r\nAICC sessionid: $sessionid"
+                     . "\r\nAICC command: $command"
+                     . "\r\nAICC aiccdata:\r\n$aiccdata";
+        scorm_debug_log_write("aicc", "HACP Request:\r\n$aiccrequest", $scoid);
+        ob_start();
 
-        if ($scorm = $DB->get_record('scorm','id',$sco->scorm)) {
+        if ($scorm = $DB->get_record('scorm',array('id'=>$sco->scorm))) {
             switch ($command) {
                 case 'getparam':
                     if ($status == 'Not Initialized') {
@@ -258,7 +267,7 @@
                                             $value .= $datarow."\r\n";
                                             next($datarows);
                                         }
-                                        $value = rawurlencode(stripslashes($value));
+                                        $value = rawurlencode(stripslashes($value)); // TODO: this is probably wrong, the stripslashes() has undefined meaning now; was this related to JS quoting or magic quotes?
                                         $id = scorm_insert_track($USER->id, $scorm->id, $sco->id, $attempt, $element, $value);
                                     }
                                 }
@@ -342,9 +351,9 @@
                                 $value = scorm_add_time($track->value, $SESSION->scorm_session_time);
                                 $track->value = $value;
                                 $track->timemodified = time();
-                                $id = $DB->update_record('scorm_scoes_track',$track);
+                                $DB->update_record('scorm_scoes_track',$track);
                             } else {
-                                $track = new object();
+                                $track = new stdClass();
                                 $track->userid = $USER->id;
                                 $track->scormid = $scorm->id;
                                 $track->scoid = $sco->id;
@@ -377,3 +386,6 @@
             echo "error=3\r\nerror_text=Invalid Session ID\r\n";
         }
     }
+    $aiccresponse = ob_get_contents();
+    scorm_debug_log_write("aicc", "HACP Response:\r\n$aiccresponse", $scoid);
+    ob_end_flush();

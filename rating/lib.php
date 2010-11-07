@@ -18,9 +18,10 @@
 /**
  * A class representing a single rating and containing some static methods for manipulating ratings
  *
- * @package   moodlecore
- * @copyright 2010 Andrew Davis
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage rating
+ * @copyright  2010 Andrew Davis
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 define('RATING_UNSET_RATING', -999);
@@ -168,20 +169,29 @@ class rating_manager {
     * @param object $options {
     *            contextid => int the context in which the ratings exist [required]
     *            ratingid => int the id of an individual rating to delete [optional]
+    *            userid => int delete the ratings submitted by this user. May be used in conjuction with itemid [optional]
     *            itemid => int delete all ratings attached to this item [optional]
     * }
     * @return void
     */
     public function delete_ratings($options) {
         global $DB;
-        
+
         if( !empty($options->ratingid) ) {
             //delete a single rating
             $DB->delete_records('rating', array('contextid'=>$options->contextid, 'id'=>$options->ratingid) );
         }
+        else if( !empty($options->itemid) && !empty($options->userid) ) {
+            //delete the rating for an item submitted by a particular user
+            $DB->delete_records('rating', array('contextid'=>$options->contextid, 'itemid'=>$options->itemid, 'userid'=>$options->userid) );
+        }
         else if( !empty($options->itemid) ) {
             //delete all ratings for an item
             $DB->delete_records('rating', array('contextid'=>$options->contextid, 'itemid'=>$options->itemid) );
+        }
+        else if( !empty($options->userid) ) {
+            //delete all ratings submitted by a user
+            $DB->delete_records('rating', array('contextid'=>$options->contextid, 'userid'=>$options->userid) );
         }
         else {
             //delete all ratings for this context
@@ -207,9 +217,8 @@ class rating_manager {
             $sortclause = "ORDER BY $options->sort";
         }
 
-        $userfields = user_picture::fields('u','uid');
-        $sql = "SELECT r.id, r.rating, r.itemid, r.userid, r.timemodified,
-                    $userfields
+        $userfields = user_picture::fields('u', null, 'uid');
+        $sql = "SELECT r.id, r.rating, r.itemid, r.userid, r.timemodified, $userfields
                 FROM {rating} r
                 LEFT JOIN {user} u ON r.userid = u.id
                 WHERE r.contextid = :contextid AND
@@ -251,6 +260,7 @@ class rating_manager {
             return $options->items;
         }
 
+        $userid = null;
         if (empty($options->userid)) {
             $userid = $USER->id;
         } else {
@@ -350,7 +360,7 @@ class rating_manager {
         $plugintype = !empty($options->plugintype) ? $options->plugintype : null;
         $pluginname = !empty($options->pluginname) ? $options->pluginname : null;
         $pluginpermissionsarray = $this->get_plugin_permissions_array($options->context->id, $plugintype, $pluginname);
-        
+
         $settings->pluginpermissions = new stdclass();
         $settings->pluginpermissions->view = $pluginpermissionsarray['view'];
         $settings->pluginpermissions->viewany = $pluginpermissionsarray['viewany'];
@@ -376,15 +386,8 @@ class rating_manager {
                     $rating->aggregate  = $rec->aggrrating; //unset($rec->aggrrating);
                     $rating->count      = $rec->numratings; //unset($rec->numratings);
                     $rating->rating     = $rec->usersrating; //unset($rec->usersrating);
-                    if( !empty($item->created) ) {
-                        $rating->itemtimecreated = $item->created;//the forum_posts table has created instead of timecreated
-                    }
-                    else if(!empty($item->timecreated)) {
-                        $rating->itemtimecreated = $item->timecreated;
-                    }
-                    else {
-                        $rating->itemtimecreated = null;
-                    }
+                    $rating->itemtimecreated = $this->get_item_time_created($item);
+
                     break;
                 }
             }
@@ -403,7 +406,7 @@ class rating_manager {
                 $rating->itemid     = $item->id;
                 $rating->userid     = null;
                 $rating->scaleid     = null;
-                $rating->itemtimecreated = null;
+                $rating->itemtimecreated = $this->get_item_time_created($item);
             }
 
             if( !empty($item->userid) ) {
@@ -429,10 +432,22 @@ class rating_manager {
         return $options->items;
     }
 
+    private function get_item_time_created($item) {
+        if( !empty($item->created) ) {
+            return $item->created;//the forum_posts table has created instead of timecreated
+        }
+        else if(!empty($item->timecreated)) {
+            return $item->timecreated;
+        }
+        else {
+            return null;
+        }
+    }
+
     /**
     * Returns an array of grades calculated by aggregating item ratings.
     * @param object $options {
-    *            userid => int the id of the user whose items have been rated. NOT the user who submitted the ratings [required]
+    *            userid => int the id of the user whose items have been rated. NOT the user who submitted the ratings. 0 to update all. [required]
     *            aggregationmethod => int the aggregation method to apply when calculating grades ie RATING_AGGREGATE_AVERAGE [required]
     *            scaleid => int the scale from which the user can select a rating. Used for bounds checking. [required]
     *            itemtable => int the table containing the items [required]
@@ -461,8 +476,8 @@ class rating_manager {
         }
         else if ( !empty($options->modulename) && !empty($options->moduleid) ) {
             $modulename = $options->modulename;
-            $moduleid   = $options->moduleid;
-            
+            $moduleid   = intval($options->moduleid);
+
             //going direct to the db for the context id seems wrong
             list($ctxselect, $ctxjoin) = context_instance_preload_sql('cm.id', CONTEXT_MODULE, 'ctx');
             $sql = "SELECT cm.* $ctxselect
@@ -479,17 +494,46 @@ class rating_manager {
         $itemtable          = $options->itemtable;
         $itemtableusercolumn= $options->itemtableusercolumn;
         $scaleid            = $options->scaleid;
-        $params['userid1'] = $params['userid2'] = $params['userid3']  = $options->userid;
-
         $aggregationstring = $this->get_aggregation_method($options->aggregationmethod);
 
-        $sql = "SELECT :userid1 as id, :userid2 AS userid, $aggregationstring(r.rating) AS rawgrade
-                FROM {rating} r
-                WHERE r.contextid=:contextid 
-                    AND r.itemid IN (SELECT i.id AS itemid FROM {{$itemtable}} i WHERE i.{$itemtableusercolumn} = :userid3)";
+        //if userid is not 0 we only want the grade for a single user
+        $singleuserwhere = '';
+        if ($options->userid!=0) {
+            $params['userid1'] = intval($options->userid);
+            $singleuserwhere = "AND i.{$itemtableusercolumn} = :userid1";
+        }
+
+        //MDL-24648 The where line used to be "WHERE (r.contextid is null or r.contextid=:contextid)"
+        //r.contextid will be null for users who haven't been rated yet
+        //no longer including users who haven't been rated to reduce memory requirements
+        $sql = "SELECT u.id as id, u.id AS userid, $aggregationstring(r.rating) AS rawgrade
+                FROM {user} u
+                LEFT JOIN {{$itemtable}} i ON u.id=i.{$itemtableusercolumn}
+                LEFT JOIN {rating} r ON r.itemid=i.id
+                WHERE r.contextid=:contextid
+                $singleuserwhere
+                GROUP BY u.id";
 
         $results = $DB->get_records_sql($sql, $params);
+
         if ($results) {
+
+            $scale = null;
+            $max = 0;
+            if ($options->scaleid >= 0) {
+                //numeric
+                $max = $options->scaleid;
+            } else {
+                //custom scales
+                $scale = $DB->get_record('scale', array('id' => -$options->scaleid));
+                if ($scale) {
+                    $scale = explode(',', $scale->scale);
+                    $max = count($scale);
+                } else {
+                    debugging('rating_manager::get_user_grades() received a scale ID that doesnt exist');
+                }
+            }
+
             // it could throw off the grading if count and sum returned a rawgrade higher than scale
             // so to prevent it we review the results and ensure that rawgrade does not exceed the scale, if it does we set rawgrade = scale (i.e. full credit)
             foreach ($results as $rid=>$result) {
@@ -500,16 +544,13 @@ class rating_manager {
                     }
                 } else {
                     //scales
-                    if ($scale = $DB->get_record('scale', array('id' => -$options->scaleid))) {
-                        $scale = explode(',', $scale->scale);
-                        $max = count($scale);
-                        if ($result->rawgrade > $max) {
-                            $results[$rid]->rawgrade = $max;
-                        }
+                    if (!empty($scale) && $result->rawgrade > $max) {
+                        $results[$rid]->rawgrade = $max;
                     }
                 }
             }
         }
+
         return $results;
     }
 
@@ -519,12 +560,12 @@ class rating_manager {
      * @return array
      */
     public function get_aggregate_types() {
-        return array (RATING_AGGREGATE_NONE  => get_string('aggregatenone', 'forum'),
-                      RATING_AGGREGATE_AVERAGE   => get_string('aggregateavg', 'forum'),
-                      RATING_AGGREGATE_COUNT => get_string('aggregatecount', 'forum'),
-                      RATING_AGGREGATE_MAXIMUM   => get_string('aggregatemax', 'forum'),
-                      RATING_AGGREGATE_MINIMUM   => get_string('aggregatemin', 'forum'),
-                      RATING_AGGREGATE_SUM   => get_string('aggregatesum', 'forum'));
+        return array (RATING_AGGREGATE_NONE  => get_string('aggregatenone', 'rating'),
+                      RATING_AGGREGATE_AVERAGE   => get_string('aggregateavg', 'rating'),
+                      RATING_AGGREGATE_COUNT => get_string('aggregatecount', 'rating'),
+                      RATING_AGGREGATE_MAXIMUM   => get_string('aggregatemax', 'rating'),
+                      RATING_AGGREGATE_MINIMUM   => get_string('aggregatemin', 'rating'),
+                      RATING_AGGREGATE_SUM   => get_string('aggregatesum', 'rating'));
     }
 
     /**
@@ -593,7 +634,7 @@ class rating_manager {
                     return true;
                 }
             }
-            
+
             return false;//item doesn't exist or belongs to the current user
         } else {
             return true;//callback doesn't exist

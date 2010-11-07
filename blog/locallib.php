@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-
 /**
  * Classes for Blogs.
  *
@@ -25,6 +24,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Blog_entry class. Represents an entry in a user's blog. Contains all methods for managing this entry.
@@ -98,28 +98,30 @@ class blog_entry {
         global $USER, $CFG, $COURSE, $DB, $OUTPUT, $PAGE;
 
         $user = $DB->get_record('user', array('id'=>$this->userid));
-        $options = new stdclass;
-        if ($CFG->blogusecomments) {
+        $cmttext = '';
+        if (!empty($CFG->usecomments) and $CFG->blogusecomments) {
+            require_once($CFG->dirroot . '/comment/lib.php');
             // Comments
             $cmt = new stdClass();
             $cmt->context = get_context_instance(CONTEXT_USER, $user->id);
             $cmt->courseid = $PAGE->course->id;
             $cmt->area = 'format_blog';
-            $cmt->env = 'blog';
             $cmt->itemid = $this->id;
             $cmt->showcount = $CFG->blogshowcommentscount;
-            $options->comments = $cmt;
+            $cmt->component = 'blog';
+            $comment = new comment($cmt);
+            $cmttext = $comment->output(true);
         }
-        $this->summary = file_rewrite_pluginfile_urls($this->summary, 'pluginfile.php', SYSCONTEXTID, 'blog_post', $this->id);
+        $this->summary = file_rewrite_pluginfile_urls($this->summary, 'pluginfile.php', SYSCONTEXTID, 'blog', 'post', $this->id);
 
-        $template['body'] = format_text($this->summary, $this->summaryformat, $options);
-        $template['title'] = '<a id="b'. s($this->id) .'" />';
-        $template['title'] .= '<span class="nolink">'. format_string($this->subject) .'</span>';
+        $options = array('overflowdiv'=>true);
+        $template['body'] = format_text($this->summary, $this->summaryformat, $options).$cmttext;
+        $template['title'] = format_string($this->subject);
         $template['userid'] = $user->id;
         $template['author'] = fullname($user);
         $template['created'] = userdate($this->created);
 
-        if($this->created != $this->lastmodified){
+        if ($this->created != $this->lastmodified) {
             $template['lastmod'] = userdate($this->lastmodified);
         }
 
@@ -140,6 +142,7 @@ class blog_entry {
         $table = new html_table();
         $table->cellspacing = 0;
         $table->attributes['class'] = 'forumpost blog_entry blog'. ($unassociatedentry ? 'draft' : $template['publishstate']);
+        $table->attributes['id'] = 'b'.$this->id;
         $table->width = '100%';
 
         $picturecell = new html_table_cell();
@@ -150,11 +153,12 @@ class blog_entry {
 
         $topiccell = new html_table_cell();
         $topiccell->attributes['class'] = 'topic starter';
-        $topiccell->text = $OUTPUT->container($template['title'], 'subject');
+        $titlelink =  html_writer::link(new moodle_url('/blog/index.php', array('entryid' => $this->id)), $template['title']);
+        $topiccell->text = $OUTPUT->container($titlelink, 'subject');
         $topiccell->text .= $OUTPUT->container_start('author');
 
         $fullname = fullname($user, has_capability('moodle/site:viewfullnames', get_context_instance(CONTEXT_COURSE, $PAGE->course->id)));
-        $by = new object();
+        $by = new stdClass();
         $by->name =  html_writer::link(new moodle_url('/user/view.php', array('id' => $user->id, 'course' => $PAGE->course->id)), $fullname);
         $by->date = $template['created'];
 
@@ -164,7 +168,7 @@ class blog_entry {
         if ($this->uniquehash && $this->content) {
             if ($externalblog = $DB->get_record('blog_external', array('id' => $this->content))) {
                 $urlparts = parse_url($externalblog->url);
-                $topiccell->text .= $OUTPUT->container(get_string('retrievedfrom', 'blog') . html_writer::link($urlparts['scheme'].'://'.$urlparts['host'], $externalblog->name), 'externalblog');
+                $topiccell->text .= $OUTPUT->container(get_string('retrievedfrom', 'blog').get_string('labelsep', 'langconfig').html_writer::link($urlparts['scheme'].'://'.$urlparts['host'], $externalblog->name), 'externalblog');
             }
         }
 
@@ -337,18 +341,17 @@ class blog_entry {
         $this->created      = time();
 
         // Insert the new blog entry.
-        if ($this->id = $DB->insert_record('post', $this)) {
+        $this->id = $DB->insert_record('post', $this);
 
-            // Update tags.
-            $this->add_tags_info();
+        // Update tags.
+        $this->add_tags_info();
 
-            if (!empty($CFG->useblogassociations)) {
-                $this->add_associations();
-                add_to_log(SITEID, 'blog', 'add', 'index.php?userid='.$this->userid.'&entryid='.$this->id, $this->subject);
-            }
-
-            tag_set('post', $this->id, $this->tags);
+        if (!empty($CFG->useblogassociations)) {
+            $this->add_associations();
+            add_to_log(SITEID, 'blog', 'add', 'index.php?userid='.$this->userid.'&entryid='.$this->id, $this->subject);
         }
+
+        tag_set('post', $this->id, $this->tags);
     }
 
     /**
@@ -368,8 +371,8 @@ class blog_entry {
             $entry->$var = $val;
         }
 
-        $entry = file_postupdate_standard_editor($entry, 'summary', $summaryoptions, $sitecontext, 'blog_post', $entry->id);
-        $entry = file_postupdate_standard_filemanager($entry, 'attachment', $attachmentoptions, $sitecontext, 'blog_attachment', $entry->id);
+        $entry = file_postupdate_standard_editor($entry, 'summary', $summaryoptions, $sitecontext, 'blog', 'post', $entry->id);
+        $entry = file_postupdate_standard_filemanager($entry, 'attachment', $attachmentoptions, $sitecontext, 'blog', 'attachment', $entry->id);
 
         if (!empty($CFG->useblogassociations)) {
             $entry->add_associations();
@@ -461,8 +464,8 @@ class blog_entry {
      */
     public function delete_attachments() {
         $fs = get_file_storage();
-        $fs->delete_area_files(SYSCONTEXTID, 'blog_attachment', $this->id);
-        $fs->delete_area_files(SYSCONTEXTID, 'blog_post', $this->id);
+        $fs->delete_area_files(SYSCONTEXTID, 'blog', 'attachment', $this->id);
+        $fs->delete_area_files(SYSCONTEXTID, 'blog', 'post', $this->id);
     }
 
     /**
@@ -479,9 +482,10 @@ class blog_entry {
         require_once($CFG->libdir.'/filelib.php');
 
         $fs = get_file_storage();
-        $browser = get_file_browser();
 
-        $files = $fs->get_area_files(SYSCONTEXTID, 'blog_attachment', $this->id);
+        $syscontext = get_context_instance(CONTEXT_SYSTEM);
+
+        $files = $fs->get_area_files($syscontext->id, 'blog', 'attachment', $this->id);
 
         $imagereturn = "";
         $output = "";
@@ -494,13 +498,13 @@ class blog_entry {
             }
 
             $filename = $file->get_filename();
-            $ffurl    = file_encode_url($CFG->wwwroot.'/pluginfile.php', '/'.SYSCONTEXTID.'/blog_attachment/'.$this->id.'/'.$filename);
+            $ffurl    = file_encode_url($CFG->wwwroot.'/pluginfile.php', '/'.SYSCONTEXTID.'/blog/attachment/'.$this->id.'/'.$filename);
             $mimetype = $file->get_mimetype();
 
-            $icon     = substr(mimeinfo_from_type("icon", $mimetype), 0, -4);
+            $icon     = mimeinfo_from_type("icon", $mimetype);
             $type     = mimeinfo_from_type("type", $mimetype);
 
-            $image = $OUTPUT->pix_icon("/f/$icon", $filename, 'moodle', array('class'=>'icon'));
+            $image = $OUTPUT->pix_icon("f/$icon", $filename, 'moodle', array('class'=>'icon'));
 
             if ($return == "html") {
                 $output .= html_writer::link($ffurl, $image);
@@ -514,7 +518,7 @@ class blog_entry {
                     $imagereturn .= "<br />" . $OUTPUT->pix_icon($ffurl, $filename);
                 } else {
                     $imagereturn .= html_writer::link($ffurl, $image);
-                    $imagereturn .= filter_text(html_writer::link($ffurl, $filename));
+                    $imagereturn .= format_text(html_writer::link($ffurl, $filename), FORMAT_HTML, array('context'=>$syscontext));
                 }
             }
         }
@@ -816,12 +820,6 @@ class blog_listing {
 
         echo $OUTPUT->render($pagingbar);
 
-        /* TODO RSS link
-        if ($CFG->enablerssfeeds) {
-            $this->blog_rss_print_link($filtertype, $filterselect, $tag);
-        }
-        */
-
         if (has_capability('moodle/blog:create', $sitecontext)) {
             //the user's blog is enabled and they are viewing their own blog
             $userid = optional_param('userid', null, PARAM_INT);
@@ -1054,7 +1052,7 @@ class blog_filter_user extends blog_filter {
      * @param int    $id
      */
     public function __construct($id=null, $type='user') {
-        global $CFG, $DB;
+        global $CFG, $DB, $USER;
         $this->availabletypes = array('user' => get_string('user'), 'group' => get_string('group'));
 
         if (empty($id)) {
@@ -1146,10 +1144,9 @@ class blog_filter_search extends blog_filter {
 
     public function __construct($searchterm) {
         global $DB;
-        $ilike = $DB->sql_ilike();
-        $this->conditions = array("(p.summary $ilike ? OR
-                                    p.content $ilike ? OR
-                                    p.subject $ilike ?)");
+        $this->conditions = array("(".$DB->sql_like('p.summary', '?', false)." OR
+                                    ".$DB->sql_like('p.content', '?', false)." OR
+                                    ".$DB->sql_like('p.subject', '?', false).")");
         $this->params[] = "%$searchterm%";
         $this->params[] = "%$searchterm%";
         $this->params[] = "%$searchterm%";

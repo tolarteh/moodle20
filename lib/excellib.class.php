@@ -18,12 +18,15 @@
 /**
  * excellib.class.php
  *
- * @copyright (C) 2001-3001 Eloy Lafuente (stronk7) {@link http://contiento.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @package   moodlecore
+ * @copyright  (C) 2001-3001 Eloy Lafuente (stronk7) {@link http://contiento.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
  */
 
-/** setup.php icludes our hacked pear libs first */
+defined('MOODLE_INTERNAL') || die();
+
+/** setup.php includes our hacked pear libs first */
 require_once 'Spreadsheet/Excel/Writer.php';
 
 /**
@@ -61,7 +64,7 @@ class MoodleExcelWorkbook {
             $this->latin_output = true;
         }
     /// Choose our temporary directory - see MDL-7176, found by paulo.matos
-        make_upload_directory('temp/excel', false);
+        make_upload_directory('temp/excel');
         $this->pear_excel_workbook->setTempDir($CFG->dataroot.'/temp/excel');
     }
 
@@ -73,7 +76,7 @@ class MoodleExcelWorkbook {
      */
     function &add_worksheet($name = '') {
     /// Create the Moodle Worksheet. Returns one pointer to it
-        $ws =& new MoodleExcelWorksheet ($name, $this->pear_excel_workbook, $this->latin_output);
+        $ws = new MoodleExcelWorksheet ($name, $this->pear_excel_workbook, $this->latin_output);
         return $ws;
     }
 
@@ -88,7 +91,7 @@ class MoodleExcelWorkbook {
      */
     function &add_format($properties = array()) {
     /// Create the Moodle Format. Returns one pointer to it
-        $ft =& new MoodleExcelFormat ($this->pear_excel_workbook, $properties);
+        $ft = new MoodleExcelFormat ($this->pear_excel_workbook, $properties);
         return $ft;
     }
 

@@ -49,7 +49,7 @@ class quiz_report_overview_table extends table_sql {
                 $groupaverage = $DB->get_record_sql($groupaveragesql, array_merge($params, $g_params));
                 $groupaveragerow = array($namekey => get_string('groupavg', 'grades'),
                         'sumgrades' => quiz_format_grade($this->quiz, $groupaverage->grade),
-                        'feedbacktext'=> strip_tags(quiz_report_feedback_for_grade($groupaverage->grade, $this->quiz->id)));
+                        'feedbacktext'=> strip_tags(quiz_report_feedback_for_grade($groupaverage->grade, $this->quiz->id, $this->context)));
                 if($this->detailedmarks && ($this->qmsubselect || $this->quiz->attempts == 1)) {
                     $avggradebyq = quiz_get_average_grade_for_questions($this->quiz, $this->groupstudents);
                     $groupaveragerow += quiz_format_average_grade_for_questions($avggradebyq, $this->questions, $this->quiz, $this->is_downloading());
@@ -61,7 +61,7 @@ class quiz_report_overview_table extends table_sql {
             $overallaverage = $DB->get_record_sql($averagesql." AND qg.userid $s_usql", array_merge($params, $s_params));
             $overallaveragerow = array($namekey => get_string('overallaverage', 'grades'),
                         'sumgrades' => quiz_format_grade($this->quiz, $overallaverage->grade),
-                        'feedbacktext'=> strip_tags(quiz_report_feedback_for_grade($overallaverage->grade, $this->quiz->id)));
+                        'feedbacktext'=> strip_tags(quiz_report_feedback_for_grade($overallaverage->grade, $this->quiz->id, $this->context)));
             if($this->detailedmarks && ($this->qmsubselect || $this->quiz->attempts == 1)) {
                 $avggradebyq = quiz_get_average_grade_for_questions($this->quiz, $this->students);
                 $overallaveragerow += quiz_format_average_grade_for_questions($avggradebyq, $this->questions, $this->quiz, $this->is_downloading());
@@ -75,7 +75,7 @@ class quiz_report_overview_table extends table_sql {
             if ($this->candelete) {
                 // Start form
                 $url = new moodle_url($this->reporturl, $this->displayoptions);
-                echo '<div id="tablecontainer">';
+                echo '<div id="tablecontainer" class="overview-tablecontainer">';
                 echo '<form id="attemptsform" method="post" action="' . $this->reporturl->out_omit_querystring() .'">';
                 echo '<div style="display: none;">';
                 echo html_writer::input_hidden_params($url);
@@ -119,12 +119,13 @@ class quiz_report_overview_table extends table_sql {
 
     function col_picture($attempt){
         global $COURSE, $OUTPUT;
-        $user = new object();
+        $user = new stdClass();
         $user->id = $attempt->userid;
         $user->lastname = $attempt->lastname;
         $user->firstname = $attempt->firstname;
         $user->imagealt = $attempt->imagealt;
         $user->picture = $attempt->picture;
+        $user->email = $attempt->email;
         return $OUTPUT->user_picture($user);
     }
 
@@ -160,7 +161,7 @@ class quiz_report_overview_table extends table_sql {
 
     function col_duration($attempt){
         if ($attempt->timefinish) {
-            return format_time($attempt->duration);
+            return format_time($attempt->timefinish - $attempt->timestart);
         } elseif ($attempt->timestart) {
             return get_string('unfinished', 'quiz');
         } else {
@@ -248,6 +249,15 @@ class quiz_report_overview_table extends table_sql {
                 } else {
                     return $grade;
                 }
+            } else if ($stateforqinattempt && question_state_is_closed($stateforqinattempt)) {
+                $text = get_string('requiresgrading', 'quiz_overview');
+                if (!$this->is_downloading()) {
+                    $link = new moodle_url("/mod/quiz/reviewquestion.php?attempt=$attempt->attempt&question=$question->id");
+                    $action = new popup_action('click', $link, 'reviewquestion', array('height' => 450, 'width' => 650));
+                    return $OUTPUT->action_link($link, $text, $action, array('title'=>get_string('reviewresponsetoq', 'quiz', $question->formattedname)));
+                } else {
+                    return $text;
+                }
             } else {
                 return '--';
             }
@@ -259,9 +269,9 @@ class quiz_report_overview_table extends table_sql {
     function col_feedbacktext($attempt){
         if ($attempt->timefinish) {
             if (!$this->is_downloading()) {
-                return quiz_report_feedback_for_grade(quiz_rescale_grade($attempt->sumgrades, $this->quiz, false), $this->quiz->id);
+                return quiz_report_feedback_for_grade(quiz_rescale_grade($attempt->sumgrades, $this->quiz, false), $this->quiz->id, $this->context);
             } else {
-                return strip_tags(quiz_report_feedback_for_grade(quiz_rescale_grade($attempt->sumgrades, $this->quiz, false), $this->quiz->id));
+                return strip_tags(quiz_report_feedback_for_grade(quiz_rescale_grade($attempt->sumgrades, $this->quiz, false), $this->quiz->id, $this->context));
             }
         } else {
             return '-';

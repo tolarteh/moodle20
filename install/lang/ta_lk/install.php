@@ -29,11 +29,13 @@
  */
 
 $string['admindirname'] = 'நிர்வாகக் கோப்புறை';
+$string['availablelangs'] = 'இருக்கும் மொழிக்கட்டுகள்';
 $string['chooselanguagehead'] = 'மொழி ஒன்றைத் தெரிவு செய்க';
 $string['chooselanguagesub'] = 'தயவு செய்து நிறுவலுக்கான மொழியைத் தெரிவு செய்க. தளத்திற்கான மற்றும் பயனாளருக்கான மொழிகளைப் பின்னர் தெரிவு செய்யலாம்.';
 $string['dataroot'] = 'தரவுக் கோப்புறை';
 $string['dbprefix'] = 'அட்டவணை prefix';
 $string['dirroot'] = 'Moodle கோப்புறை';
+$string['environmenthead'] = 'உங்கள் சூழல் சோதிக்கப்படுகிறது.';
 $string['installation'] = 'நிறுவல்';
 $string['langdownloaderror'] = 'துரதிஷ்டவசமாக "{$a}" மொழி நிறுவப்படவில்லை. நிறுவல் ஆங்கிலத்தில் தொடரும்.';
 $string['memorylimithelp'] = '<p>உங்களுடைய சேவையகத்திற்கான PHP நினைவக வரையறை தற்போது {$a} ஆக அமைக்கப்படுகிறது.</p>

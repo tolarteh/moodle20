@@ -18,28 +18,34 @@
 /**
  * Cohort enrolment plugin event handler definition.
  *
- * @package   enrol_cohort
- * @copyright 2010 Petr Skoda {@link http://skodak.org}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage cohort
+ * @copyright  2010 Petr Skoda {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /* List of handlers */
 $handlers = array (
     'cohort_member_added' => array (
         'handlerfile'      => '/enrol/cohort/locallib.php',
         'handlerfunction'  => array('enrol_cohort_handler', 'member_added'),
-        'schedule'         => 'instant'
+        'schedule'         => 'instant',
+        'internal'         => 1,
     ),
 
     'cohort_member_removed' => array (
         'handlerfile'      => '/enrol/cohort/locallib.php',
         'handlerfunction'  => array('enrol_cohort_handler', 'member_removed'),
-        'schedule'         => 'instant'
+        'schedule'         => 'instant',
+        'internal'         => 1,
     ),
 
     'cohort_deleted' => array (
         'handlerfile'      => '/enrol/cohort/locallib.php',
         'handlerfunction'  => array('enrol_cohort_handler', 'deleted'),
-        'schedule'         => 'instant'
+        'schedule'         => 'instant',
+        'internal'         => 1,
     ),
 );

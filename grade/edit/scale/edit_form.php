@@ -39,7 +39,7 @@ class edit_scale_form extends moodleform {
         $mform->addElement('static', 'used', get_string('used'));
 
         $mform->addElement('textarea', 'scale', get_string('scale'), array('cols'=>50, 'rows'=>2));
-        $mform->setHelpButton('scale', array('scales', get_string('scale')));
+        $mform->addHelpButton('scale', 'scale');
         $mform->addRule('scale', get_string('required'), 'required', null, 'client');
         $mform->setType('scale', PARAM_TEXT);
 
@@ -81,7 +81,8 @@ class edit_scale_form extends moodleform {
             if (empty($courseid)) {
                 $mform->hardFreeze('standard');
 
-            } else if (empty($scale->courseid) and !has_capability('moodle/course:managescales', get_context_instance(CONTEXT_SYSTEM))) {
+            } else if (!has_capability('moodle/course:managescales', get_context_instance(CONTEXT_SYSTEM))) {
+                //if they dont have managescales at system level the shouldnt be allowed to make scales standard (or not standard)
                 $mform->hardFreeze('standard');
 
             } else if ($used and !empty($scale->courseid)) {

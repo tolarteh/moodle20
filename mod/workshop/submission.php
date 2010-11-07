@@ -18,9 +18,10 @@
 /**
  * View a single (usually the own) submission, submit own work.
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once(dirname(dirname(dirname(__FILE__))).'/config.php');
@@ -46,15 +47,19 @@ $PAGE->set_url($workshop->submission_url(), array('cmid' => $cmid, 'id' => $id, 
 
 if ($id) { // submission is specified
     $submission = $workshop->get_submission_by_id($id);
+    $workshop->log('view submission', $workshop->submission_url($submission->id), $submission->id);
+
 } else { // no submission specified
     if (!$submission = $workshop->get_submission_by_author($USER->id)) {
         $submission = new stdclass();
         $submission->id = null;
         $submission->authorid = $USER->id;
+        $submission->example = 0;
         $submission->grade = null;
         $submission->gradeover = null;
+        $submission->published = null;
         $submission->feedbackauthor = null;
-        $submission->feedbackauthorformat = FORMAT_HTML;
+        $submission->feedbackauthorformat = editors_get_preferred_format();
     }
 }
 
@@ -66,7 +71,15 @@ $canpublish     = has_capability('mod/workshop:publishsubmissions', $workshop->c
 $canoverride    = (($workshop->phase == workshop::PHASE_EVALUATION) and has_capability('mod/workshop:overridegrades', $workshop->context));
 $userassessment = $workshop->get_assessment_of_submission_by_user($submission->id, $USER->id);
 $isreviewer     = !empty($userassessment);
-$editable       = ($cansubmit and $ownsubmission and $workshop->submitting_allowed());
+$editable       = ($cansubmit and $ownsubmission);
+
+if (empty($submission->id) and !$workshop->creating_submission_allowed()) {
+    $editable = false;
+}
+if ($submission->id and !$workshop->modifying_submission_allowed()) {
+    $editable = false;
+}
+
 if ($editable and $workshop->useexamples and $workshop->examplesmode == workshop::EXAMPLES_BEFORE_SUBMISSION
         and !has_capability('mod/workshop:manageexamples', $workshop->context)) {
     // check that all required examples have been assessed by the user
@@ -85,7 +98,7 @@ if ($submission->id and ($ownsubmission or $canviewall or $isreviewer)) {
 } elseif (is_null($submission->id) and $cansubmit) {
     // ok you can go
 } else {
-    print_error('nopermissions');
+    print_error('nopermissions', 'error', $workshop->view_url(), 'view or create submission');
 }
 
 if ($assess and $submission->id and !$isreviewer and $canallocate and $workshop->assessing_allowed()) {
@@ -102,9 +115,9 @@ if ($edit) {
     $contentopts    = array('trusttext' => true, 'subdirs' => false, 'maxfiles' => $maxfiles, 'maxbytes' => $maxbytes);
     $attachmentopts = array('subdirs' => true, 'maxfiles' => $maxfiles, 'maxbytes' => $maxbytes);
     $submission     = file_prepare_standard_editor($submission, 'content', $contentopts, $workshop->context,
-                                        'workshop_submission_content', $submission->id);
+                                        'mod_workshop', 'submission_content', $submission->id);
     $submission     = file_prepare_standard_filemanager($submission, 'attachment', $attachmentopts, $workshop->context,
-                                        'workshop_submission_attachment', $submission->id);
+                                        'mod_workshop', 'submission_attachment', $submission->id);
 
     $mform          = new workshop_submission_form($PAGE->url, array('current' => $submission, 'workshop' => $workshop,
                                                     'contentopts' => $contentopts, 'attachmentopts' => $attachmentopts));
@@ -113,28 +126,46 @@ if ($edit) {
         redirect($workshop->view_url());
 
     } elseif ($cansubmit and $formdata = $mform->get_data()) {
+        if ($formdata->example == 0) {
+            // this was used just for validation, it must be set to zero when dealing with normal submissions
+            unset($formdata->example);
+        } else {
+            throw new coding_exception('Invalid submission form data value: example');
+        }
         $timenow = time();
-        if (empty($formdata->id)) {
+        if (is_null($submission->id)) {
             $formdata->workshopid     = $workshop->id;
             $formdata->example        = 0;
             $formdata->authorid       = $USER->id;
             $formdata->timecreated    = $timenow;
-            $formdata->feedbackauthorformat = FORMAT_HTML; // todo better default
+            $formdata->feedbackauthorformat = editors_get_preferred_format();
         }
         $formdata->timemodified       = $timenow;
         $formdata->title              = trim($formdata->title);
         $formdata->content            = '';          // updated later
         $formdata->contentformat      = FORMAT_HTML; // updated later
         $formdata->contenttrust       = 0;           // updated later
-        if (empty($formdata->id)) {
-            $formdata->id = $DB->insert_record('workshop_submissions', $formdata);
-            // todo add to log
+        $formdata->late               = 0x0;         // bit mask
+        if (!empty($workshop->submissionend) and ($workshop->submissionend < time())) {
+            $formdata->late = $formdata->late | 0x1;
+        }
+        if ($workshop->phase == workshop::PHASE_ASSESSMENT) {
+            $formdata->late = $formdata->late | 0x2;
+        }
+        if (is_null($submission->id)) {
+            $submission->id = $formdata->id = $DB->insert_record('workshop_submissions', $formdata);
+            $workshop->log('add submission', $workshop->submission_url($submission->id), $submission->id);
+        } else {
+            $workshop->log('update submission', $workshop->submission_url($submission->id), $submission->id);
+            if (empty($formdata->id) or empty($submission->id) or ($formdata->id != $submission->id)) {
+                throw new moodle_exception('err_submissionid', 'workshop');
+            }
         }
         // save and relink embedded images and save attachments
         $formdata = file_postupdate_standard_editor($formdata, 'content', $contentopts, $workshop->context,
-                                                      'workshop_submission_content', $formdata->id);
+                                                      'mod_workshop', 'submission_content', $submission->id);
         $formdata = file_postupdate_standard_filemanager($formdata, 'attachment', $attachmentopts, $workshop->context,
-                                                           'workshop_submission_attachment', $formdata->id);
+                                                           'mod_workshop', 'submission_attachment', $submission->id);
         if (empty($formdata->attachment)) {
             // explicit cast to zero integer
             $formdata->attachment = 0;
@@ -182,34 +213,50 @@ if ($edit) {
 }
 
 // Output starts here
-echo $OUTPUT->header();
-echo $OUTPUT->heading(format_string($workshop->name), 2);
+$output = $PAGE->get_renderer('mod_workshop');
+echo $output->header();
+echo $output->heading(format_string($workshop->name), 2);
+
+// show instructions for submitting as thay may contain some list of questions and we need to know them
+// while reading the submitted answer
+if (trim($workshop->instructauthors)) {
+    $instructions = file_rewrite_pluginfile_urls($workshop->instructauthors, 'pluginfile.php', $PAGE->context->id,
+        'mod_workshop', 'instructauthors', 0, workshop::instruction_editors_options($PAGE->context));
+    print_collapsible_region_start('', 'workshop-viewlet-instructauthors', get_string('instructauthors', 'workshop'));
+    echo $output->box(format_text($instructions, $workshop->instructauthorsformat, array('overflowdiv'=>true)), array('generalbox', 'instructions'));
+    print_collapsible_region_end();
+}
 
 // if in edit mode, display the form to edit the submission
 
 if ($edit) {
     $mform->display();
-    echo $OUTPUT->footer();
+    echo $output->footer();
     die();
 }
 
 // else display the submission
 
 if ($submission->id) {
-    $wsoutput = $PAGE->get_renderer('mod_workshop');
-    echo $wsoutput->submission_full($submission, true);
+    echo $output->render($workshop->prepare_submission($submission, has_capability('mod/workshop:viewauthornames', $workshop->context)));
 } else {
-    echo $OUTPUT->box(get_string('noyoursubmission', 'workshop'));
+    echo $output->box(get_string('noyoursubmission', 'workshop'));
 }
 
 if ($editable) {
-    $url = new moodle_url($PAGE->url, array('edit' => 'on', 'id' => $submission->id));
-    echo $OUTPUT->single_button($url, get_string('editsubmission', 'workshop'), 'get');
+    if ($submission->id) {
+        $btnurl = new moodle_url($PAGE->url, array('edit' => 'on', 'id' => $submission->id));
+        $btntxt = get_string('editsubmission', 'workshop');
+    } else {
+        $btnurl = new moodle_url($PAGE->url, array('edit' => 'on'));
+        $btntxt = get_string('createsubmission', 'workshop');
+    }
+    echo $output->single_button($btnurl, $btntxt, 'get');
 }
 
 if ($submission->id and !$edit and !$isreviewer and $canallocate and $workshop->assessing_allowed()) {
     $url = new moodle_url($PAGE->url, array('assess' => 1));
-    echo $OUTPUT->single_button($url, get_string('assess', 'workshop'), 'post');
+    echo $output->single_button($url, get_string('assess', 'workshop'), 'post');
 }
 
 // and possibly display the submission's review(s)
@@ -217,23 +264,25 @@ if ($submission->id and !$edit and !$isreviewer and $canallocate and $workshop->
 if ($isreviewer) {
     $strategy = $workshop->grading_strategy_instance();
     $mform = $strategy->get_assessment_form($PAGE->url, 'assessment', $userassessment, false);
-    echo $OUTPUT->heading(get_string('assessmentbyyourself', 'workshop'), 2);
+    echo $output->heading(get_string('assessmentbyyourself', 'workshop'), 2);
     // reviewers can always see the grades they gave even they are not available yet
     if (is_null($userassessment->grade)) {
-        echo $OUTPUT->heading(get_string('notassessed', 'workshop'), 3);
+        echo $output->heading(get_string('notassessed', 'workshop'), 3);
         if ($workshop->assessing_allowed()) {
-            echo $OUTPUT->single_button($workshop->assess_url($userassessment->id), get_string('assess', 'workshop'), 'get');
+            echo $output->container($output->single_button($workshop->assess_url($userassessment->id), get_string('assess', 'workshop'), 'get'),
+                    array('class' => 'buttonsbar'));
         }
     } else {
         $a = new stdclass();
         $a->max = $workshop->real_grade(100);
         $a->received = $workshop->real_grade($userassessment->grade);
-        echo $OUTPUT->heading(get_string('gradeinfo', 'workshop', $a), 3);
+        echo $output->heading(get_string('gradeinfo', 'workshop', $a), 3);
         if ($userassessment->weight != 1) {
-            echo $OUTPUT->heading(get_string('weightinfo', 'workshop', $userassessment->weight), 3);
+            echo $output->heading(get_string('weightinfo', 'workshop', $userassessment->weight), 3);
         }
         if ($workshop->assessing_allowed()) {
-            echo $OUTPUT->single_button($workshop->assess_url($userassessment->id), get_string('reassess', 'workshop'), 'get');
+            echo $output->container($output->single_button($workshop->assess_url($userassessment->id), get_string('reassess', 'workshop'), 'get'),
+                    array('class' => 'buttonsbar'));
         }
         $mform->display();
     }
@@ -256,16 +305,20 @@ if (has_capability('mod/workshop:viewallassessments', $workshop->context) or ($o
             $reviewer = new stdclass();
             $reviewer->firstname = $assessment->reviewerfirstname;
             $reviewer->lastname = $assessment->reviewerlastname;
-            echo $OUTPUT->heading(get_string('assessmentbyknown', 'workshop', fullname($reviewer)), 2);
+            echo $output->heading(get_string('assessmentbyknown', 'workshop', fullname($reviewer)), 2);
         } else {
-            echo $OUTPUT->heading(get_string('assessmentbyunknown', 'workshop'), 2);
+            echo $output->heading(get_string('assessmentbyunknown', 'workshop'), 2);
         }
         $a = new stdclass();
         $a->max = $workshop->real_grade(100);
         $a->received = $workshop->real_grade($assessment->grade);
-        echo $OUTPUT->heading(get_string('gradeinfo', 'workshop', $a), 3);
+        echo $output->heading(get_string('gradeinfo', 'workshop', $a), 3);
         if ($assessment->weight != 1) {
-            echo $OUTPUT->heading(get_string('weightinfo', 'workshop', $assessment->weight), 3);
+            echo $output->heading(get_string('weightinfo', 'workshop', $assessment->weight), 3);
+        }
+        if (has_capability('mod/workshop:overridegrades', $workshop->context)) {
+            echo $output->container($output->single_button($workshop->assess_url($assessment->id), get_string('assessmentsettings', 'workshop'), 'get'),
+                    array('class' => 'buttonsbar'));
         }
         $mform = $strategy->get_assessment_form($PAGE->url, 'assessment', $assessment, false);
         $mform->display();
@@ -277,4 +330,4 @@ if (!$edit and $canoverride) {
     $feedbackform->display();
 }
 
-echo $OUTPUT->footer();
+echo $output->footer();

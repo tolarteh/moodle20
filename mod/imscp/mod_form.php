@@ -18,14 +18,13 @@
 /**
  * IMS CP configuration form
  *
- * @package   mod-imscp
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage imscp
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-if (!defined('MOODLE_INTERNAL')) {
-    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
-}
+defined('MOODLE_INTERNAL') || die();
 
 require_once ($CFG->dirroot.'/course/moodleform_mod.php');
 require_once($CFG->libdir.'/filelib.php');
@@ -43,7 +42,7 @@ class mod_imscp_mod_form extends moodleform_mod {
         if (!empty($CFG->formatstringstriptags)) {
             $mform->setType('name', PARAM_TEXT);
         } else {
-            $mform->setType('name', PARAM_CLEAN);
+            $mform->setType('name', PARAM_CLEANHTML);
         }
         $mform->addRule('name', null, 'required', null, 'client');
         $this->add_intro_editor($config->requiremodintro);
@@ -74,19 +73,18 @@ class mod_imscp_mod_form extends moodleform_mod {
         $usercontext = get_context_instance(CONTEXT_USER, $USER->id);
         $fs = get_file_storage();
 
-        if (!$files = $fs->get_area_files($usercontext->id, 'user_draft', $data['package'], 'id', false)) {
+        if (!$files = $fs->get_area_files($usercontext->id, 'user', 'draft', $data['package'], 'id', false)) {
             if (!$this->current->instance) {
                 $errors['package'] = get_string('required');
                 return $errors;
             }
-        }
-
-        $file = reset($files);
-
-        if ($file->get_mimetype() != 'application/zip') {
-            $errors['package'] = get_string('invalidfiletype', 'error', '', $file);
-            // better delete current file, it is not usable anyway
-            $fs->delete_area_files($usercontext->id, 'user_draft', $data['package']);
+        } else {
+            $file = reset($files);
+            if ($file->get_mimetype() != 'application/zip') {
+                $errors['package'] = get_string('invalidfiletype', 'error', '', $file);
+                // better delete current file, it is not usable anyway
+                $fs->delete_area_files($usercontext->id, 'user', 'draft', $data['package']);
+            }
         }
 
         return $errors;

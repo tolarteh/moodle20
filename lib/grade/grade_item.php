@@ -1,28 +1,29 @@
 <?php
 
-///////////////////////////////////////////////////////////////////////////
-//                                                                       //
-// NOTICE OF COPYRIGHT                                                   //
-//                                                                       //
-// Moodle - Modular Object-Oriented Dynamic Learning Environment         //
-//          http://moodle.com                                            //
-//                                                                       //
-// Copyright (C) 1999 onwards Martin Dougiamas  http://dougiamas.com     //
-//                                                                       //
-// This program is free software; you can redistribute it and/or modify  //
-// it under the terms of the GNU General Public License as published by  //
-// the Free Software Foundation; either version 2 of the License, or     //
-// (at your option) any later version.                                   //
-//                                                                       //
-// This program is distributed in the hope that it will be useful,       //
-// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
-// GNU General Public License for more details:                          //
-//                                                                       //
-//          http://www.gnu.org/copyleft/gpl.html                         //
-//                                                                       //
-///////////////////////////////////////////////////////////////////////////
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+/**
+ * Definitions of grade item class
+ *
+ * @package    core
+ * @subpackage grade
+ * @copyright  2006 Nicolas Connault
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
+defined('MOODLE_INTERNAL') || die();
 require_once('grade_object.php');
 
 /**
@@ -430,15 +431,13 @@ class grade_item extends grade_object {
                 if (!empty($cm->idnumber)) {
                     return false;
                 }
-                if ($DB->set_field('course_modules', 'idnumber', $idnumber, array('id' => $cm->id))) {
-                    $this->idnumber = $idnumber;
-                    return $this->update();
-                }
+                $DB->set_field('course_modules', 'idnumber', $idnumber, array('id' => $cm->id));
+                $this->idnumber = $idnumber;
+                return $this->update();
             } else {
                 $this->idnumber = $idnumber;
                 return $this->update();
             }
-            return false;
 
         } else {
             $this->idnumber = $idnumber;
@@ -944,7 +943,7 @@ class grade_item extends grade_object {
      * @param int $courseid
      * @return course item object
      */
-    public function fetch_course_item($courseid) {
+    public static function fetch_course_item($courseid) {
         if ($course_item = grade_item::fetch(array('courseid'=>$courseid, 'itemtype'=>'course'))) {
             return $course_item;
         }
@@ -1439,7 +1438,7 @@ class grade_item extends grade_object {
             return false;
         }
 
-        $oldgrade = new object();
+        $oldgrade = new stdClass();
         $oldgrade->finalgrade     = $grade->finalgrade;
         $oldgrade->overridden     = $grade->overridden;
         $oldgrade->feedback       = $grade->feedback;
@@ -1556,7 +1555,7 @@ class grade_item extends grade_object {
             return false;
         }
 
-        $oldgrade = new object();
+        $oldgrade = new stdClass();
         $oldgrade->finalgrade     = $grade->finalgrade;
         $oldgrade->rawgrade       = $grade->rawgrade;
         $oldgrade->rawgrademin    = $grade->rawgrademin;
@@ -1760,11 +1759,15 @@ class grade_item extends grade_object {
 
         // add missing final grade values
         // not graded (null) is counted as 0 - the spreadsheet way
+        $allinputsnull = true;
         foreach($useditems as $gi) {
-            if (!array_key_exists('gi'.$gi, $params)) {
+            if (!array_key_exists('gi'.$gi, $params) || is_null($params['gi'.$gi])) {
                 $params['gi'.$gi] = 0;
             } else {
                 $params['gi'.$gi] = (float)$params['gi'.$gi];
+                if ($gi != $this->id) {
+                    $allinputsnull = false;
+                }
             }
         }
 
@@ -1789,16 +1792,24 @@ class grade_item extends grade_object {
             return true;
         }
 
-        // do the calculation
-        $this->formula->set_params($params);
-        $result = $this->formula->evaluate();
-
-        if ($result === false) {
+        if ($allinputsnull) {
             $grade->finalgrade = null;
+            $result = true;
 
         } else {
-            // normalize
-            $grade->finalgrade = $this->bounded_grade($result);
+
+            // do the calculation
+            $this->formula->set_params($params);
+            $result = $this->formula->evaluate();
+
+            if ($result === false) {
+                $grade->finalgrade = null;
+
+            } else {
+                // normalize
+                $grade->finalgrade = $this->bounded_grade($result);
+            }
+
         }
 
         // update in db if changed
@@ -1938,7 +1949,7 @@ class grade_item extends grade_object {
         global $USER;
 
         // Determine which display type to use for this average
-        if (isset($USER->gradeediting) && $USER->gradeediting[$this->courseid]) {
+        if (isset($USER->gradeediting) && array_key_exists($this->courseid, $USER->gradeediting) && $USER->gradeediting[$this->courseid]) {
             $displaytype = GRADE_DISPLAY_TYPE_REAL;
 
         } else if ($rangesdisplaytype == GRADE_REPORT_PREFERENCE_INHERIT) { // no ==0 here, please resave report and user prefs

@@ -32,7 +32,7 @@ require_once(dirname(__FILE__) . '/config.php');
 
 $identifier = required_param('identifier', PARAM_STRINGID);
 $component  = required_param('component', PARAM_SAFEDIR);
-$lang       = required_param('component', PARAM_LANG); // TODO: maybe split into separate scripts
+$lang       = required_param('lang', PARAM_LANG); // TODO: maybe split into separate scripts
 $ajax       = optional_param('ajax', 0, PARAM_BOOL);
 
 if (!$lang) {
@@ -52,14 +52,20 @@ if ($ajax) {
     echo $OUTPUT->header();
 }
 
+if (!$sm->string_exists($identifier.'_help', $component)) {
+    // strings on-diskc cache may be dirty - try to rebuild it and check again
+    $sm->load_component_strings($component, current_language(), true);
+}
+
 if ($sm->string_exists($identifier.'_help', $component)) {
-    $options = new object;
+    $options = new stdClass();
     $options->trusted = false;
     $options->noclean = false;
     $options->smiley = false;
     $options->filter = false;
     $options->para = true;
     $options->newlines = false;
+    $options->overflowdiv = !$ajax;
 
     echo $OUTPUT->heading(format_string(get_string($identifier, $component)), 1, 'helpheading');
     // Should be simple wiki only MDL-21695

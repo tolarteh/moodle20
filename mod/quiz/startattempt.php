@@ -29,12 +29,15 @@ if (!$quiz = $DB->get_record('quiz', array('id' => $cm->instance))) {
 }
 
 $quizobj = quiz::create($quiz->id, $USER->id);
+// This script should only ever be posted to, so set page URL to the view page.
+$PAGE->set_url($quizobj->view_url());
 
 /// Check login and sesskey.
 require_login($quizobj->get_courseid(), false, $quizobj->get_cm());
 if (!confirm_sesskey()) {
     throw new moodle_exception('confirmsesskeybad', 'error', $quizobj->view_url());
 }
+$PAGE->set_pagelayout('base');
 
 /// if no questions have been set up yet redirect to edit.php
 if (!$quizobj->get_question_ids() && $quizobj->has_capability('mod/quiz:manage')) {
@@ -48,7 +51,7 @@ if ($quizobj->is_preview_user() && $forcenew) {
 }
 
 
-/// Check capabilites.
+/// Check capabilities.
 if (!$quizobj->is_preview_user()) {
     $quizobj->require_capability('mod/quiz:attempt');
 }
@@ -111,6 +114,9 @@ $quizobj->preload_questions();
 $quizobj->load_questions();
 
 /// Create initial states for all questions in this quiz.
+if (!$quiz->attemptonlast) {
+    $lastattemptid = false;
+}
 if (!$states = get_question_states($quizobj->get_questions(), $quizobj->get_quiz(), $attempt, $lastattemptid)) {
     print_error('cannotrestore', 'quiz');
 }
@@ -120,8 +126,8 @@ foreach ($quizobj->get_questions() as $i => $question) {
     save_question_session($question, $states[$i]);
 }
 /// Trigger event
-$eventdata = new object();
-$eventdata->component  = 'mod/quiz';
+$eventdata = new stdClass();
+$eventdata->component  = 'mod_quiz';
 $eventdata->course     = $quizobj->get_courseid();
 $eventdata->quiz       = $quizobj->get_quizid();
 $eventdata->cm         = $quizobj->get_cmid();

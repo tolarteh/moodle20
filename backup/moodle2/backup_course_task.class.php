@@ -72,10 +72,14 @@ class backup_course_task extends backup_task {
         // annotating some bits, tags and module restrictions
         $this->add_step(new backup_course_structure_step('course_info', 'course.xml'));
 
-        //TODO: MDL-22793 - add user_enrolments entries
+        // Generate the enrolment file
+        $this->add_step(new backup_enrolments_structure_step('course_enrolments', 'enrolments.xml'));
 
         // Annotate the groups used in already annotated groupings
         $this->add_step(new backup_annotate_groups_from_groupings('annotate_groups'));
+
+        // Annotate the question_categories belonging to the course context
+        $this->add_step(new backup_calculate_question_categories('course_question_categories'));
 
         // Generate the roles file (optionally role assignments and always role overrides)
         $this->add_step(new backup_roles_structure_step('course_roles', 'roles.xml'));
@@ -112,7 +116,7 @@ class backup_course_task extends backup_task {
     static public function encode_content_links($content) {
         global $CFG;
 
-        $base = preg_quote($CFG->wwwroot,"/");
+        $base = preg_quote($CFG->wwwroot, '/');
 
         // Link to the course main page (it also covers "&topic=xx" and "&week=xx"
         // because they don't become transformed (section number) in backup/restore

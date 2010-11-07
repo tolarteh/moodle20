@@ -3,7 +3,6 @@
 class block_course_summary extends block_base {
     function init() {
         $this->title = get_string('pluginname', 'block_course_summary');
-        $this->version = 2007101509;
     }
 
     function specialization() {
@@ -23,11 +22,12 @@ class block_course_summary extends block_base {
             return '';
         }
 
-        $this->content = new object();
-        $options = new object();
+        $this->content = new stdClass();
+        $options = new stdClass();
         $options->noclean = true;    // Don't clean Javascripts etc
+        $options->overflowdiv = true;
         $context = get_context_instance(CONTEXT_COURSE, $this->page->course->id);
-        $this->page->course->summary = file_rewrite_pluginfile_urls($this->page->course->summary, 'pluginfile.php', $context->id, 'course_summary', NULL);
+        $this->page->course->summary = file_rewrite_pluginfile_urls($this->page->course->summary, 'pluginfile.php', $context->id, 'course', 'summary', NULL);
         $this->content->text = format_text($this->page->course->summary, $this->page->course->summaryformat, $options);
         if ($this->page->user_is_editing()) {
             if($this->page->course->id == SITEID) {

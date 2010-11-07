@@ -1,29 +1,27 @@
 <?php
-       // index.php - the front page.
 
-///////////////////////////////////////////////////////////////////////////
-//                                                                       //
-// NOTICE OF COPYRIGHT                                                   //
-//                                                                       //
-// Moodle - Modular Object-Oriented Dynamic Learning Environment         //
-//          http://moodle.org                                            //
-//                                                                       //
-// Copyright (C) 1999 onwards  Martin Dougiamas  http://moodle.com       //
-//                                                                       //
-// This program is free software; you can redistribute it and/or modify  //
-// it under the terms of the GNU General Public License as published by  //
-// the Free Software Foundation; either version 2 of the License, or     //
-// (at your option) any later version.                                   //
-//                                                                       //
-// This program is distributed in the hope that it will be useful,       //
-// but WITHOUT ANY WARRANTY; without even the implied warranty of        //
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         //
-// GNU General Public License for more details:                          //
-//                                                                       //
-//          http://www.gnu.org/copyleft/gpl.html                         //
-//                                                                       //
-///////////////////////////////////////////////////////////////////////////
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * Moodle frontpage.
+ *
+ * @package    core
+ * @copyright  1999 onwards Martin Dougiamas (http://dougiamas.com)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 
     if (!file_exists('./config.php')) {
         header('Location: install.php');
@@ -65,10 +63,6 @@
         }
     }
 
-    if (get_moodle_cookie() == '') {
-        set_moodle_cookie('nobody');   // To help search for cookies on login page
-    }
-
     if (isloggedin()) {
         add_to_log(SITEID, 'course', 'view', 'view.php?id='.SITEID, SITEID);
     }
@@ -77,8 +71,12 @@
     if (get_config('local_hub', 'hubenabled') && file_exists($CFG->dirroot.'/local/hub/lib.php')) {
         require_once($CFG->dirroot.'/local/hub/lib.php');
         $hub = new local_hub();
-        $hub->display_homepage();
-        exit;
+        $continue = $hub->display_homepage();
+        //display_homepage() return true if the hub home page is not displayed
+        //mostly when search form is not displayed for not logged users
+        if (empty($continue)) {
+            exit;
+        }
     }
 
     $PAGE->set_pagetype('site-index');
@@ -91,7 +89,7 @@
     echo $OUTPUT->header();
 
 /// Print Section
-    if ($SITE->numsections > 0) { 
+    if ($SITE->numsections > 0) {
 
         if (!$section = $DB->get_record('course_sections', array('course'=>$SITE->id, 'section'=>1))) {
             $DB->delete_records('course_sections', array('course'=>$SITE->id, 'section'=>1)); // Just in case
@@ -104,7 +102,7 @@
             $section->id = $DB->insert_record('course_sections', $section);
         }
 
-        if (!empty($section->sequence) or !empty($section->summary) or $editing) { 
+        if (!empty($section->sequence) or !empty($section->summary) or $editing) {
             echo $OUTPUT->box_start('generalbox sitetopic');
 
             /// If currently moving a file then show the current clipboard
@@ -116,9 +114,10 @@
             }
 
             $context = get_context_instance(CONTEXT_COURSE, SITEID);
-            $summarytext = file_rewrite_pluginfile_urls($section->summary, 'pluginfile.php', $context->id, 'course_section', $section->id);
-            $summaryformatoptions = new object();
+            $summarytext = file_rewrite_pluginfile_urls($section->summary, 'pluginfile.php', $context->id, 'course', 'section', $section->id);
+            $summaryformatoptions = new stdClass();
             $summaryformatoptions->noclean = true;
+            $summaryformatoptions->overflowdiv = true;
 
             echo format_text($summarytext, $section->summaryformat, $summaryformatoptions);
 
@@ -139,13 +138,13 @@
         }
     }
 
-    if (isloggedin() and !isguestuser() and isset($CFG->frontpageloggedin)) { 
+    if (isloggedin() and !isguestuser() and isset($CFG->frontpageloggedin)) {
         $frontpagelayout = $CFG->frontpageloggedin;
     } else {
         $frontpagelayout = $CFG->frontpage;
     }
 
-    foreach (explode(',',$frontpagelayout) as $v) {  
+    foreach (explode(',',$frontpagelayout) as $v) {
         switch ($v) {     /// Display the main part of the front page.
             case FRONTPAGENEWS:
                 if ($SITE->newsitems) { // Print forums only when needed
@@ -177,7 +176,7 @@
                 }
             break;
 
-            case FRONTPAGECOURSELIST:                
+            case FRONTPAGECOURSELIST:
                 if (isloggedin() and !has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM)) and !isguestuser() and empty($CFG->disablemycourses)) {
                     echo html_writer::tag('a', get_string('skipa', 'access', moodle_strtolower(get_string('mycourses'))), array('href'=>'#skipmycourses', 'class'=>'skip-block'));
                     echo $OUTPUT->heading(get_string('mycourses'), 2, 'headingblock header');
@@ -189,7 +188,7 @@
                     echo $OUTPUT->heading(get_string('availablecourses'), 2, 'headingblock header');
                     print_courses(0);
                     echo html_writer::tag('span', '', array('class'=>'skip-block-to', 'id'=>'skipavailablecourses'));
-                }                
+                }
             break;
 
             case FRONTPAGECATEGORYNAMES:

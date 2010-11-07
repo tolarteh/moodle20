@@ -3,7 +3,7 @@
  *  Base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage WebTester
- *  @version    $Id: authentication.php,v 1.3 2008-06-10 20:10:53 nicolasconnault Exp $
+ *  @version    $Id: authentication.php,v 1.3 2008/06/10 20:10:53 nicolasconnault Exp $
  */
 /**
  *  include http class

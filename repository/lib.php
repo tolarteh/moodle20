@@ -21,10 +21,10 @@
  * and was introduced as part of the changes occuring in Moodle 2.0
  *
  * @since 2.0
- * @package moodlecore
+ * @package    core
  * @subpackage repository
- * @copyright 2009 Dongsheng Cai <dongsheng@moodle.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @copyright  2009 Dongsheng Cai <dongsheng@moodle.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once(dirname(dirname(__FILE__)) . '/config.php');
@@ -133,12 +133,12 @@ class repository_type {
 
         //set options attribut
         $this->_options = array();
-        $options = repository::static_function($typename,'get_type_option_names');
+        $options = repository::static_function($typename, 'get_type_option_names');
         //check that the type can be setup
         if (!empty($options)) {
             //set the type options
             foreach ($options as $config) {
-                if (array_key_exists($config,$typeoptions)) {
+                if (array_key_exists($config, $typeoptions)) {
                     $this->_options[$config] = $typeoptions[$config];
                 }
             }
@@ -173,7 +173,7 @@ class repository_type {
      * @return string user-friendly type name
      */
     public function get_readablename() {
-        return get_string('repositoryname','repository_'.$this->_typename);
+        return get_string('pluginname','repository_'.$this->_typename);
     }
 
     /**
@@ -226,7 +226,7 @@ class repository_type {
         $existingtype = $DB->get_record('repository', array('type'=>$this->_typename));
         if (!$existingtype) {
             //create the type
-            $newtype = new stdclass;
+            $newtype = new stdClass();
             $newtype->type = $this->_typename;
             $newtype->visible = $this->_visible;
             $newtype->sortorder = $this->_sortorder;
@@ -234,13 +234,22 @@ class repository_type {
             //save the options in DB
             $this->update_options();
 
+            $instanceoptionnames = repository::static_function($this->_typename, 'get_instance_option_names');
+
             //if the plugin type has no multiple instance (e.g. has no instance option name) so it wont
             //be possible for the administrator to create a instance
             //in this case we need to create an instance
-            $instanceoptionnames = repository::static_function($this->_typename, 'get_instance_option_names');
             if (empty($instanceoptionnames)) {
                 $instanceoptions = array();
-                $instanceoptions['name'] = $this->_typename;
+                if (empty($this->_options['pluginname'])) {
+                    // when moodle trying to install some repo plugin automatically
+                    // this option will be empty, get it from language string when display
+                    $instanceoptions['name'] = '';
+                } else {
+                    // when admin trying to add a plugin manually, he will type a name
+                    // for it
+                    $instanceoptions['name'] = $this->_options['pluginname'];
+                }
                 repository::static_function($this->_typename, 'create', $this->_typename, 0, get_system_context(), $instanceoptions);
             }
             //run plugin_init function
@@ -273,12 +282,27 @@ class repository_type {
      * @return boolean
      */
     public function update_options($options = null) {
+        global $DB;
+        $classname = 'repository_' . $this->_typename;
+        $instanceoptions = repository::static_function($this->_typename, 'get_instance_option_names');
+        if (empty($instanceoptions)) {
+            // update repository instance name if this plugin type doesn't have muliti instances
+            $params = array();
+            $params['type'] = $this->_typename;
+            $instances = repository::get_instances($params);
+            $instance = array_pop($instances);
+            if ($instance) {
+                $DB->set_field('repository_instances', 'name', $options['pluginname'], array('id'=>$instance->id));
+            }
+            unset($options['pluginname']);
+        }
+
         if (!empty($options)) {
             $this->_options = $options;
         }
 
         foreach ($this->_options as $name => $value) {
-            set_config($name,$value,$this->_typename);
+            set_config($name, $value, $this->_typename);
         }
 
         return true;
@@ -426,7 +450,7 @@ class repository_type {
  * To use repository plugin, see:
  * http://docs.moodle.org/en/Development:Repository_How_to_Create_Plugin
  * class repository is an abstract class, some functions must be implemented in subclass.
- * See an example: repository/boxnet/repository.class.php
+ * See an example: repository/boxnet/lib.php
  *
  * A few notes:
  *   // for ajax file picker, this will print a json string to tell file picker
@@ -449,23 +473,33 @@ abstract class repository {
     // example: self::$disabled = true
     public $disabled = false;
     public $id;
+    /** @var object current context */
     public $context;
     public $options;
     public $readonly;
     public $returntypes;
+    /** @var object repository instance database record */
+    public $instance;
     /**
      * 1. Initialize context and options
      * 2. Accept necessary parameters
      *
-     * @param integer $repositoryid
-     * @param integer $contextid
-     * @param array $options
+     * @param integer $repositoryid repository instance id
+     * @param integer|object a context id or context object
+     * @param array $options repository options
      */
-    public function __construct($repositoryid, $contextid = SYSCONTEXTID, $options = array(), $readonly = 0) {
+    public function __construct($repositoryid, $context = SYSCONTEXTID, $options = array(), $readonly = 0) {
+        global $DB;
         $this->id = $repositoryid;
-        $this->context = get_context_instance_by_id($contextid);
+        if (is_object($context)) {
+            $this->context = $context;
+        } else {
+            $this->context = get_context_instance_by_id($context);
+        }
+        $this->instance = $DB->get_record('repository_instances', array('id'=>$this->id));
         $this->readonly = $readonly;
         $this->options = array();
+
         if (is_array($options)) {
             $options = array_merge($this->get_option(), $options);
         } else {
@@ -480,10 +514,10 @@ abstract class repository {
     }
 
     /**
-     * Return a type for a given type name.
+     * Get a repository type object by a given type name.
      * @global object $DB
-     * @param string $typename the type name
-     * @return repository_type
+     * @param string $typename the repository type name
+     * @return repository_type|bool
      */
     public static function get_type_by_typename($typename) {
         global $DB;
@@ -496,7 +530,7 @@ abstract class repository {
     }
 
     /**
-     * Return a type for a given type id.
+     * Get the repository type by a given repository type id.
      * @global object $DB
      * @param int $id the type id
      * @return object
@@ -512,9 +546,10 @@ abstract class repository {
     }
 
     /**
-     * Return all repository types ordered by sortorder
-     * first type in returnedarray[0], second type in returnedarray[1], ...
+     * Return all repository types ordered by sortorder field
+     * first repository type in returnedarray[0], second repository type in returnedarray[1], ...
      * @global object $DB
+     * @global object $CFG
      * @param boolean $visible can return types by visiblity, return all types if null
      * @return array Repository types
      */
@@ -528,7 +563,7 @@ abstract class repository {
         }
         if ($records = $DB->get_records('repository',$params,'sortorder')) {
             foreach($records as $type) {
-                if (file_exists($CFG->dirroot . '/repository/'. $type->type .'/repository.class.php')) {
+                if (file_exists($CFG->dirroot . '/repository/'. $type->type .'/lib.php')) {
                     $types[] = new repository_type($type->type, (array)get_config($type->type), $type->visible, $type->sortorder);
                 }
             }
@@ -538,34 +573,17 @@ abstract class repository {
     }
 
     /**
-     * Check context
-     * @param int $ctx_id
+     * To check if the context id is valid
+     * @global object $USER
+     * @param int $contextid
      * @return boolean
      */
-    public static function check_context($ctx_id) {
-        global $USER;
-
-        $context = get_context_instance_by_id($ctx_id);
-        $level = $context->contextlevel;
-
-        if ($level == CONTEXT_COURSE) {
-            if (!is_enrolled($context)) { //TODO: this looks a bit too simple, verify!
-                return false;
-            } else {
-                return true;
-            }
-        } else if ($level == CONTEXT_USER) {
-            $c = get_context_instance(CONTEXT_USER, $USER->id);
-            if ($c->id == $ctx_id) {
-                return true;
-            } else {
-                return false;
-            }
-        } else if ($level == CONTEXT_SYSTEM) {
-            // it is always ok in system level
-            return true;
+    public static function check_capability($contextid, $instance) {
+        $context = get_context_instance_by_id($contextid);
+        $capability = has_capability('repository/'.$instance->type.':view', $context);
+        if (!$capability) {
+            throw new repository_exception('nopermissiontoaccess', 'repository');
         }
-        return false;
     }
 
     /**
@@ -626,30 +644,31 @@ abstract class repository {
         }
 
         $onlyvisible = isset($args['onlyvisible']) ? $args['onlyvisible'] : true;
+        $returntypes = isset($args['return_types']) ? $args['return_types'] : 3;
         $type        = isset($args['type']) ? $args['type'] : null;
-        $returntypes   = isset($args['return_types']) ? $args['return_types'] : 3;
 
         $params = array();
-        $sql = 'SELECT i.*, r.type AS repositorytype, r.sortorder, r.visible FROM {repository} r, {repository_instances} i WHERE ';
-        $sql .= 'i.typeid = r.id ';
+        $sql = "SELECT i.*, r.type AS repositorytype, r.sortorder, r.visible
+                  FROM {repository} r, {repository_instances} i
+                 WHERE i.typeid = r.id ";
 
         if (!empty($args['disable_types']) && is_array($args['disable_types'])) {
             list($types, $p) = $DB->get_in_or_equal($args['disable_types'], SQL_PARAMS_QM, 'param0000', false);
-            $sql .= ' AND r.type '.$types;
+            $sql .= " AND r.type $types";
             $params = array_merge($params, $p);
         }
 
         if (!empty($args['userid']) && is_numeric($args['userid'])) {
-            $sql .= ' AND (i.userid = 0 or i.userid = ?)';
+            $sql .= " AND (i.userid = 0 or i.userid = ?)";
             $params[] = $args['userid'];
         }
 
         foreach ($contexts as $context) {
             if (empty($firstcontext)) {
                 $firstcontext = true;
-                $sql .= ' AND ((i.contextid = ?)';
+                $sql .= " AND ((i.contextid = ?)";
             } else {
-                $sql .= ' OR (i.contextid = ?)';
+                $sql .= " OR (i.contextid = ?)";
             }
             $params[] = $context->id;
         }
@@ -659,14 +678,14 @@ abstract class repository {
         }
 
         if ($onlyvisible == true) {
-            $sql .= ' AND (r.visible = 1)';
+            $sql .= " AND (r.visible = 1)";
         }
 
         if (isset($type)) {
-            $sql .= ' AND (r.type = ?)';
+            $sql .= " AND (r.type = ?)";
             $params[] = $type;
         }
-        $sql .= ' order by r.sortorder, i.name';
+        $sql .= " ORDER BY r.sortorder, i.name";
 
         if (!$records = $DB->get_records_sql($sql, $params)) {
             $records = array();
@@ -680,12 +699,11 @@ abstract class repository {
             $accepted_types = '*';
         }
         foreach ($records as $record) {
-            if (!file_exists($CFG->dirroot . '/repository/'. $record->repositorytype.'/repository.class.php')) {
+            if (!file_exists($CFG->dirroot . '/repository/'. $record->repositorytype.'/lib.php')) {
                 continue;
             }
-            require_once($CFG->dirroot . '/repository/'. $record->repositorytype.'/repository.class.php');
+            require_once($CFG->dirroot . '/repository/'. $record->repositorytype.'/lib.php');
             $options['visible'] = $record->visible;
-            $options['name']    = $record->name;
             $options['type']    = $record->repositorytype;
             $options['typeid']  = $record->typeid;
             // tell instance what file types will be accepted by file picker
@@ -721,14 +739,17 @@ abstract class repository {
                         $is_supported = false;
                     }
                 }
-                if (!$onlyvisible || ($repository->is_visible() && !$repository->disabled)) {
 
+                if (!$onlyvisible || ($repository->is_visible() && !$repository->disabled)) {
                     // check capability in current context
                     if (!empty($current_context)) {
                         $capability = has_capability('repository/'.$record->repositorytype.':view', $current_context);
                     } else {
-                        // TODO: what should we do if current context isn't set?
                         $capability = has_capability('repository/'.$record->repositorytype.':view', get_system_context());
+                    }
+                    if ($record->repositorytype == 'coursefiles') {
+                        // coursefiles plugin needs managefiles permission
+                        $capability = $capability && has_capability('moodle/course:managefiles', $current_context);
                     }
                     if ($is_supported && $capability) {
                         $repositories[$repository->id] = $repository;
@@ -748,15 +769,15 @@ abstract class repository {
      */
     public static function get_instance($id) {
         global $DB, $CFG;
-        $sql = 'SELECT i.*, r.type AS repositorytype, r.visible FROM {repository} r, {repository_instances} i WHERE ';
-        $sql .= 'i.typeid = r.id AND ';
-        $sql .= 'i.id = '.$id;
+        $sql = "SELECT i.*, r.type AS repositorytype, r.visible
+                  FROM {repository} r
+                  JOIN {repository_instances} i ON i.typeid = r.id
+                 WHERE i.id = ?";
 
-        if(!$instance = $DB->get_record_sql($sql)) {
+        if (!$instance = $DB->get_record_sql($sql, array($id))) {
             return false;
         }
-        require_once($CFG->dirroot . '/repository/'. $instance->repositorytype
-                . '/repository.class.php');
+        require_once($CFG->dirroot . '/repository/'. $instance->repositorytype.'/lib.php');
         $classname = 'repository_' . $instance->repositorytype;
         $options['typeid'] = $instance->typeid;
         $options['type']   = $instance->repositorytype;
@@ -769,7 +790,7 @@ abstract class repository {
     }
 
     /**
-     * call a static function.  Any additional arguments than plugin and function will be passed through.
+     * Call a static function. Any additional arguments than plugin and function will be passed through.
      * @global object $CFG
      * @param string $plugin
      * @param string $function
@@ -779,7 +800,7 @@ abstract class repository {
         global $CFG;
 
         //check that the plugin exists
-        $typedirectory = $CFG->dirroot . '/repository/'. $plugin . '/repository.class.php';
+        $typedirectory = $CFG->dirroot . '/repository/'. $plugin . '/lib.php';
         if (!file_exists($typedirectory)) {
             //throw new repository_exception('invalidplugin', 'repository');
             return false;
@@ -796,8 +817,7 @@ abstract class repository {
         $args = func_get_args();
         if (count($args) <= 2) {
             $args = array();
-        }
-        else {
+        } else {
             array_shift($args);
             array_shift($args);
         }
@@ -830,6 +850,8 @@ abstract class repository {
         $now = time();
 
         $record->contextid = $context->id;
+        $record->component = 'user';
+        $record->filearea  = 'draft';
         $record->timecreated  = $now;
         $record->timemodified = $now;
         $record->userid       = $USER->id;
@@ -838,85 +860,23 @@ abstract class repository {
             $record->itemid = 0;
         }
         $fs = get_file_storage();
-        $browser = get_file_browser();
-        if ($existingfile = $fs->get_file($context->id, $record->filearea, $record->itemid, $record->filepath, $record->filename)) {
-            $existingfile->delete();
+        if ($existingfile = $fs->get_file($context->id, $record->component, $record->filearea, $record->itemid, $record->filepath, $record->filename)) {
+            throw new moodle_exception('fileexists');
         }
         if ($file = $fs->create_file_from_pathname($record, $thefile)) {
             if (empty($CFG->repository_no_delete)) {
                 $delete = unlink($thefile);
                 unset($CFG->repository_no_delete);
             }
-            $fileinfo = $browser->get_file_info($context, $file->get_filearea(), $file->get_itemid(), $file->get_filepath(), $file->get_filename());
-            if(!empty($fileinfo)) {
-                return array(
-                    'url'=>$fileinfo->get_url(),
-                    'id'=>$file->get_itemid(),
-                    'file'=>$file->get_filename(),
-                    'icon' => $OUTPUT->pix_url(file_extension_icon($thefile, 32))->out()
-                );
-            } else {
-                return null;
-            }
+            return array(
+                'url'=>moodle_url::make_draftfile_url($file->get_itemid(), $file->get_filepath(), $file->get_filename())->out(),
+                'id'=>$file->get_itemid(),
+                'file'=>$file->get_filename(),
+                'icon' => $OUTPUT->pix_url(file_extension_icon($thefile, 32))->out(),
+            );
         } else {
             return null;
         }
-    }
-
-    /**
-     * Return the user files tree in a format to be returned by the function get_listing
-     * @global object $CFG
-     * @param string $search
-     * @return array
-     */
-    public static function get_user_file_tree($search = ''){
-        global $CFG;
-        $ret = array();
-        $ret['nologin'] = true;
-        $ret['manage'] = $CFG->wwwroot .'/files/index.php'; // temporary
-        $browser = get_file_browser();
-        $itemid = null;
-        $filename = null;
-        $filearea = null;
-        $path = '/';
-        $ret['dynload'] = false;
-
-        if ($fileinfo = $browser->get_file_info(get_system_context(), $filearea, $itemid, $path, $filename)) {
-
-            $ret['path'] = array();
-            $params = $fileinfo->get_params();
-            $filearea = $params['filearea'];
-            $ret['path'][] = repository::encode_path($filearea, $path, $fileinfo->get_visible_name());
-            if ($fileinfo->is_directory()) {
-                $level = $fileinfo->get_parent();
-                while ($level) {
-                    $params = $level->get_params();
-                    $ret['path'][] = repository::encode_path($params['filearea'], $params['filepath'], $level->get_visible_name());
-                    $level = $level->get_parent();
-                }
-            }
-            $filecount = repository::build_tree($fileinfo, $search, $ret['dynload'], $ret['list']);
-            $ret['path'] = array_reverse($ret['path']);
-        }
-
-        if (empty($ret['list'])) {
-            //exit(mnet_server_fault(9016, get_string('emptyfilelist', 'repository_local')));
-            throw new Exception('emptyfilelist');
-        } else {
-            return $ret;
-        }
-
-    }
-
-    /**
-     * Serialize file path
-     * @param string $filearea
-     * @param string $path
-     * @param string $visiblename
-     * @return array
-     */
-    public static function encode_path($filearea, $path, $visiblename) {
-        return array('path'=>serialize(array($filearea, $path)), 'name'=>$visiblename);
     }
 
     /**
@@ -950,7 +910,7 @@ abstract class repository {
                 $level = $child->get_parent();
                 while ($level) {
                     $params = $level->get_params();
-                    $path[] = repository::encode_path($params['filearea'], $params['filepath'], $level->get_visible_name());
+                    $path[] = array($params['filepath'], $level->get_visible_name());
                     $level = $level->get_parent();
                 }
 
@@ -989,7 +949,7 @@ abstract class repository {
                     continue;
                 }
                 $params = $child->get_params();
-                $source = serialize(array($params['contextid'], $params['filearea'], $params['itemid'], $params['filepath'], $params['filename']));
+                $source = serialize(array($params['contextid'], $params['component'], $params['filearea'], $params['itemid'], $params['filepath'], $params['filename']));
                 $list[] = array(
                     'title' => $filename,
                     'size' => $filesize,
@@ -1021,13 +981,12 @@ abstract class repository {
         //if the context is SYSTEM, so we call it from administration page
         $admin = ($context->id == SYSCONTEXTID) ? true : false;
         if ($admin) {
-            $baseurl = "$CFG->httpswwwroot/$CFG->admin/repositoryinstance.php?sesskey=" . sesskey();
-            $output .= "<div ><h2 style='text-align: center'>" . get_string('siteinstances', 'repository') . " ";
-            $output .= "</h2></div>";
+            $baseurl = new moodle_url('/'.$CFG->admin.'/repositoryinstance.php', array('sesskey'=>sesskey()));
+            $output .= $OUTPUT->heading(get_string('siteinstances', 'repository'));
         } else {
-            $baseurl = $CFG->httpswwwroot . '/repository/manage_instances.php?contextid=' . $context->id . '&amp;sesskey=' . sesskey();
+            $baseurl = new moodle_url('/repository/manage_instances.php', array('contextid'=>$context->id, 'sesskey'=>sesskey()));
         }
-        $url = new moodle_url($baseurl);
+        $url = $baseurl;
 
         $namestr = get_string('name');
         $pluginstr = get_string('plugin', 'repository');
@@ -1102,8 +1061,9 @@ abstract class repository {
                 if (!empty($type) && $type->get_visible()) {
                     $instanceoptionnames = repository::static_function($type->get_typename(), 'get_instance_option_names');
                     if (!empty($instanceoptionnames)) {
-                        $instancehtml .= '<li><a href="'.$baseurl.'&amp;new='.$type->get_typename().'">'.get_string('createxxinstance', 'repository', get_string('repositoryname', 'repository_'.$type->get_typename()))
-                            .'</a></li>';
+                        $baseurl->param('new', $type->get_typename());
+                        $instancehtml .= '<li><a href="'.$baseurl->out().'">'.get_string('createxxinstance', 'repository', get_string('pluginname', 'repository_'.$type->get_typename())).  '</a></li>';
+                        $baseurl->remove_params('new');
                         $addable++;
                     }
                 }
@@ -1114,9 +1074,11 @@ abstract class repository {
             $instanceoptionnames = repository::static_function($typename, 'get_instance_option_names');
             if (!empty($instanceoptionnames)) {   //create a unique type of instance
                 $addable = 1;
-                $instancehtml .= "<form action='".$baseurl."&amp;new=".$typename."' method='post'>
-                    <p style='text-align:center'><input type='submit' value='".get_string('createinstance', 'repository')."'/></p>
+                $baseurl->param('new', $typename);
+                $instancehtml .= "<form action='".$baseurl->out()."' method='post'>
+                    <p><input type='submit' value='".get_string('createinstance', 'repository')."'/></p>
                     </form>";
+                $baseurl->remove_params('new');
             }
         }
 
@@ -1132,8 +1094,7 @@ abstract class repository {
     }
 
     /**
-     * Decide where to save the file, can be
-     * reused by sub class
+     * Decide where to save the file, can be overwriten by subclass
      * @param string filename
      */
     public function prepare_file($filename) {
@@ -1210,18 +1171,10 @@ abstract class repository {
      */
     public function get_name() {
         global $DB;
-        // We always verify instance id from database,
-        // so we always know repository name before init
-        // a repository, so we don't enquery repository
-        // name from database again here.
-        if (isset($this->options['name'])) {
-            return $this->options['name'];
+        if ( $name = $this->instance->name ) {
+            return $name;
         } else {
-            if ( $repo = $DB->get_record('repository_instances', array('id'=>$this->id)) ) {
-                return $repo->name;
-            } else {
-                return '';
-            }
+            return get_string('pluginname', 'repository_' . $this->options['type']);
         }
     }
 
@@ -1249,13 +1202,13 @@ abstract class repository {
      * @return object
      */
     final public function get_meta() {
-        global $CFG;
+        global $CFG, $OUTPUT;
         $ft = new filetype_parser;
-        $meta = new stdclass;
+        $meta = new stdClass();
         $meta->id   = $this->id;
         $meta->name = $this->get_name();
         $meta->type = $this->options['type'];
-        $meta->icon = $CFG->httpswwwroot.'/repository/'.$meta->type.'/icon.png';
+        $meta->icon = $OUTPUT->pix_url('icon', 'repository_'.$meta->type)->out(false);
         $meta->supported_types = $ft->get_extensions($this->supported_filetypes());
         $meta->return_types = $this->supported_returntypes();
         return $meta;
@@ -1275,10 +1228,10 @@ abstract class repository {
     public static function create($type, $userid, $context, $params, $readonly=0) {
         global $CFG, $DB;
         $params = (array)$params;
-        require_once($CFG->dirroot . '/repository/'. $type . '/repository.class.php');
+        require_once($CFG->dirroot . '/repository/'. $type . '/lib.php');
         $classname = 'repository_' . $type;
         if ($repo = $DB->get_record('repository', array('type'=>$type))) {
-            $record = new stdclass;
+            $record = new stdClass();
             $record->name = $params['name'];
             $record->typeid = $repo->id;
             $record->timecreated  = time();
@@ -1348,37 +1301,6 @@ abstract class repository {
     }
 
     /**
-     * Cache login details for repositories
-     * @global object $DB
-     * @param string $username
-     * @param string $password
-     * @param integer $userid The id of specific user
-     * @return integer Id of the record
-     */
-    public function store_login($username = '', $password = '', $userid = 1) {
-        global $DB;
-
-        $repository = new stdclass;
-        if (!empty($this->id)) {
-            $repository->id = $this->id;
-        } else {
-            $repository->userid         = $userid;
-            $repository->repositorytype = $this->type;
-            $repository->contextid      = $this->context->id;
-        }
-        if ($entry = $DB->get_record('repository', $repository)) {
-            $repository->id = $entry->id;
-            $repository->username = $username;
-            $repository->password = $password;
-            return $DB->update_record('repository', $repository);
-        } else {
-            $repository->username = $username;
-            $repository->password = $password;
-            return $DB->insert_record('repository', $repository);
-        }
-    }
-
-    /**
      * Save settings for repository instance
      * $repo->set_option(array('api_key'=>'f2188bde132', 'name'=>'dongsheng'));
      * @global object $DB
@@ -1389,25 +1311,24 @@ abstract class repository {
         global $DB;
 
         if (!empty($options['name'])) {
-            $r = new object();
+            $r = new stdClass();
             $r->id   = $this->id;
             $r->name = $options['name'];
             $DB->update_record('repository_instances', $r);
             unset($options['name']);
         }
-        $result = true;
         foreach ($options as $name=>$value) {
             if ($id = $DB->get_field('repository_instance_config', 'id', array('name'=>$name, 'instanceid'=>$this->id))) {
-                $result = $result && $DB->set_field('repository_instance_config', 'value', $value, array('id'=>$id));
+                $DB->set_field('repository_instance_config', 'value', $value, array('id'=>$id));
             } else {
-                $config = new object();
+                $config = new stdClass();
                 $config->instanceid = $this->id;
                 $config->name   = $name;
                 $config->value  = $value;
-                $result = $result && $DB->insert_record('repository_instance_config', $config);
+                $DB->insert_record('repository_instance_config', $config);
             }
         }
-        return $result;
+        return true;
     }
 
     /**
@@ -1427,7 +1348,11 @@ abstract class repository {
             $ret[$entry->name] = $entry->value;
         }
         if (!empty($config)) {
+            if (isset($ret[$config])) {
                 return $ret[$config];
+            } else {
+                return null;
+            }
         } else {
             return $ret;
         }
@@ -1484,7 +1409,7 @@ abstract class repository {
      *           perpage, items per page
      *           page
      *           pages, total pages
-     *           search_result, is it a search result?
+     *           issearchresult, is it a search result?
      *           list, file list
      *           path, current path and parent path
      */
@@ -1577,14 +1502,23 @@ abstract class repository {
 
     /**
      * Edit/Create Admin Settings Moodle form
-     * @param object $ Moodle form (passed by reference)
+     * @param object $mform Moodle form (passed by reference)
+     * @param string $classname repository class name
      */
-    public function type_config_form($mform) {
+    public function type_config_form($mform, $classname = 'repository') {
+        $instnaceoptions = call_user_func(array($classname, 'get_instance_option_names'), $mform, $classname);
+        if (empty($instnaceoptions)) {
+            // this plugin has only one instance
+            // so we need to give it a name
+            // it can be empty, then moodle will look for instance name from language string
+            $mform->addElement('text', 'pluginname', get_string('pluginname', 'repository'), array('size' => '40'));
+            $mform->addElement('static', 'pluginnamehelp', '', get_string('pluginnamehelp', 'repository'));
+        }
     }
 
     /**
      * Edit/Create Instance Settings Moodle form
-     * @param object $ Moodle form (passed by reference)
+     * @param object $mform Moodle form (passed by reference)
      */
     public function instance_config_form($mform) {
     }
@@ -1595,7 +1529,7 @@ abstract class repository {
      * @return array
      */
     public static function get_type_option_names() {
-        return array();
+        return array('pluginname');
     }
 
     /**
@@ -1606,6 +1540,11 @@ abstract class repository {
     public static function get_instance_option_names() {
         return array();
     }
+
+    public static function instance_form_validation($mform, $data, $errors) {
+        return $errors;
+    }
+
     public function get_short_filename($str, $maxlength) {
         if (strlen($str) >= $maxlength) {
             return trim(substr($str, 0, $maxlength)).'...';
@@ -1626,8 +1565,6 @@ abstract class repository {
  */
 class repository_exception extends moodle_exception {
 }
-
-
 
 /**
  * This is a class used to define a repository instance form
@@ -1708,11 +1645,22 @@ final class repository_instance_form extends moodleform {
 
     public function validation($data) {
         global $DB;
-
         $errors = array();
-        $sql = "SELECT count('x') FROM {repository_instances} i, {repository} r WHERE r.type=:plugin AND r.id=i.typeid AND i.name=:name";
+        $plugin = $this->_customdata['plugin'];
+        $instance = (isset($this->_customdata['instance'])
+                && is_subclass_of($this->_customdata['instance'], 'repository'))
+            ? $this->_customdata['instance'] : null;
+        if (!$instance) {
+            $errors = repository::static_function($plugin, 'instance_form_validation', $this, $data, $errors);
+        } else {
+            $errors = $instance->instance_form_validation($this, $data, $errors);
+        }
+
+        $sql = "SELECT count('x')
+                  FROM {repository_instances} i, {repository} r
+                 WHERE r.type=:plugin AND r.id=i.typeid AND i.name=:name";
         if ($DB->count_records_sql($sql, array('name' => $data['name'], 'plugin' => $data['plugin'])) > 1) {
-            $errors = array('name' => get_string('err_uniquename', 'repository'));
+            $errors['name'] = get_string('erroruniquename', 'repository');
         }
 
         return $errors;
@@ -1746,31 +1694,36 @@ final class repository_type_form extends moodleform {
             ? $this->_customdata['instance'] : null;
 
         $this->action = $this->_customdata['action'];
+        $this->pluginname = $this->_customdata['pluginname'];
         $mform =& $this->_form;
         $strrequired = get_string('required');
 
-        $mform->addElement('hidden', 'repos', ($this->instance) ? $this->instance->get_typename() : 0);
-        $mform->setType('repos', PARAM_INT);
-        $mform->addElement('hidden', 'repos', $this->plugin);
-        $mform->setType('repos', PARAM_FORMAT);
         $mform->addElement('hidden', 'action', $this->action);
         $mform->setType('action', PARAM_TEXT);
         $mform->addElement('hidden', 'repos', $this->plugin);
         $mform->setType('repos', PARAM_SAFEDIR);
 
         // let the plugin add its specific fields
-        if (!$this->instance) {
-            $result = repository::static_function($this->plugin, 'type_config_form', $mform);
-        } else {
-            $classname = 'repository_' . $this->instance->get_typename();
-            $result = call_user_func(array($classname, 'type_config_form'), $mform);
-        }
-
+        $classname = 'repository_' . $this->plugin;
+        require_once($CFG->dirroot . '/repository/' . $this->plugin . '/lib.php');
         //add "enable course/user instances" checkboxes if multiple instances are allowed
         $instanceoptionnames = repository::static_function($this->plugin, 'get_instance_option_names');
-        if (!empty($instanceoptionnames)){
-            $mform->addElement('checkbox', 'enablecourseinstances', get_string('enablecourseinstances', 'repository'));
-            $mform->addElement('checkbox', 'enableuserinstances', get_string('enableuserinstances', 'repository'));
+
+        $result = call_user_func(array($classname, 'type_config_form'), $mform, $classname);
+
+        if (!empty($instanceoptionnames)) {
+            $sm = get_string_manager();
+            $component = 'repository';
+            if ($sm->string_exists('enablecourseinstances', 'repository_' . $this->plugin)) {
+                $component .= ('_' . $this->plugin);
+            }
+            $mform->addElement('checkbox', 'enablecourseinstances', get_string('enablecourseinstances', $component));
+
+            $component = 'repository';
+            if ($sm->string_exists('enableuserinstances', 'repository_' . $this->plugin)) {
+                $component .= ('_' . $this->plugin);
+            }
+            $mform->addElement('checkbox', 'enableuserinstances', get_string('enableuserinstances', $component));
         }
 
         // set the data if we have some.
@@ -1789,6 +1742,10 @@ final class repository_type_form extends moodleform {
                 } else {
                     $data[$config] = '';
                 }
+            }
+            // XXX: set plugin name for plugins which doesn't have muliti instances
+            if (empty($instanceoptionnames)){
+                $data['pluginname'] = $this->pluginname;
             }
             $this->set_data($data);
         }
@@ -1814,12 +1771,12 @@ function initialise_filepicker($args) {
     global $CFG, $USER, $PAGE, $OUTPUT;
     require_once($CFG->libdir . '/licenselib.php');
 
-    $return = new stdclass;
+    $return = new stdClass();
     $licenses = array();
     if (!empty($CFG->licenses)) {
         $array = explode(',', $CFG->licenses);
         foreach ($array as $license) {
-            $l = new stdclass;
+            $l = new stdClass();
             $l->shortname = $license;
             $l->fullname = get_string($license, 'license');
             $licenses[] = $l;
@@ -1846,9 +1803,15 @@ function initialise_filepicker($args) {
 
     $user_context = get_context_instance(CONTEXT_USER, $USER->id);
 
+    list($context, $course, $cm) = get_context_info_array($context->id);
+    $contexts = array($user_context, get_system_context());
+    if (!empty($course)) {
+        // adding course context
+        $contexts[] = get_context_instance(CONTEXT_COURSE, $course->id);
+    }
     $externallink = (int)get_config(null, 'repositoryallowexternallinks');
     $repositories = repository::get_instances(array(
-        'context'=>array($user_context, get_system_context()),
+        'context'=>$contexts,
         'currentcontext'=> $context,
         'accepted_types'=>$args->accepted_types,
         'return_types'=>$args->return_types,
@@ -1865,36 +1828,10 @@ function initialise_filepicker($args) {
 
     // provided by form element
     $return->accepted_types = $ft->get_extensions($args->accepted_types);
+    $return->return_types = $args->return_types;
     foreach ($repositories as $repository) {
         $meta = $repository->get_meta();
         $return->repositories[$repository->id] = $meta;
     }
     return $return;
-}
-
-/**
- * The plugins should be enabled by defaulted once moodle installed
- *
- * @global object $OUTPUT
- *
- * @return boolean
- */
-function repository_setup_default_plugins() {
-    global $OUTPUT;
-    //if the plugin type has no multiple instance (e.g. has no instance option name)
-    //repository_type::create will create an instance automatically
-    $user_plugin = new repository_type('user', array(), true);
-    $user_plugin->create(true);
-
-    $recent_plugin = new repository_type('recent', array(), true);
-    $recent_plugin->create(true);
-
-    $upload_plugin = new repository_type('upload', array(), true);
-    $upload_plugin->create(true);
-
-    $local_plugin = new repository_type('local', array(), true);
-    $local_plugin->create(true);
-
-    echo $OUTPUT->notification(get_string('setupdefaultplugins', 'repository'), 'notifysuccess');
-    return true;
 }

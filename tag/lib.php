@@ -1,5 +1,20 @@
 <?php
 
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
 /**
  * Moodle tag library
  *
@@ -28,10 +43,11 @@
  *
  * Tag set will create tags that need to be created.
  *
- * @licence http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package moodlecore
+ * @package    core
  * @subpackage tag
  * @see http://www.php.net/manual/en/function.urlencode.php
+ * @copyright  2007 Luiz Cruz <luiz.laydner@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 define('TAG_RETURN_ARRAY', 0);
@@ -532,7 +548,7 @@ function tag_delete($tagids) {
             $success &= (bool) $DB->delete_records('tag', array('id'=>$tagid));
             // Delete all files associated with this tag
             $fs = get_file_storage();
-            $files = $fs->get_area_files($context->id, 'tag_description', $tagid);
+            $files = $fs->get_area_files($context->id, 'tag', 'description', $tagid);
             foreach ($files as $file) {
                 $file->delete();
             }
@@ -804,7 +820,7 @@ function tag_compute_correlations($min_correlation=2) {
         return;
     }
 
-    $tag_correlation_obj = new object();
+    $tag_correlation_obj = new stdClass();
     foreach($all_tags as $tag) {
 
         // query that counts how many times any tag appears together in items
@@ -838,10 +854,11 @@ function tag_compute_correlations($min_correlation=2) {
         //var_dump($correlated);
 
         //saves correlation info in the caching table
-        if ($tag_correlation_obj = $DB->get_record('tag_correlation', array('tagid'=>$tag->id), 'tagid')) {
+        if ($tag_correlation_obj = $DB->get_record('tag_correlation', array('tagid'=>$tag->id), 'id')) {
             $tag_correlation_obj->correlatedtags = $correlated;
             $DB->update_record('tag_correlation', $tag_correlation_obj);
         } else {
+            $tag_correlation_obj = new stdClass();
             $tag_correlation_obj->tagid          = $tag->id;
             $tag_correlation_obj->correlatedtags = $correlated;
             $DB->insert_record('tag_correlation', $tag_correlation_obj);

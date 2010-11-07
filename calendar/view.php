@@ -70,11 +70,15 @@ if ($yr !== 0) {
 }
 $PAGE->set_url($url);
 
+//TODO: the courseid handling in /calendar/ is a bloody mess!!!
+
 if ($courseid && $courseid != SITEID) {
     require_login($courseid);
 } else if ($CFG->forcelogin) {
-    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
+    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM)); //TODO: wrong
     require_login();
+} else {
+    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM)); //TODO: wrong
 }
 
 $calendar = new calendar_information($day, $mon, $yr);
@@ -89,9 +93,9 @@ $pagetitle = '';
 
 $strcalendar = get_string('calendar', 'calendar');
 
-$link = calendar_get_link_href(CALENDAR_URL.'view.php?view=upcoming&amp;course='.$courseid.'&amp;',
+$link = calendar_get_link_href(new moodle_url(CALENDAR_URL.'view.php', array('view'=>'upcoming', 'course'=>$courseid)),
                                $now['mday'], $now['mon'], $now['year']);
-$PAGE->navbar->add($strcalendar, new moodle_url($link));
+$PAGE->navbar->add($strcalendar, $link);
 
 if(!checkdate($mon, $day, $yr)) {
     $day = intval($now['mday']);
@@ -140,7 +144,7 @@ if (!isloggedin() or isguestuser()) {
 // but NOT for the "main page" course
 if ($SESSION->cal_course_referer != SITEID &&
    ($shortname = $DB->get_field('course', 'shortname', array('id'=>$SESSION->cal_course_referer))) !== false) {
-    require_login();
+    require_login(); //TODO: very wrong!!
     if (empty($course)) {
         $course = $DB->get_record('course', array('id'=>$SESSION->cal_course_referer)); // Useful to have around
     }

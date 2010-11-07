@@ -19,7 +19,7 @@
  * Fetches language packages from download.moodle.org server
  *
  * Language packages are available at http://download.moodle.org/langpack/2.0/
- * in ZIP format together with a file languages.md5 containing thir hashes
+ * in ZIP format together with a file languages.md5 containing their hashes
  * and meta info.
  * Locally, language packs are saved into $CFG->dataroot/lang/
  *
@@ -65,8 +65,8 @@ $notice_error = array();
 
 if (($mode == INSTALLATION_OF_SELECTED_LANG) and confirm_sesskey() and !empty($pack)) {
     set_time_limit(0);
-    @mkdir ($CFG->dataroot.'/temp/', $CFG->directorypermissions);    //make it in case it's a fresh install, it might not be there
-    @mkdir ($CFG->dataroot.'/lang/', $CFG->directorypermissions);
+    make_upload_directory('temp');
+    make_upload_directory('lang');
 
     if (is_array($pack)) {
         $packs = $pack;
@@ -80,7 +80,7 @@ if (($mode == INSTALLATION_OF_SELECTED_LANG) and confirm_sesskey() and !empty($p
             switch ($status) {
             case COMPONENT_ERROR:
                 if ($cd->get_error() == 'remotedownloaderror') {
-                    $a = new object();
+                    $a = new stdClass();
                     $a->url = 'http://download.moodle.org/langpack/'.$thisversion.'/'.$pack.'.zip';
                     $a->dest = $CFG->dataroot.'/lang';
                     print_error($cd->get_error(), 'error', 'langimport.php', $a);
@@ -173,8 +173,9 @@ if ($mode == UPDATE_ALL_LANG) {
         }
     }
 
-    @mkdir ($CFG->dataroot.'/temp/', $CFG->directorypermissions);
-    @mkdir ($CFG->dataroot.'/lang/', $CFG->directorypermissions);
+    make_upload_directory('temp');
+    make_upload_directory('lang');
+
     $updated = false;       // any packs updated?
     foreach ($neededlangs as $pack) {
         if ($pack == 'en') {
@@ -273,7 +274,7 @@ if ($notice_error) {
 
 if ($missingparents) {
     foreach ($missingparents as $l=>$parent) {
-        $a = new object();
+        $a = new stdClass();
         $a->lang   = $installedlangs[$l];
         $a->parent = $parent;
         foreach ($availablelangs as $alang) {
@@ -297,7 +298,7 @@ $url = new moodle_url('/admin/langimport.php', array('mode' => DELETION_OF_SELEC
 echo html_writer::start_tag('td', array('valign' => 'top'));
 echo html_writer::start_tag('form', array('id' => 'uninstallform', 'action' => $url->out(), 'method' => 'post'));
 echo html_writer::start_tag('fieldset');
-echo html_writer::tag('label', get_string('installedlangs','admin'), array('for' => 'uninstalllang'));
+echo html_writer::label(get_string('installedlangs','admin'), 'uninstalllang');
 echo html_writer::empty_tag('br');
 echo html_writer::select($installedlangs, 'uninstalllang', '', false, array('size' => 15));
 echo html_writer::empty_tag('input', array('type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()));
@@ -325,7 +326,7 @@ if (!empty($options)) {
     $url = new moodle_url('/admin/langimport.php', array('mode' => INSTALLATION_OF_SELECTED_LANG));
     echo html_writer::start_tag('form', array('id' => 'installform', 'action' => $url->out(), 'method' => 'post'));
     echo html_writer::start_tag('fieldset');
-    echo html_writer::tag('label', get_string('availablelangs','install'), array('for' => 'pack'));
+    echo html_writer::label(get_string('availablelangs','install'), 'pack');
     echo html_writer::empty_tag('br');
     echo html_writer::select($options, 'pack[]', '', false, array('size' => 15, 'multiple' => 'multiple'));
     echo html_writer::empty_tag('input', array('type' => 'hidden', 'name' => 'sesskey', 'value' => sesskey()));
@@ -372,10 +373,10 @@ function get_remote_list_of_languages() {
     $availablelangs = array();
 
     if ($content = download_file_content($source)) {
-        $alllines = split("\n", $content);
+        $alllines = explode("\n", $content);
         foreach($alllines as $line) {
             if (!empty($line)){
-                $availablelangs[] = split(',', $line);
+                $availablelangs[] = explode(',', $line);
             }
         }
         return $availablelangs;

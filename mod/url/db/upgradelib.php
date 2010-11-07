@@ -18,10 +18,13 @@
 /**
  * URL module upgrade related helper functions
  *
- * @package   url-resource
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage url
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die;
 
 /**
  * Migrate url module data from 1.9 resource_old table to new url table
@@ -50,7 +53,6 @@ function url_20_migrate() {
     if (!$candidates = $DB->get_recordset('resource_old', array('type'=>'file', 'migrated'=>0))) {
         return;
     }
-    $fs = get_file_storage();
 
     foreach ($candidates as $candidate) {
         $path = $candidate->reference;
@@ -61,22 +63,30 @@ function url_20_migrate() {
             continue;
         } else if (!strpos($path, '://')) {
             // not URL
-            return;
+            continue;
         } else if (preg_match("|$CFG->wwwroot/file.php(\?file=)?/$siteid(/[^\s'\"&\?#]+)|", $path, $matches)) {
             // handled by resource module
-            return;
+            continue;
         } else if (preg_match("|$CFG->wwwroot/file.php(\?file=)?/$candidate->course(/[^\s'\"&\?#]+)|", $path, $matches)) {
             // handled by resource module
-            return;
+            continue;
         }
 
         upgrade_set_timeout();
 
-        $url = new object();
+        if ($CFG->texteditors !== 'textarea') {
+            $intro       = text_to_html($candidate->intro, false, false, true);
+            $introformat = FORMAT_HTML;
+        } else {
+            $intro       = $candidate->intro;
+            $introformat = FORMAT_MOODLE;
+        }
+
+        $url = new stdClass();
         $url->course       = $candidate->course;
         $url->name         = $candidate->name;
-        $url->intro        = $candidate->intro;
-        $url->introformat  = $candidate->introformat;
+        $url->intro        = $intro;
+        $url->introformat  = $introformat;
         $url->externalurl  = $path;
         $url->timemodified = time();
 

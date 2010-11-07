@@ -27,6 +27,7 @@
 .path-admin .incompatibleblockstable td.c0 {font-weight: bold;}
 
 #page-admin-course-category .addcategory {padding: 10px;}
+#page-admin-course-category #movecourses .action-icon .smallicon {margin-right: 0.5em;}
 #page-admin-course-index .buttons,
 #page-admin-course-category .buttons {margin-bottom: 15px;}
 #page-admin-course-index .editcourse {margin:20px auto;}
@@ -36,6 +37,14 @@
 
 #page-admin-report-unittest-index .exception pre {padding: 8px;}
 #page-admin-report-unittest-index .unittestsummary {padding: 8px;margin-top: 1em;}
+#page-admin-report-unittest-index span.notice {color: teal;}
+#page-admin-report-unittest-index b.pass {color: green;}
+#page-admin-report-unittest-index b.fail, b.exception {color: red;}
+#page-admin-report-unittest-index .exception, .exception pre {background-color: #FDD;}
+#page-admin-report-unittest-index .unittestsummary {color: white;}
+#page-admin-report-unittest-index .unittestsummary.failed {background-color: red;}
+#page-admin-report-unittest-index .unittestsummary.passed {background-color: green;}
+
 #page-admin-report-security-index .timewarninghidden {display:none;}
 #page-admin-report-security-index .statuswarning {background-color: #f0e000;}
 #page-admin-report-security-index .statusserious {background-color: #f07000;}
@@ -134,7 +143,7 @@
 #adminsettings fieldset.error legend {display: block;}
 #adminsettings .form-item {clear: both;margin: 1em 0 2em 0;}
 #adminsettings .form-item .form-label {display: block;float: left;width: 12.5em;text-align: right;}
-#adminsettings .form-item .form-label .form-shortname {display:block;}
+#adminsettings .form-item .form-label .form-shortname {display:block;line-break: break;}
 #adminsettings .form-item .form-setting {display: block;margin-left: 13.5em;text-align: left;}
 #adminsettings .form-item .form-setting .form-htmlarea {width:  640px;display:inline;}
 #adminsettings .form-item .form-setting .form-htmlarea .htmlarea {width:  640px;display:block;}
@@ -146,6 +155,8 @@
 #adminsettings .form-item .form-description {display: block;margin: 0.5em 0 0em 14.25em;text-align: left;}
 #adminsettings .form-item .pathok,
 #adminsettings .form-item .patherror {margin-left: 0.5em;}
+#adminsettings #admin-emoticons table td input {width: 8em;}
+#adminsettings #admin-emoticons table td.c0 input {width: 4em;}
 
 #adminthemeselector .selectedtheme td.c0 {border:1px solid;border-right-width:0;}
 #adminthemeselector .selectedtheme td.c1 {border:1px solid;border-left-width:0;}
@@ -158,3 +169,8 @@
 .admin_colourpicker .colourdialogue {float:left;border:1px solid #000;}
 .admin_colourpicker .previewcolour {border:1px solid #000;margin-left:301px;}
 .admin_colourpicker .currentcolour {border:1px solid #000;margin-left:301px;border-top-width:0;}
+
+/** Overide for RTL layout **/
+.dir-rtl #adminsettings .form-item  .form-setting,
+.dir-rtl #adminsettings .form-item  .form-label,
+.dir-rtl #adminsettings .form-item .form-description { float: right;text-align: right}

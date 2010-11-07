@@ -18,9 +18,10 @@
 /**
  * Capability definitions for the workshop module
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -86,7 +87,7 @@ $capabilities = array(
     ),
 
 
-    // Ability to submit and referentialy assess the examples and to see all other
+    // Ability to submit and referentially assess the examples and to see all other
     // assessments of these examples
     'mod/workshop:manageexamples' => array(
         'captype' => 'write',
@@ -181,7 +182,7 @@ $capabilities = array(
         )
     ),
 
-    // Ability to override grade for submission or the calcaluted grades for assessment
+    // Ability to override grade for submission or the calculated grades for assessment
     // and to run aggregation tasks that computes the total grade
     'mod/workshop:overridegrades' => array(
         'captype' => 'write',

@@ -23,9 +23,10 @@
  * workshop_something() taking the workshop instance as the first
  * parameter, we use a class workshop that provides all methods.
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -115,6 +116,9 @@ class workshop {
     /** @var string type of the current grading strategy used in this workshop, for example 'accumulative' */
     public $strategy;
 
+    /** @var string the name of the evaluation plugin to use for grading grades calculation */
+    public $evaluation;
+
     /** @var int number of digits that should be shown after the decimal point when displaying grades */
     public $gradedecimals;
 
@@ -142,9 +146,6 @@ class workshop {
     /** @var int if greater than 0 then the peer assessment is not allowed after this timestamp */
     public $assessmentend;
 
-    /** @var string the name of the evaluation plugin to use for grading grades calculation */
-    public $evaluation;
-
     /**
      * @var workshop_strategy grading strategy instance
      * Do not use directly, get the instance using {@link workshop::grading_strategy_instance()}
@@ -163,10 +164,10 @@ class workshop {
      * Makes deep copy of all passed records properties. Replaces integer $course attribute
      * with a full database record (course should not be stored in instances table anyway).
      *
-     * @param stdclass $dbrecord Workshop instance data from {workshop} table
-     * @param stdclass $cm       Course module record as returned by {@link get_coursemodule_from_id()}
-     * @param stdclass $course   Course record from {course} table
-     * @param stdclass $context  The context of the workshop instance
+     * @param stdClass $dbrecord Workshop instance data from {workshop} table
+     * @param stdClass $cm       Course module record as returned by {@link get_coursemodule_from_id()}
+     * @param stdClass $course   Course record from {course} table
+     * @param stdClass $context  The context of the workshop instance
      */
     public function __construct(stdclass $dbrecord, stdclass $cm, stdclass $course, stdclass $context=null) {
         foreach ($dbrecord as $field => $value) {
@@ -213,7 +214,7 @@ class workshop {
     /**
      * Returns an array of options for the editors that are used for submitting and assessing instructions
      *
-     * @param stdclass $context
+     * @param stdClass $context
      * @return array
      */
     public static function instruction_editors_options(stdclass $context) {
@@ -489,9 +490,9 @@ class workshop {
         $sql = 'SELECT s.id, s.workshopid, s.example, s.authorid, s.timecreated, s.timemodified,
                        s.title, s.grade, s.gradeover, s.gradeoverby, s.published,
                        u.lastname AS authorlastname, u.firstname AS authorfirstname,
-                       u.picture AS authorpicture, u.imagealt AS authorimagealt,
+                       u.picture AS authorpicture, u.imagealt AS authorimagealt, u.email AS authoremail,
                        t.lastname AS overlastname, t.firstname AS overfirstname,
-                       t.picture AS overpicture, t.imagealt AS overimagealt
+                       t.picture AS overpicture, t.imagealt AS overimagealt, t.email AS overemail
                   FROM {workshop_submissions} s
             INNER JOIN {user} u ON (s.authorid = u.id)
              LEFT JOIN {user} t ON (s.gradeoverby = t.id)
@@ -526,7 +527,7 @@ class workshop {
         // from other instances
         $sql = 'SELECT s.*,
                        u.lastname AS authorlastname, u.firstname AS authorfirstname, u.id AS authorid,
-                       u.picture AS authorpicture, u.imagealt AS authorimagealt
+                       u.picture AS authorpicture, u.imagealt AS authorimagealt, u.email AS authoremail
                   FROM {workshop_submissions} s
             INNER JOIN {user} u ON (s.authorid = u.id)
                  WHERE s.example = 0 AND s.workshopid = :workshopid AND s.id = :id';
@@ -548,7 +549,7 @@ class workshop {
         }
         $sql = 'SELECT s.*,
                        u.lastname AS authorlastname, u.firstname AS authorfirstname, u.id AS authorid,
-                       u.picture AS authorpicture, u.imagealt AS authorimagealt
+                       u.picture AS authorpicture, u.imagealt AS authorimagealt, u.email AS authoremail
                   FROM {workshop_submissions} s
             INNER JOIN {user} u ON (s.authorid = u.id)
                  WHERE s.example = 0 AND s.workshopid = :workshopid AND s.authorid = :authorid';
@@ -567,7 +568,7 @@ class workshop {
         $sql = "SELECT s.id, s.authorid, s.timecreated, s.timemodified,
                        s.title, s.grade, s.gradeover, COALESCE(s.gradeover,s.grade) AS finalgrade,
                        u.lastname AS authorlastname, u.firstname AS authorfirstname, u.id AS authorid,
-                       u.picture AS authorpicture, u.imagealt AS authorimagealt
+                       u.picture AS authorpicture, u.imagealt AS authorimagealt, u.email AS authoremail
                   FROM {workshop_submissions} s
             INNER JOIN {user} u ON (s.authorid = u.id)
                  WHERE s.example = 0 AND s.workshopid = :workshopid AND s.published = 1
@@ -598,7 +599,7 @@ class workshop {
         global $DB;
 
         $sql = 'SELECT s.id, s.title,
-                       a.id AS assessmentid, a.weight, a.grade, a.gradinggrade
+                       a.id AS assessmentid, a.grade, a.gradinggrade
                   FROM {workshop_submissions} s
              LEFT JOIN {workshop_assessments} a ON (a.submissionid = s.id AND a.weight = 1)
                  WHERE s.example = 1 AND s.workshopid = :workshopid
@@ -620,7 +621,7 @@ class workshop {
             return false;
         }
         $sql = 'SELECT s.id, s.title,
-                       a.id AS assessmentid, a.weight, a.grade, a.gradinggrade
+                       a.id AS assessmentid, a.grade, a.gradinggrade
                   FROM {workshop_submissions} s
              LEFT JOIN {workshop_assessments} a ON (a.submissionid = s.id AND a.reviewerid = :reviewerid AND a.weight = 0)
                  WHERE s.example = 1 AND s.workshopid = :workshopid
@@ -629,29 +630,75 @@ class workshop {
     }
 
     /**
-     * Prepares component containing summary of given example to be rendered
+     * Prepares renderable submission component
      *
-     * @param stdclass $example as returned by {@link workshop::get_examples_for_manager()} or {@link workshop::get_examples_for_reviewer()}
-     * @return stdclass component to be rendered
+     * @param stdClass $record required by {@see workshop_submission}
+     * @param bool $showauthor show the author-related information
+     * @return workshop_submission
      */
-    public function prepare_example_summary(stdclass $example) {
+    public function prepare_submission(stdClass $record, $showauthor = false) {
 
-        $summary = new stdclass();
-        $summary->example = $example;
+        $submission         = new workshop_submission($record, $showauthor);
+        $submission->url    = $this->submission_url($record->id);
+
+        return $submission;
+    }
+
+    /**
+     * Prepares renderable submission summary component
+     *
+     * @param stdClass $record required by {@see workshop_submission_summary}
+     * @param bool $showauthor show the author-related information
+     * @return workshop_submission_summary
+     */
+    public function prepare_submission_summary(stdClass $record, $showauthor = false) {
+
+        $summary        = new workshop_submission_summary($record, $showauthor);
+        $summary->url   = $this->submission_url($record->id);
+
+        return $summary;
+    }
+
+    /**
+     * Prepares renderable example submission component
+     *
+     * @param stdClass $record required by {@see workshop_example_submission}
+     * @return workshop_example_submission
+     */
+    public function prepare_example_submission(stdClass $record) {
+
+        $example = new workshop_example_submission($record);
+
+        return $example;
+    }
+
+    /**
+     * Prepares renderable example submission summary component
+     *
+     * If the example is editable, the caller must set the 'editable' flag explicitly.
+     *
+     * @param stdClass $example as returned by {@link workshop::get_examples_for_manager()} or {@link workshop::get_examples_for_reviewer()}
+     * @return workshop_example_submission_summary to be rendered
+     */
+    public function prepare_example_summary(stdClass $example) {
+
+        $summary = new workshop_example_submission_summary($example);
+
         if (is_null($example->grade)) {
-            $summary->status   = 'notgraded';
-            $buttontext = get_string('assess', 'workshop');
+            $summary->status = 'notgraded';
+            $summary->assesslabel = get_string('assess', 'workshop');
         } else {
-            $summary->status   = 'graded';
-            $buttontext = get_string('reassess', 'workshop');
+            $summary->status = 'graded';
+            $summary->assesslabel = get_string('reassess', 'workshop');
         }
 
         $summary->gradeinfo           = new stdclass();
         $summary->gradeinfo->received = $this->real_grade($example->grade);
         $summary->gradeinfo->max      = $this->real_grade(100);
 
-        $aurl = new moodle_url($this->exsubmission_url($example->id), array('assess' => 'on', 'sesskey' => sesskey()));
-        $summary->btnform = new single_button($aurl, $buttontext, 'get');
+        $summary->url       = new moodle_url($this->exsubmission_url($example->id));
+        $summary->editurl   = new moodle_url($this->exsubmission_url($example->id), array('edit' => 'on'));
+        $summary->assessurl = new moodle_url($this->exsubmission_url($example->id), array('assess' => 'on', 'sesskey' => sesskey()));
 
         return $summary;
     }
@@ -659,7 +706,7 @@ class workshop {
     /**
      * Removes the submission and all relevant data
      *
-     * @param stdclass $submission record to delete
+     * @param stdClass $submission record to delete
      * @return void
      */
     public function delete_submission(stdclass $submission) {
@@ -778,7 +825,7 @@ class workshop {
                        s.id AS submissionid, s.title AS submissiontitle, s.timecreated AS submissioncreated,
                        s.timemodified AS submissionmodified,
                        author.id AS authorid, author.firstname AS authorfirstname,author.lastname AS authorlastname,
-                       author.picture AS authorpicture, author.imagealt AS authorimagealt
+                       author.picture AS authorpicture, author.imagealt AS authorimagealt, author.email AS authoremail
                   FROM {workshop_assessments} a
             INNER JOIN {user} reviewer ON (a.reviewerid = reviewer.id)
             INNER JOIN {workshop_submissions} s ON (a.submissionid = s.id)
@@ -792,7 +839,7 @@ class workshop {
     /**
      * Allocate a submission to a user for review
      *
-     * @param stdclass $submission Submission object with at least id property
+     * @param stdClass $submission Submission object with at least id property
      * @param int $reviewerid User ID
      * @param int $weight of the new assessment, from 0 to 16
      * @param bool $bulk repeated inserts into DB expected
@@ -817,11 +864,10 @@ class workshop {
         $assessment = new stdclass();
         $assessment->submissionid           = $submission->id;
         $assessment->reviewerid             = $reviewerid;
-        $assessment->timecreated            = $now;
-        $assessment->timemodified           = $now;
+        $assessment->timecreated            = $now;         // do not set timemodified here
         $assessment->weight                 = $weight;
-        $assessment->generalcommentformat   = FORMAT_HTML;  // todo better default handling
-        $assessment->feedbackreviewerformat = FORMAT_HTML;  // todo better default handling
+        $assessment->generalcommentformat   = editors_get_preferred_format();
+        $assessment->feedbackreviewerformat = editors_get_preferred_format();
 
         return $DB->insert_record('workshop_assessments', $assessment, true, $bulk);
     }
@@ -1039,25 +1085,90 @@ class workshop {
     }
 
     /**
-     * Are users allowed to create/edit their submissions?
+     * @return moodle_url of this workshop's toolbox page
+     */
+    public function toolbox_url($tool) {
+        global $CFG;
+        return new moodle_url('/mod/workshop/toolbox.php', array('id' => $this->cm->id, 'tool' => $tool));
+    }
+
+    /**
+     * Workshop wrapper around {@see add_to_log()}
+     *
+     * @param string $action to be logged
+     * @param moodle_url $url absolute url as returned by {@see workshop::submission_url()} and friends
+     * @param mixed $info additional info, usually id in a table
+     */
+    public function log($action, moodle_url $url = null, $info = null) {
+
+        if (is_null($url)) {
+            $url = $this->view_url();
+        }
+
+        if (is_null($info)) {
+            $info = $this->id;
+        }
+
+        $logurl = $this->log_convert_url($url);
+        add_to_log($this->course->id, 'workshop', $action, $logurl, $info, $this->cm->id);
+    }
+
+    /**
+     * Are users allowed to create their submissions?
      *
      * @return bool
      */
-    public function submitting_allowed() {
+    public function creating_submission_allowed() {
+        $now = time();
+
+        if ($this->latesubmissions) {
+            if ($this->phase != self::PHASE_SUBMISSION and $this->phase != self::PHASE_ASSESSMENT) {
+                // late submissions are allowed in the submission and assessment phase only
+                return false;
+            }
+            if (!empty($this->submissionstart) and $this->submissionstart > $now) {
+                // late submissions are not allowed before the submission start
+                return false;
+            }
+            return true;
+
+        } else {
+            if ($this->phase != self::PHASE_SUBMISSION) {
+                // submissions are allowed during the submission phase only
+                return false;
+            }
+            if (!empty($this->submissionstart) and $this->submissionstart > $now) {
+                // if enabled, submitting is not allowed before the date/time defined in the mod_form
+                return false;
+            }
+            if (!empty($this->submissionend) and $now > $this->submissionend ) {
+                // if enabled, submitting is not allowed after the date/time defined in the mod_form unless late submission is allowed
+                return false;
+            }
+            return true;
+        }
+    }
+
+    /**
+     * Are users allowed to modify their existing submission?
+     *
+     * @return bool
+     */
+    public function modifying_submission_allowed() {
+        $now = time();
+
         if ($this->phase != self::PHASE_SUBMISSION) {
-            // submitting is not allowed but in the submission phase
+            // submissions can be edited during the submission phase only
             return false;
         }
-        $now = time();
         if (!empty($this->submissionstart) and $this->submissionstart > $now) {
             // if enabled, submitting is not allowed before the date/time defined in the mod_form
             return false;
         }
-        if (!empty($this->submissionend) and empty($this->latesubmissions) and $now > $this->submissionend ) {
+        if (!empty($this->submissionend) and $now > $this->submissionend) {
             // if enabled, submitting is not allowed after the date/time defined in the mod_form unless late submission is allowed
             return false;
         }
-        // here we go, submission is allowed
         return true;
     }
 
@@ -1166,6 +1277,7 @@ class workshop {
         $data = new stdclass();
         $data->id = $assessmentid;
         $data->grade = $grade;
+        $data->timemodified = time();
         $DB->update_record('workshop_assessments', $data);
         return $grade;
     }
@@ -1181,7 +1293,7 @@ class workshop {
      * @param string $sorthow ASC|DESC
      * @return stdclass data for the renderer
      */
-    public function prepare_grading_report($userid, $groups, $page, $perpage, $sortby, $sorthow) {
+    public function prepare_grading_report_data($userid, $groups, $page, $perpage, $sortby, $sorthow) {
         global $DB;
 
         $canviewall     = has_capability('mod/workshop:viewallassessments', $this->context, $userid);
@@ -1219,7 +1331,7 @@ class workshop {
             $params['workshopid1'] = $this->id;
             $params['workshopid2'] = $this->id;
             $sqlsort = $sortby . ' ' . $sorthow . ',u.lastname,u.firstname,u.id';
-            $sql = "SELECT u.id AS userid,u.firstname,u.lastname,u.picture,u.imagealt,
+            $sql = "SELECT u.id AS userid,u.firstname,u.lastname,u.picture,u.imagealt,u.email,
                            s.title AS submissiontitle, s.grade AS submissiongrade, ag.gradinggrade
                       FROM {user} u
                  LEFT JOIN {workshop_submissions} s ON (s.authorid = u.id AND s.workshopid = :workshopid1 AND s.example = 0)
@@ -1243,6 +1355,7 @@ class workshop {
                 $userinfo[$participant->userid]->lastname  = $participant->lastname;
                 $userinfo[$participant->userid]->picture   = $participant->picture;
                 $userinfo[$participant->userid]->imagealt  = $participant->imagealt;
+                $userinfo[$participant->userid]->email     = $participant->email;
             }
         }
 
@@ -1258,6 +1371,7 @@ class workshop {
                 $userinfo[$submission->gradeoverby]->lastname  = $submission->overlastname;
                 $userinfo[$submission->gradeoverby]->picture   = $submission->overpicture;
                 $userinfo[$submission->gradeoverby]->imagealt  = $submission->overimagealt;
+                $userinfo[$submission->gradeoverby]->email     = $submission->overemail;
             }
         }
 
@@ -1266,7 +1380,7 @@ class workshop {
         if ($submissions) {
             list($submissionids, $params) = $DB->get_in_or_equal(array_keys($submissions), SQL_PARAMS_NAMED);
             $sql = "SELECT a.id AS assessmentid, a.submissionid, a.grade, a.gradinggrade, a.gradinggradeover, a.weight,
-                           r.id AS reviewerid, r.lastname, r.firstname, r.picture, r.imagealt,
+                           r.id AS reviewerid, r.lastname, r.firstname, r.picture, r.imagealt, r.email,
                            s.id AS submissionid, s.authorid
                       FROM {workshop_assessments} a
                       JOIN {user} r ON (a.reviewerid = r.id)
@@ -1282,6 +1396,7 @@ class workshop {
                     $userinfo[$reviewer->reviewerid]->lastname  = $reviewer->lastname;
                     $userinfo[$reviewer->reviewerid]->picture   = $reviewer->picture;
                     $userinfo[$reviewer->reviewerid]->imagealt  = $reviewer->imagealt;
+                    $userinfo[$reviewer->reviewerid]->email     = $reviewer->email;
                 }
             }
         }
@@ -1293,7 +1408,7 @@ class workshop {
             $params['workshopid'] = $this->id;
             $sql = "SELECT a.id AS assessmentid, a.submissionid, a.grade, a.gradinggrade, a.gradinggradeover, a.reviewerid, a.weight,
                            s.id AS submissionid,
-                           e.id AS authorid, e.lastname, e.firstname, e.picture, e.imagealt
+                           e.id AS authorid, e.lastname, e.firstname, e.picture, e.imagealt, e.email
                       FROM {user} u
                       JOIN {workshop_assessments} a ON (a.reviewerid = u.id)
                       JOIN {workshop_submissions} s ON (a.submissionid = s.id AND s.example = 0)
@@ -1309,6 +1424,7 @@ class workshop {
                     $userinfo[$reviewee->authorid]->lastname  = $reviewee->lastname;
                     $userinfo[$reviewee->authorid]->picture   = $reviewee->picture;
                     $userinfo[$reviewee->authorid]->imagealt  = $reviewee->imagealt;
+                    $userinfo[$reviewee->authorid]->email     = $reviewee->email;
                 }
             }
         }
@@ -1444,6 +1560,55 @@ class workshop {
     }
 
     /**
+     * Sets the given grades and received grading grades to null
+     *
+     * This does not clear the information about how the peers filled the assessment forms, but
+     * clears the calculated grades in workshop_assessments. Therefore reviewers have to re-assess
+     * the allocated submissions.
+     *
+     * @return void
+     */
+    public function clear_assessments() {
+        global $DB;
+
+        $submissions = $this->get_submissions();
+        if (empty($submissions)) {
+            // no money, no love
+            return;
+        }
+        $submissions = array_keys($submissions);
+        list($sql, $params) = $DB->get_in_or_equal($submissions, SQL_PARAMS_NAMED);
+        $sql = "submissionid $sql";
+        $DB->set_field_select('workshop_assessments', 'grade', null, $sql, $params);
+        $DB->set_field_select('workshop_assessments', 'gradinggrade', null, $sql, $params);
+    }
+
+    /**
+     * Sets the grades for submission to null
+     *
+     * @param null|int|array $restrict If null, update all authors, otherwise update just grades for the given author(s)
+     * @return void
+     */
+    public function clear_submission_grades($restrict=null) {
+        global $DB;
+
+        $sql = "workshopid = :workshopid AND example = 0";
+        $params = array('workshopid' => $this->id);
+
+        if (is_null($restrict)) {
+            // update all users - no more conditions
+        } elseif (!empty($restrict)) {
+            list($usql, $uparams) = $DB->get_in_or_equal($restrict, SQL_PARAMS_NAMED);
+            $sql .= " AND authorid $usql";
+            $params = array_merge($params, $uparams);
+        } else {
+            throw new coding_exception('Empty value is not a valid parameter here');
+        }
+
+        $DB->set_field_select('workshop_submissions', 'grade', null, $sql, $params);
+    }
+
+    /**
      * Calculates grades for submission for the given participant(s) and updates it in the database
      *
      * @param null|int|array $restrict If null, update all authors, otherwise update just grades for the given author(s)
@@ -1495,6 +1660,31 @@ class workshop {
         // do not forget to process the last batch!
         $this->aggregate_submission_grades_process($batch);
         $rs->close();
+    }
+
+    /**
+     * Sets the aggregated grades for assessment to null
+     *
+     * @param null|int|array $restrict If null, update all reviewers, otherwise update just grades for the given reviewer(s)
+     * @return void
+     */
+    public function clear_grading_grades($restrict=null) {
+        global $DB;
+
+        $sql = "workshopid = :workshopid";
+        $params = array('workshopid' => $this->id);
+
+        if (is_null($restrict)) {
+            // update all users - no more conditions
+        } elseif (!empty($restrict)) {
+            list($usql, $uparams) = $DB->get_in_or_equal($restrict, SQL_PARAMS_NAMED);
+            $sql .= " AND userid $usql";
+            $params = array_merge($params, $uparams);
+        } else {
+            throw new coding_exception('Empty value is not a valid parameter here');
+        }
+
+        $DB->set_field_select('workshop_aggregations', 'gradinggrade', null, $sql, $params);
     }
 
     /**
@@ -1559,7 +1749,7 @@ class workshop {
      * Returns the mform the teachers use to put a feedback for the reviewer
      *
      * @param moodle_url $actionurl
-     * @param stdclass $assessment
+     * @param stdClass $assessment
      * @param array $options editable, editableweight, overridablegradinggrade
      * @return workshop_feedbackreviewer_form
      */
@@ -1595,7 +1785,7 @@ class workshop {
      * Returns the mform the teachers use to put a feedback for the author on their submission
      *
      * @param moodle_url $actionurl
-     * @param stdclass $submission
+     * @param stdClass $submission
      * @param array $options editable
      * @return workshop_feedbackauthor_form
      */
@@ -1716,7 +1906,7 @@ class workshop {
                 $current = $assessment->aggregatedgrade;
             }
             if (!is_null($assessment->gradinggradeover)) {
-                // the grading grade for this assessment is overriden by a teacher
+                // the grading grade for this assessment is overridden by a teacher
                 $sumgrades += $assessment->gradinggradeover;
                 $count++;
             } else {
@@ -1792,7 +1982,27 @@ class workshop {
         );
     }
 
+    /**
+     * Converts absolute URL to relative URL needed by {@see add_to_log()}
+     *
+     * @param moodle_url $url absolute URL
+     * @return string
+     */
+    protected function log_convert_url(moodle_url $fullurl) {
+        static $baseurl;
+
+        if (!isset($baseurl)) {
+            $baseurl = new moodle_url('/mod/workshop/');
+            $baseurl = $baseurl->out();
+        }
+
+        return substr($fullurl->out(), strlen($baseurl));
+    }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Renderable components
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Represents the user planner tool
@@ -1833,14 +2043,14 @@ class workshop_user_plan implements renderable {
             $task = new stdclass();
             $task->title = get_string('taskintro', 'workshop');
             $task->link = $workshop->updatemod_url();
-            $task->completed = !(trim(strip_tags($workshop->intro)) == '');
+            $task->completed = !(trim($workshop->intro) == '');
             $phase->tasks['intro'] = $task;
         }
         if (has_capability('moodle/course:manageactivities', $workshop->context, $userid)) {
             $task = new stdclass();
             $task->title = get_string('taskinstructauthors', 'workshop');
             $task->link = $workshop->updatemod_url();
-            $task->completed = !(trim(strip_tags($workshop->instructauthors)) == '');
+            $task->completed = !(trim($workshop->instructauthors) == '');
             $phase->tasks['instructauthors'] = $task;
         }
         if (has_capability('mod/workshop:editdimensions', $workshop->context, $userid)) {
@@ -1885,7 +2095,7 @@ class workshop_user_plan implements renderable {
             $task = new stdclass();
             $task->title = get_string('taskinstructreviewers', 'workshop');
             $task->link = $workshop->updatemod_url();
-            if (trim(strip_tags($workshop->instructreviewers))) {
+            if (trim($workshop->instructreviewers)) {
                 $task->completed = true;
             } elseif ($workshop->phase >= workshop::PHASE_ASSESSMENT) {
                 $task->completed = false;
@@ -1975,6 +2185,12 @@ class workshop_user_plan implements renderable {
             $task->title = get_string('submissionenddatetime', 'workshop', workshop::timestamp_formats($workshop->submissionend));
             $task->completed = 'info';
             $phase->tasks['submissionenddatetime'] = $task;
+        }
+        if (($workshop->submissionstart < time()) and $workshop->latesubmissions) {
+            $task = new stdclass();
+            $task->title = get_string('latesubmissionsallowed', 'workshop');
+            $task->completed = 'info';
+            $phase->tasks['latesubmissionsallowed'] = $task;
         }
         $this->phases[workshop::PHASE_SUBMISSION] = $phase;
 
@@ -2142,7 +2358,7 @@ class workshop_user_plan implements renderable {
             }
         }
 
-        // Add phase swithing actions
+        // Add phase switching actions
         if (has_capability('mod/workshop:switchphase', $workshop->context, $userid)) {
             foreach ($this->phases as $phasecode => $phase) {
                 if (! $phase->active) {
@@ -2168,5 +2384,398 @@ class workshop_user_plan implements renderable {
             $this->examples = $this->workshop->get_examples_for_reviewer($this->userid);
         }
         return $this->examples;
+    }
+}
+
+/**
+ * Common base class for submissions and example submissions rendering
+ *
+ * Subclasses of this class convert raw submission record from
+ * workshop_submissions table (as returned by {@see workshop::get_submission_by_id()}
+ * for example) into renderable objects.
+ */
+abstract class workshop_submission_base {
+
+    /** @var bool is the submission anonymous (ie contains author information) */
+    protected $anonymous;
+
+    /* @var array of columns from workshop_submissions that are assigned as properties */
+    protected $fields = array();
+
+    /**
+     * Copies the properties of the given database record into properties of $this instance
+     *
+     * @param stdClass $submission full record
+     * @param bool $showauthor show the author-related information
+     * @param array $options additional properties
+     */
+    public function __construct(stdClass $submission, $showauthor = false) {
+
+        foreach ($this->fields as $field) {
+            if (!property_exists($submission, $field)) {
+                throw new coding_exception('Submission record must provide public property ' . $field);
+            }
+            if (!property_exists($this, $field)) {
+                throw new coding_exception('Renderable component must accept public property ' . $field);
+            }
+            $this->{$field} = $submission->{$field};
+        }
+
+        if ($showauthor) {
+            $this->anonymous = false;
+        } else {
+            $this->anonymize();
+        }
+    }
+
+    /**
+     * Unsets all author-related properties so that the renderer does not have access to them
+     *
+     * Usually this is called by the contructor but can be called explicitely, too.
+     */
+    public function anonymize() {
+        foreach (array('authorid', 'authorfirstname', 'authorlastname',
+               'authorpicture', 'authorimagealt', 'authoremail') as $field) {
+            unset($this->{$field});
+        }
+        $this->anonymous = true;
+    }
+
+    /**
+     * Does the submission object contain author-related information?
+     *
+     * @return null|boolean
+     */
+    public function is_anonymous() {
+        return $this->anonymous;
+    }
+}
+
+/**
+ * Renderable object containing a basic set of information needed to display the submission summary
+ *
+ * @see workshop_renderer::render_workshop_submission_summary
+ */
+class workshop_submission_summary extends workshop_submission_base implements renderable {
+
+    /** @var int */
+    public $id;
+    /** @var string */
+    public $title;
+    /** @var string graded|notgraded */
+    public $status;
+    /** @var int */
+    public $timecreated;
+    /** @var int */
+    public $timemodified;
+    /** @var int */
+    public $authorid;
+    /** @var string */
+    public $authorfirstname;
+    /** @var string */
+    public $authorlastname;
+    /** @var int */
+    public $authorpicture;
+    /** @var string */
+    public $authorimagealt;
+    /** @var string */
+    public $authoremail;
+    /** @var moodle_url to display submission */
+    public $url;
+
+    /**
+     * @var array of columns from workshop_submissions that are assigned as properties
+     * of instances of this class
+     */
+    protected $fields = array(
+        'id', 'title', 'timecreated', 'timemodified',
+        'authorid', 'authorfirstname', 'authorlastname', 'authorpicture',
+        'authorimagealt', 'authoremail');
+}
+
+/**
+ * Renderable object containing all the information needed to display the submission
+ *
+ * @see workshop_renderer::render_workshop_submission()
+ */
+class workshop_submission extends workshop_submission_summary implements renderable {
+
+    /** @var string */
+    public $content;
+    /** @var int */
+    public $contentformat;
+    /** @var bool */
+    public $contenttrust;
+    /** @var array */
+    public $attachment;
+
+    /**
+     * @var array of columns from workshop_submissions that are assigned as properties
+     * of instances of this class
+     */
+    protected $fields = array(
+        'id', 'title', 'timecreated', 'timemodified', 'content', 'contentformat', 'contenttrust',
+        'attachment', 'authorid', 'authorfirstname', 'authorlastname', 'authorpicture',
+        'authorimagealt', 'authoremail');
+}
+
+/**
+ * Renderable object containing a basic set of information needed to display the example submission summary
+ *
+ * @see workshop::prepare_example_summary()
+ * @see workshop_renderer::render_workshop_example_submission_summary()
+ */
+class workshop_example_submission_summary extends workshop_submission_base implements renderable {
+
+    /** @var int */
+    public $id;
+    /** @var string */
+    public $title;
+    /** @var string graded|notgraded */
+    public $status;
+    /** @var stdClass */
+    public $gradeinfo;
+    /** @var moodle_url */
+    public $url;
+    /** @var moodle_url */
+    public $editurl;
+    /** @var string */
+    public $assesslabel;
+    /** @var moodle_url */
+    public $assessurl;
+    /** @var bool must be set explicitly by the caller */
+    public $editable = false;
+
+    /**
+     * @var array of columns from workshop_submissions that are assigned as properties
+     * of instances of this class
+     */
+    protected $fields = array('id', 'title');
+
+    /**
+     * Example submissions are always anonymous
+     *
+     * @return true
+     */
+    public function is_anonymous() {
+        return true;
+    }
+}
+
+/**
+ * Renderable object containing all the information needed to display the example submission
+ *
+ * @see workshop_renderer::render_workshop_example_submission()
+ */
+class workshop_example_submission extends workshop_example_submission_summary implements renderable {
+
+    /** @var string */
+    public $content;
+    /** @var int */
+    public $contentformat;
+    /** @var bool */
+    public $contenttrust;
+    /** @var array */
+    public $attachment;
+
+    /**
+     * @var array of columns from workshop_submissions that are assigned as properties
+     * of instances of this class
+     */
+    protected $fields = array('id', 'title', 'content', 'contentformat', 'contenttrust', 'attachment');
+}
+
+/**
+ * Renderable message to be displayed to the user
+ *
+ * Message can contain an optional action link with a label that is supposed to be rendered
+ * as a button or a link.
+ *
+ * @see workshop::renderer::render_workshop_message()
+ */
+class workshop_message implements renderable {
+
+    const TYPE_INFO     = 10;
+    const TYPE_OK       = 20;
+    const TYPE_ERROR    = 30;
+
+    /** @var string */
+    protected $text = '';
+    /** @var int */
+    protected $type = self::TYPE_INFO;
+    /** @var moodle_url */
+    protected $actionurl = null;
+    /** @var string */
+    protected $actionlabel = '';
+
+    /**
+     * @param string $text short text to be displayed
+     * @param string $type optional message type info|ok|error
+     */
+    public function __construct($text = null, $type = self::TYPE_INFO) {
+        $this->set_text($text);
+        $this->set_type($type);
+    }
+
+    /**
+     * Sets the message text
+     *
+     * @param string $text short text to be displayed
+     */
+    public function set_text($text) {
+        $this->text = $text;
+    }
+
+    /**
+     * Sets the message type
+     *
+     * @param int $type
+     */
+    public function set_type($type = self::TYPE_INFO) {
+        if (in_array($type, array(self::TYPE_OK, self::TYPE_ERROR, self::TYPE_INFO))) {
+            $this->type = $type;
+        } else {
+            throw new coding_exception('Unknown message type.');
+        }
+    }
+
+    /**
+     * Sets the optional message action
+     *
+     * @param moodle_url $url to follow on action
+     * @param string $label action label
+     */
+    public function set_action(moodle_url $url, $label) {
+        $this->actionurl    = $url;
+        $this->actionlabel  = $label;
+    }
+
+    /**
+     * Returns message text with HTML tags quoted
+     *
+     * @return string
+     */
+    public function get_message() {
+        return s($this->text);
+    }
+
+    /**
+     * Returns message type
+     *
+     * @return int
+     */
+    public function get_type() {
+        return $this->type;
+    }
+
+    /**
+     * Returns action URL
+     *
+     * @return moodle_url|null
+     */
+    public function get_action_url() {
+        return $this->actionurl;
+    }
+
+    /**
+     * Returns action label
+     *
+     * @return string
+     */
+    public function get_action_label() {
+        return $this->actionlabel;
+    }
+}
+
+/**
+ * Renderable output of submissions allocation process
+ */
+class workshop_allocation_init_result implements renderable {
+
+    /** @var workshop_message */
+    protected $message;
+    /** @var array of steps */
+    protected $info = array();
+    /** @var moodle_url */
+    protected $continue;
+
+    /**
+     * Supplied argument can be either integer status code or an array of string messages. Messages
+     * in a array can have optional prefix or prefixes, using '::' as delimiter. Prefixes determine
+     * the type of the message and may influence its visualisation.
+     *
+     * @param mixed $result int|array returned by {@see workshop_allocator::init()}
+     * @param moodle_url to continue
+     */
+    public function __construct($result, moodle_url $continue) {
+
+        if ($result === workshop::ALLOCATION_ERROR) {
+            $this->message = new workshop_message(get_string('allocationerror', 'workshop'), workshop_message::TYPE_ERROR);
+        } else {
+            $this->message = new workshop_message(get_string('allocationdone', 'workshop'), workshop_message::TYPE_OK);
+            if (is_array($result)) {
+                $this->info = $result;
+            }
+        }
+
+        $this->continue = $continue;
+    }
+
+    /**
+     * @return workshop_message instance to render
+     */
+    public function get_message() {
+        return $this->message;
+    }
+
+    /**
+     * @return array of strings with allocation process details
+     */
+    public function get_info() {
+        return $this->info;
+    }
+
+    /**
+     * @return moodle_url where the user shoudl continue
+     */
+    public function get_continue_url() {
+        return $this->continue;
+    }
+}
+
+/**
+ * Renderable component containing all the data needed to display the grading report
+ */
+class workshop_grading_report implements renderable {
+
+    /** @var stdClass returned by {@see workshop::prepare_grading_report_data()} */
+    protected $data;
+    /** @var stdClass rendering options */
+    protected $options;
+
+    /**
+     * Grades in $data must be already rounded to the set number of decimals or must be null
+     * (in which later case, the [mod_workshop,nullgrade] string shall be displayed)
+     *
+     * @param stdClass $data prepared by {@link workshop::prepare_grading_report_data()}
+     * @param stdClass $options display options (showauthornames, showreviewernames, sortby, sorthow, showsubmissiongrade, showgradinggrade)
+     */
+    public function __construct(stdClass $data, stdClass $options) {
+        $this->data     = $data;
+        $this->options  = $options;
+    }
+
+    /**
+     * @return stdClass grading report data
+     */
+    public function get_data() {
+        return $this->data;
+    }
+
+    /**
+     * @return stdClass rendering options
+     */
+    public function get_options() {
+        return $this->options;
     }
 }

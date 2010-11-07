@@ -6,10 +6,7 @@ define('BGR_NEXTONE',      '2');
 
 class block_glossary_random extends block_base {
     function init() {
-
         $this->title = get_string('pluginname','block_glossary_random');
-        $this->version = 2007101509;
-
     }
 
     function specialization() {
@@ -85,8 +82,9 @@ class block_glossary_random extends block_base {
                     $text = "<h3>".format_string($entry->concept,true)."</h3>";
                 }
 
-                $options = new object;
+                $options = new stdClass();
                 $options->trusted = $entry->definitiontrust;
+                $options->overflowdiv = true;
                 $text .= format_text($entry->definition, $entry->definitionformat, $options);
 
                 $this->config->nexttime = usergetmidnight(time()) + DAYSECS * $this->config->refresh;
@@ -153,7 +151,7 @@ class block_glossary_random extends block_base {
         //Obtain the visible property from the instance
         if ($cm->uservisible) {
             if (has_capability('mod/glossary:write', get_context_instance(CONTEXT_MODULE, $cm->id))) {
-                $this->content->footer = '<a href="'.$CFG->wwwroot.'/mod/glossary/edit.php?id='.$cm->id
+                $this->content->footer = '<a href="'.$CFG->wwwroot.'/mod/glossary/edit.php?cmid='.$cm->id
                 .'" title="'.$this->config->addentry.'">'.$this->config->addentry.'</a><br />';
             } else {
                 $this->content->footer = '';
@@ -176,18 +174,5 @@ class block_glossary_random extends block_base {
         }
         return false;
     }
-
-    /**
-     * Executed after block instance has been created, we use it to recode
-     * the glossary config setting to point to the new (restored) one
-     */
-    function after_restore($restore) {
-    /// We need to transform the glossary->id from the original one to the restored one
-        if ($rec = backup_getid($restore->backup_unique_code, 'glossary', $this->config->glossary)) {
-            $this->config->glossary = $rec->new_id;
-            $this->instance_config_commit();
-        }
-    }
-
 }
 

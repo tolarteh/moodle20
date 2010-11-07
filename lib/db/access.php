@@ -1,32 +1,55 @@
 <?php
-//
-// Capability definitions for Moodle core.
-//
-// The capabilities are loaded into the database table when the module is
-// installed or updated. Whenever the capability definitions are updated,
-// the module version number should be bumped up.
-//
-// The system has four possible values for a capability:
-// CAP_ALLOW, CAP_PREVENT, CAP_PROHIBIT, and inherit (not set).
-//
-//
-// CAPABILITY NAMING CONVENTION
-//
-// It is important that capability names are unique. The naming convention
-// for capabilities that are specific to modules and blocks is as follows:
-//   [mod/block]/<plugin_name>:<capabilityname>
-//
-// component_name should be the same as the directory name of the mod or block.
-//
-// Core moodle capabilities are defined thus:
-//    moodle/<capabilityclass>:<capabilityname>
-//
-// Examples: mod/forum:viewpost
-//           block/recent_activity:view
-//           moodle/site:deleteuser
-//
-// The variable name for the capability definitions array is $capabilities
 
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Capability definitions for Moodle core.
+ *
+ * The capabilities are loaded into the database table when the module is
+ * installed or updated. Whenever the capability definitions are updated,
+ * the module version number should be bumped up.
+ *
+ * The system has four possible values for a capability:
+ * CAP_ALLOW, CAP_PREVENT, CAP_PROHIBIT, and inherit (not set).
+ *
+ *
+ * CAPABILITY NAMING CONVENTION
+ *
+ * It is important that capability names are unique. The naming convention
+ * for capabilities that are specific to modules and blocks is as follows:
+ *   [mod/block]/<plugin_name>:<capabilityname>
+ *
+ * component_name should be the same as the directory name of the mod or block.
+ *
+ * Core moodle capabilities are defined thus:
+ *    moodle/<capabilityclass>:<capabilityname>
+ *
+ * Examples: mod/forum:viewpost
+ *           block/recent_activity:view
+ *           moodle/site:deleteuser
+ *
+ * The variable name for the capability definitions array is $capabilities
+ *
+ * @package    core
+ * @subpackage role
+ * @copyright  2006 onwards Martin Dougiamas  http://dougiamas.com
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+defined('MOODLE_INTERNAL') || die();
 
 $capabilities = array(
     'moodle/site:config' => array(
@@ -225,7 +248,7 @@ $capabilities = array(
         'riskbitmask' => RISK_SPAM | RISK_PERSONAL | RISK_XSS,
 
         'captype' => 'write',
-        'contextlevel' => CONTEXT_MODULE,
+        'contextlevel' => CONTEXT_COURSE,
         'archetypes' => array(
             'editingteacher' => CAP_ALLOW,
             'manager' => CAP_ALLOW
@@ -390,27 +413,6 @@ $capabilities = array(
         )
     ),
 
-    'moodle/site:langeditmaster' => array(
-
-        'riskbitmask' => RISK_CONFIG | RISK_XSS,
-
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => array(
-        )
-    ),
-
-    'moodle/site:langeditlocal' => array(
-
-        'riskbitmask' => RISK_CONFIG | RISK_XSS,
-
-        'captype' => 'write',
-        'contextlevel' => CONTEXT_SYSTEM,
-        'archetypes' => array(
-            'manager' => CAP_ALLOW
-        )
-    ),
-
     // Permission to manage filter setting overrides in subcontexts.
     'moodle/filter:manage' => array(
 
@@ -469,6 +471,16 @@ $capabilities = array(
         )
     ),
 
+    'moodle/user:viewalldetails' => array(
+        'riskbitmask' => RISK_PERSONAL,
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_USER,
+        'archetypes' => array(
+            'manager' => CAP_ALLOW
+        ),
+        'clonepermissionsfrom' => 'moodle/user:update'
+    ),
+
     'moodle/user:viewhiddendetails' => array(
 
         'riskbitmask' => RISK_PERSONAL,
@@ -522,7 +534,19 @@ $capabilities = array(
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM,
         'archetypes' => array(
-            'user' => CAP_ALLOW,
+            'user' => CAP_ALLOW
+        )
+    ),
+
+    // can the user manage their own files?
+    'moodle/user:manageownfiles' => array(
+
+        'riskbitmap' => RISK_SPAM | RISK_PERSONAL,
+
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => array(
+            'user' => CAP_ALLOW
         )
     ),
 
@@ -1617,7 +1641,7 @@ $capabilities = array(
     'moodle/comment:view' => array(
 
         'captype' => 'read',
-        'contextlevel' => CONTEXT_SYSTEM,
+        'contextlevel' => CONTEXT_COURSE,
         'archetypes' => array(
             'user' => CAP_ALLOW,
             'student' => CAP_ALLOW,
@@ -1631,7 +1655,7 @@ $capabilities = array(
 
         'riskbitmask' => RISK_SPAM | RISK_PERSONAL,
         'captype' => 'write',
-        'contextlevel' => CONTEXT_SYSTEM,
+        'contextlevel' => CONTEXT_COURSE,
         'archetypes' => array(
             'user' => CAP_ALLOW,
             'student' => CAP_ALLOW,
@@ -1645,7 +1669,7 @@ $capabilities = array(
 
         'riskbitmask' => RISK_DATALOSS,
         'captype' => 'write',
-        'contextlevel' => CONTEXT_SYSTEM,
+        'contextlevel' => CONTEXT_COURSE,
         'archetypes' => array(
             'editingteacher' => CAP_ALLOW,
             'coursecreator' => CAP_ALLOW,
@@ -1662,9 +1686,11 @@ $capabilities = array(
         )
     ),
     'moodle/rating:view' => array(
+
         'captype' => 'read',
-        'contextlevel' => CONTEXT_SYSTEM,
+        'contextlevel' => CONTEXT_COURSE,
         'archetypes' => array(
+            'user' => CAP_ALLOW,
             'student' => CAP_ALLOW,
             'teacher' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
@@ -1672,10 +1698,12 @@ $capabilities = array(
         )
     ),
     'moodle/rating:viewany' => array(
+
         'riskbitmask' => RISK_PERSONAL,
         'captype' => 'read',
-        'contextlevel' => CONTEXT_SYSTEM,
+        'contextlevel' => CONTEXT_COURSE,
         'archetypes' => array(
+            'user' => CAP_ALLOW,
             'student' => CAP_ALLOW,
             'teacher' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
@@ -1683,10 +1711,12 @@ $capabilities = array(
         )
     ),
     'moodle/rating:viewall' => array(
+
         'riskbitmask' => RISK_PERSONAL,
         'captype' => 'read',
-        'contextlevel' => CONTEXT_SYSTEM,
+        'contextlevel' => CONTEXT_COURSE,
         'archetypes' => array(
+            'user' => CAP_ALLOW,
             'student' => CAP_ALLOW,
             'teacher' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
@@ -1694,9 +1724,11 @@ $capabilities = array(
         )
     ),
     'moodle/rating:rate' => array(
+
         'captype' => 'write',
-        'contextlevel' => CONTEXT_SYSTEM,
+        'contextlevel' => CONTEXT_COURSE,
         'archetypes' => array(
+            'user' => CAP_ALLOW,
             'student' => CAP_ALLOW,
             'teacher' => CAP_ALLOW,
             'editingteacher' => CAP_ALLOW,
@@ -1705,9 +1737,8 @@ $capabilities = array(
     ),
      'moodle/course:publish' => array(
 
-        'riskbitmask' => RISK_SPAM | RISK_PERSONAL,
-
         'captype' => 'write',
+        'riskbitmask' => RISK_SPAM | RISK_PERSONAL,
         'contextlevel' => CONTEXT_SYSTEM,
         'archetypes' => array(
             'manager' => CAP_ALLOW

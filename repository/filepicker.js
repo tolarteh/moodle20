@@ -28,7 +28,7 @@
  * this.active_repo.nologin
  * this.active_repo.help
  * this.active_repo.manage
- * 
+ *
  * Server responses
  * =====
  * this.filelist, cached filelist
@@ -51,7 +51,7 @@ M.core_filepicker.active_filepicker = null;
  */
 M.core_filepicker.show = function(Y, options) {
     if (!M.core_filepicker.instances[options.client_id]) {
-        M.core_filepicker.init(Y, options); 
+        M.core_filepicker.init(Y, options);
     }
     M.core_filepicker.instances[options.client_id].show();
 };
@@ -62,7 +62,7 @@ M.core_filepicker.show = function(Y, options) {
 M.core_filepicker.init = function(Y, options) {
     var FilePickerHelper = function(options) {
         FilePickerHelper.superclass.constructor.apply(this, arguments);
-    }
+    };
 
     FilePickerHelper.NAME = "FilePickerHelper";
     FilePickerHelper.ATTRS = {
@@ -97,15 +97,33 @@ M.core_filepicker.init = function(Y, options) {
             params['env']=this.options.env;
             // the form element only accept certain file types
             params['accepted_types']=this.options.accepted_types;
-            params['sesskey']=M.cfg.sesskey;
+            params['sesskey'] = M.cfg.sesskey;
             params['client_id'] = args.client_id;
-            params['filearea'] = this.options.filearea?this.options.filearea:'user_draft';
             params['itemid'] = this.options.itemid?this.options.itemid:0;
             params['maxbytes'] = this.options.maxbytes?this.options.maxbytes:-1;
+            if (this.options.context && this.options.context.id) {
+                params['ctx_id'] = this.options.context.id;
+            }
             if (args['params']) {
                 for (i in args['params']) {
                     params[i] = args['params'][i];
                 }
+            }
+            if (args.action == 'upload') {
+                var list = [];
+                for(var k in params) {
+                    var value = params[k];
+                    if(value instanceof Array) {
+                        for(var i in value) {
+                            list.push(k+'[]='+value[i]);
+                        }
+                    } else {
+                        list.push(k+'='+value);
+                    }
+                }
+                params = list.join('&');
+            } else {
+                params = build_querystring(params);
             }
             var cfg = {
                 method: 'POST',
@@ -125,9 +143,8 @@ M.core_filepicker.init = function(Y, options) {
                             return;
                         }
                         // error checking
-                        if (data && data.e) {
-                            //Y.one(panel_id).set('innerHTML', 'ERROR: '+data.e);
-                            scope.print_msg(data.e, 'error');
+                        if (data && data.error) {
+                            scope.print_msg(data.error, 'error');
                             scope.list();
                             return;
                         } else {
@@ -142,10 +159,9 @@ M.core_filepicker.init = function(Y, options) {
                     scope: scope
                 },
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'User-Agent': 'MoodleFilePicker/3.0'
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
                 },
-                data: build_querystring(params),
+                data: params,
                 context: this
             };
             if (args.form) {
@@ -167,7 +183,7 @@ M.core_filepicker.init = function(Y, options) {
                 icon = YAHOO.widget.SimpleDialog.ICON_ALARM;
             }
             if (!this.msg_dlg) {
-                this.msg_dlg = new YAHOO.widget.SimpleDialog(dlg_id, 
+                this.msg_dlg = new YAHOO.widget.SimpleDialog(dlg_id,
                      { width: "300px",
                        fixedcenter: true,
                        visible: true,
@@ -190,7 +206,6 @@ M.core_filepicker.init = function(Y, options) {
             }
             this.msg_dlg.setHeader(type);
             this.msg_dlg.show();
-
         },
         build_tree: function(node, level) {
             var client_id = this.options.client_id;
@@ -206,6 +221,7 @@ M.core_filepicker.init = function(Y, options) {
                 thumbnail:node.thumbnail,
                 path:node.path?node.path:[]
             };
+            var tmpNode = new YAHOO.widget.TextNode(info, level, false);
             if(node.repo_id) {
                 tmpNode.repo_id=node.repo_id;
             }else{
@@ -266,46 +282,54 @@ M.core_filepicker.init = function(Y, options) {
         },
         view_as_list: function() {
             var scope = this;
-            var client_id = this.options.client_id;
-            var dynload = this.active_repo.dynload;
-            var list = this.filelist;
-            var panel_id = '#panel-'+client_id;
-            this.viewmode = 2;
-            Y.one(panel_id).set('innerHTML', '');
+            scope.request({
+                action:'list',
+                client_id: scope.options.client_id,
+                repository_id: scope.active_repo.id,
+                path:'',
+                page:'',
+                callback: function(id, obj, args) {
+                    var client_id = scope.options.client_id;
+                    var dynload = scope.active_repo.dynload;
+                    var list = obj.list;
+                    var panel_id = '#panel-'+client_id;
+                    scope.viewmode = 2;
+                    Y.one(panel_id).set('innerHTML', '');
 
-            this.print_header();
+                    scope.print_header();
 
-            var html = '<div class="fp-tree-panel" id="treeview-'+client_id+'">';
-            if (list.length==0) {
-                html += '<div class="fp-emptylist mdl-align">' +M.str.repository.emptylist+'</div>';
-            }
-            html += '</div>';
+                    var html = '<div class="fp-tree-panel" id="treeview-'+client_id+'">';
+                    if (list.length==0) {
+                        html += '<div class="fp-emptylist mdl-align">' +M.str.repository.nofilesavailable+'</div>';
+                    }
+                    html += '</div>';
 
-            var tree = Y.Node.create(html);
-            Y.one(panel_id).appendChild(tree);
-            if (list.length==0) {
-                return;
-            }
+                    var tree = Y.Node.create(html);
+                    Y.one(panel_id).appendChild(tree);
+                    if (list.length==0) {
+                        return;
+                    }
 
-            this.treeview = new YAHOO.widget.TreeView('treeview-'+client_id);
-            if (dynload) {
-                this.treeview.setDynamicLoad(this.treeview_dynload, 1);
-            }
+                    scope.treeview = new YAHOO.widget.TreeView('treeview-'+client_id);
+                    if (dynload) {
+                        scope.treeview.setDynamicLoad(scope.treeview_dynload, 1);
+                    }
 
-            for(k in list) {
-                this.build_tree(list[k], this.treeview.getRoot());
-            }
-            var scope = this;
-            this.treeview.subscribe('clickEvent', function(e){
-                if(e.node.isLeaf){
-                    var fileinfo = {};
-                    fileinfo['title'] = e.node.data.filename;
-                    fileinfo['source'] = e.node.data.source;
-                    fileinfo['thumbnail'] = e.node.data.thumbnail;
-                    scope.select_file(fileinfo);
+                    for(k in list) {
+                        scope.build_tree(list[k], scope.treeview.getRoot());
+                    }
+                    scope.treeview.subscribe('clickEvent', function(e){
+                        if(e.node.isLeaf){
+                            var fileinfo = {};
+                            fileinfo['title'] = e.node.data.filename;
+                            fileinfo['source'] = e.node.data.source;
+                            fileinfo['thumbnail'] = e.node.data.thumbnail;
+                            scope.select_file(fileinfo);
+                        }
+                    });
+                    scope.treeview.draw();
                 }
-            });
-            this.treeview.draw();
+            }, true);
         },
         view_as_icons: function() {
             var scope = this;
@@ -319,7 +343,7 @@ M.core_filepicker.init = function(Y, options) {
 
             var html = '<div class="fp-grid-panel" id="fp-grid-panel-'+client_id+'">';
             if (list.length==0) {
-                html += '<div class="fp-emptylist mdl-align">' +M.str.repository.emptylist+'</div>';
+                html += '<div class="fp-emptylist mdl-align">' +M.str.repository.nofilesavailable+'</div>';
             }
             html += '</div>';
 
@@ -335,13 +359,12 @@ M.core_filepicker.init = function(Y, options) {
                 title.id = 'grid-title-'+client_id+'-'+String(count);
                 title.className = 'label';
                 var filename = node.title;
-                console.info(node);
                 if (node.shorttitle) {
                     filename = node.shorttitle;
                 }
                 var filename_id = 'filname-link-'+client_id+'-'+String(count);
                 title.innerHTML += '<a href="###" id="'+filename_id+'" title="'+node.title+'"><span>'+filename+"</span></a>";
- 
+
 
                 if(node.thumbnail_width){
                     grid.style.width = node.thumbnail_width+'px';
@@ -368,7 +391,7 @@ M.core_filepicker.init = function(Y, options) {
                 link.href='###';
                 link.id = 'img-id-'+client_id+'-'+String(count);
                 if(node.url) {
-                    // hide 
+                    // hide
                     //grid.innerHTML += '<p><a target="_blank" href="'+node.url+'">'+M.str.repository.preview+'</a></p>';
                 }
                 link.appendChild(img);
@@ -447,7 +470,7 @@ M.core_filepicker.init = function(Y, options) {
                 // support internal files only
                 le_style = ' style="display:none;"';
             }
-            if ((this.options.externallink && this.options.env == 'editor')) {
+            if ((this.options.externallink && this.options.env == 'editor' && this.options.return_types != 1)) {
                 html += '<tr'+le_style+'><td></td><td class="mdl-left"><input type="checkbox" id="linkexternal-'+client_id+'" value="" '+le_checked+' />'+M.str.repository.linkexternal+'</td></tr>';
             }
 
@@ -508,11 +531,19 @@ M.core_filepicker.init = function(Y, options) {
                 if (this.options.env == 'editor') {
                     // in editor, images are stored in '/' only
                     params.savepath = '/';
-                    var linkexternal = Y.one('#linkexternal-'+client_id).get('checked');
-                    if (linkexternal) {
+                    // when image or media button is clicked
+                    if ( this.options.return_types != 1 ) {
+                        var linkexternal = Y.one('#linkexternal-'+client_id).get('checked');
+                        if (linkexternal) {
+                            params['linkexternal'] = 'yes';
+                        }
+                    } else {
+                        // when link button in editor clicked
                         params['linkexternal'] = 'yes';
                     }
-                } if (this.options.env == 'url') {
+                }
+
+                if (this.options.env == 'url') {
                     params['linkexternal'] = 'yes';
                 }
 
@@ -543,7 +574,7 @@ M.core_filepicker.init = function(Y, options) {
             elform.on('keydown', function(e) {
                 if (e.keyCode == 13) {
                     getfile.simulate('click');
-                    e.preventDefault(); 
+                    e.preventDefault();
                 }
             }, this);
             var cancel = Y.one('#fp-cancel-'+client_id);
@@ -608,7 +639,7 @@ M.core_filepicker.init = function(Y, options) {
                 });
             });
 
-            this.mainui.setHeader('File Picker');
+            this.mainui.setHeader(M.str.repository.filepicker);
             this.mainui.setBody('<div id="layout-'+client_id+'"></div>');
             this.mainui.render();
             this.rendered = true;
@@ -655,7 +686,7 @@ M.core_filepicker.init = function(Y, options) {
                 }
                 if (count==0) {
                     if (this.options.externallink) {
-                        list.set('innerHTML', M.str.repository.norepositoriesavexternalailable);
+                        list.set('innerHTML', M.str.repository.norepositoriesexternalavailable);
                     } else {
                         list.set('innerHTML', M.str.repository.norepositoriesavailable);
                     }
@@ -674,6 +705,7 @@ M.core_filepicker.init = function(Y, options) {
             this.active_repo.nosearch = data.nosearch?true:false;
             this.active_repo.norefresh = data.norefresh?true:false;
             this.active_repo.nologin = data.nologin?true:false;
+            this.active_repo.logouttext = data.logouttext?data.logouttext:null;
             this.active_repo.help = data.help?data.help:null;
             this.active_repo.manage = data.manage?data.manage:null;
         },
@@ -868,7 +900,7 @@ M.core_filepicker.init = function(Y, options) {
                 popup_button.on('click', function(e){
                     M.core_filepicker.active_filepicker = this;
                     window.open(loginurl, 'repo_auth', 'location=0,status=0,width=500,height=300,scrollbars=yes');
-                    e.preventDefault(); 
+                    e.preventDefault();
                 }, this);
             }
             var elform = Y.one('#'+form_id);
@@ -882,7 +914,7 @@ M.core_filepicker.init = function(Y, options) {
                             login_button.simulate('click');
                             break;
                     }
-                    e.preventDefault(); 
+                    e.preventDefault();
                 }
             }, this);
 
@@ -949,7 +981,7 @@ M.core_filepicker.init = function(Y, options) {
                         scope.viewbar.set('disabled', true);
                         scope.parse_repository_options(obj);
                         scope.create_upload_form(obj);
-                    
+
                     } else if (obj.iframe) {
 
                     } else if (obj.list) {
@@ -964,6 +996,7 @@ M.core_filepicker.init = function(Y, options) {
         create_upload_form: function(data) {
             var client_id = this.options.client_id;
             Y.one('#panel-'+client_id).set('innerHTML', '');
+            var types = this.options.accepted_types;
 
             this.print_header();
             var id = data.upload.id+'_'+client_id;
@@ -973,8 +1006,13 @@ M.core_filepicker.init = function(Y, options) {
             str += '<tr><td class="mdl-right">';
             str += '<label for="'+id+'_file">'+data.upload.label+': </label></td>';
             str += '<td class="mdl-left"><input type="file" id="'+id+'_file" name="repo_upload_file" />';
-            str += '<input type="hidden" name="itemid" value="'+this.options.itemid+'" /></tr>';
-            str += '<tr>';
+            str += '<tr><td class="mdl-right"><label for="newname-'+client_id+'">'+M.str.repository.saveas+':</label></td>';
+            str += '<td class="mdl-left"><input type="text" name="title" id="newname-'+client_id+'" value="" /></td></tr>';
+            str += '<input type="hidden" name="itemid" value="'+this.options.itemid+'" />';
+            for (var i in types) {
+                str += '<input type="hidden" name="accepted_types[]" value="'+types[i]+'" />';
+            }
+            str += '</td></tr><tr>';
             str += '<td class="mdl-right"><label>'+M.str.repository.author+': </label></td>';
             str += '<td class="mdl-left"><input type="text" name="author" value="'+this.options.author+'" /></td>';
             str += '</tr>';
@@ -1005,9 +1043,13 @@ M.core_filepicker.init = function(Y, options) {
             Y.one('#panel-'+client_id).appendChild(upload_form);
             var scope = this;
             Y.one('#'+id+'_action').on('click', function(e) {
-                e.preventDefault(); 
+                e.preventDefault();
                 var license = Y.one('#select-license-'+client_id).get('value');
                 YAHOO.util.Cookie.set('recentlicense', license);
+                if (!Y.one('#'+id+'_file').get('value')) {
+                    scope.print_msg(M.str.repository.nofilesattached, 'error');
+                    return false;
+                }
                 Y.use('io-upload-iframe', function() {
                     scope.request({
                             scope: scope,
@@ -1143,7 +1185,8 @@ M.core_filepicker.init = function(Y, options) {
                 toolbar.appendChild(refresh);
             }
             if(!r.nologin) {
-                var html = '<a href="###"><img src="'+M.util.image_url('a/logout')+'" /> '+M.str.repository.logout+'</a>';
+                var label = r.logouttext?r.logouttext:M.str.repository.logout;
+                var html = '<a href="###"><img src="'+M.util.image_url('a/logout')+'" /> '+label+'</a>';
                 var logout = Y.Node.create(html);
                 logout.on('click', function() {
                     this.request({
@@ -1175,10 +1218,7 @@ M.core_filepicker.init = function(Y, options) {
                 toolbar.appendChild(help);
             }
 
-            // only show in icons view
-            if (this.viewmode == 1) {
-                this.print_path();
-            }
+            this.print_path();
         },
         get_page_button: function(page) {
             var r = this.active_repo;
@@ -1195,7 +1235,7 @@ M.core_filepicker.init = function(Y, options) {
             var r = this.active_repo;
             var str = '';
             var action = '';
-            if(r.pages) {
+            if(r.pages > 1) {
                 str += '<div class="fp-paging" id="paging-'+html_id+'-'+client_id+'">';
                 str += this.get_page_button(1)+'1</a> ';
 
@@ -1273,9 +1313,6 @@ M.core_filepicker.init = function(Y, options) {
         },
         print_path: function() {
             var client_id = this.options.client_id;
-            if (this.viewmode == 2) {
-                return;
-            }
             var panel = Y.one('#panel-'+client_id);
             var p = this.filepath;
             if (p && p.length!=0) {

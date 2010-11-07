@@ -18,9 +18,10 @@
 /**
  * This file defines an mform to edit accumulative grading strategy forms.
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    workshopform
+ * @subpackage accumulative
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -49,6 +50,7 @@ class workshop_edit_accumulative_strategy_form extends workshop_edit_strategy_fo
         $current            = $this->_customdata['current'];            // current data to be set
 
         $mform->addElement('hidden', 'norepeats', $norepeats);
+        $mform->setType('norepeats', PARAM_INT);
         // value not to be overridden by submitted value
         $mform->setConstants(array('norepeats' => $norepeats));
 

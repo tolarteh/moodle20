@@ -58,10 +58,10 @@ $strentries  = get_string("entries", "glossary");
 $table = new html_table();
 
 if ($usesections) {
-    $table->head  = array ($strsectionname, $strname, $strintro);
+    $table->head  = array ($strsectionname, $strname, $strentries);
     $table->align = array ("CENTER", "LEFT", "CENTER");
 } else {
-    $table->head  = array ($strname, $strintro);
+    $table->head  = array ($strname, $strentries);
     $table->align = array ("LEFT", "CENTER");
 }
 
@@ -113,7 +113,7 @@ foreach ($glossarys as $glossary) {
                 $userid = $USER->id;
             }
             //Get html code for RSS link
-            $rsslink = rss_get_link($context->id, $userid, "glossary", $glossary->id, $tooltiptext);
+            $rsslink = rss_get_link($context->id, $userid, 'mod_glossary', $glossary->id, $tooltiptext);
         }
     }
 

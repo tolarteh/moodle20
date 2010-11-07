@@ -18,12 +18,13 @@
 /**
  * Local stuff for category enrolment plugin.
  *
- * @package   enrol_category
- * @copyright 2010 Petr Skoda  {@link http://skodak.org}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage category
+ * @copyright  2010 Petr Skoda {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die;
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Event handler for category enrolment plugin.
@@ -76,7 +77,7 @@ class enrol_category_handler {
         $params = array('courselevel'=>CONTEXT_COURSE, 'match'=>$parentcontext->path.'/%', 'userid'=>$ra->userid);
         $rs = $DB->get_recordset_sql($sql, $params);
         foreach ($rs as $instance) {
-            $plugin->enrol_user($instance, $ra->userid);
+            $plugin->enrol_user($instance, $ra->userid, null, $ra->timemodified);
         }
         $rs->close();
 
@@ -196,17 +197,18 @@ function enrol_category_sync_course($course) {
     }
 
     // add new enrolments
-    $sql = "SELECT ra.userid
-              FROM (SELECT DISTINCT xra.userid
+    $sql = "SELECT ra.userid, ra.estart
+              FROM (SELECT xra.userid, MIN(xra.timemodified) AS estart
                       FROM {role_assignments} xra
                      WHERE xra.roleid $roleids AND xra.contextid $contextids
+                  GROUP BY xra.userid
                    ) ra
          LEFT JOIN {user_enrolments} ue ON (ue.enrolid = :instanceid AND ue.userid = ra.userid)
              WHERE ue.id IS NULL";
     $params['instanceid'] = $instance->id;
     $rs = $DB->get_recordset_sql($sql, $params);
     foreach ($rs as $ra) {
-        $plugin->enrol_user($instance, $ra->userid);
+        $plugin->enrol_user($instance, $ra->userid, null, $ra->estart);
     }
     $rs->close();
 
@@ -248,7 +250,9 @@ function enrol_category_sync_full() {
     if (!$roles = get_roles_with_capability('enrol/category:synchronised', CAP_ALLOW, $syscontext)) {
         // yay, nothing to do, so let's remove all leftovers
         if ($instances = $DB->get_records('enrol', array('enrol'=>'category'))) {
-            $plugin->delete_instance($instance);
+            foreach ($instances as $instance) {
+                $plugin->delete_instance($instance);
+            }
         }
     }
 
@@ -256,7 +260,7 @@ function enrol_category_sync_full() {
     $params['courselevel'] = CONTEXT_COURSE;
     $params['catlevel'] = CONTEXT_COURSECAT;
 
-    // first of all add necessay enrol instances to all courses
+    // first of all add necessary enrol instances to all courses
     $parentcat = $DB->sql_concat("cat.path", "'/%'");
     $sql = "SELECT DISTINCT c.*
               FROM {course} c
@@ -294,21 +298,24 @@ function enrol_category_sync_full() {
     $rs->close();
 
     // add missing enrolments
-    $sql = "SELECT e.*, cat.userid
+    $sql = "SELECT e.*, cat.userid, cat.estart
               FROM {enrol} e
               JOIN {context} ctx ON (ctx.instanceid = e.courseid AND ctx.contextlevel = :courselevel)
-              JOIN (SELECT DISTINCT cctx.path, ra.userid
+              JOIN (SELECT cctx.path, ra.userid, MIN(ra.timemodified) AS estart
                       FROM {course_categories} cc
                       JOIN {context} cctx ON (cctx.instanceid = cc.id AND cctx.contextlevel = :catlevel)
                       JOIN {role_assignments} ra ON (ra.contextid = cctx.id AND ra.roleid $roleids)
+                  GROUP BY cctx.path, ra.userid
                    ) cat ON (ctx.path LIKE $parentcat)
          LEFT JOIN {user_enrolments} ue ON (ue.enrolid = e.id AND ue.userid = cat.userid)
              WHERE e.enrol = 'category' AND ue.id IS NULL";
     $rs = $DB->get_recordset_sql($sql, $params);
     foreach($rs as $instance) {
         $userid = $instance->userid;
+        $estart = $instance->estart;
         unset($instance->userid);
-        $plugin->enrol_user($instance, $userid);
+        unset($instance->estart);
+        $plugin->enrol_user($instance, $userid, null, $estart);
     }
     $rs->close();
 

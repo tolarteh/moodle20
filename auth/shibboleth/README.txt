@@ -212,11 +212,11 @@ Example file:
         // We want to split this up to get:
         // institution, street, zipcode, city and country
         $address = $_SERVER[$this->config->field_map_address];
-        list($institution, $street, $zip_city) = split('\$', $address);
-        ereg(' (.+)',$zip_city, $regs);
+        list($institution, $street, $zip_city) = explode('$', $address);
+        preg_match('/ (.+)/', $zip_city, $regs);
         $city = $regs[1];
 
-        ereg('(.+)-',$zip_city, $regs);
+        preg_match('/(.+)-/',$zip_city, $regs);
         $country = $regs[1];
 
         $result["address"] = $street;

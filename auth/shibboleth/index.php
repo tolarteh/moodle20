@@ -6,7 +6,7 @@
 
     $PAGE->set_url('/auth/shibboleth/index.php');
 
-    if (isloggedin() && $USER->username != 'guest') {      // Nothing to do
+    if (isloggedin() && !isguestuser()) {      // Nothing to do
         if (isset($SESSION->wantsurl) and (strpos($SESSION->wantsurl, $CFG->wwwroot) === 0)) {
             $urltogo = $SESSION->wantsurl;    /// Because it's an address in this site
             unset($SESSION->wantsurl);
@@ -46,8 +46,8 @@
 
             update_user_login_times();
 
-            // Don't show username on login page
-            set_moodle_cookie('nobody');
+            // Don't show previous shibboleth username on login page
+            set_moodle_cookie('');
 
             set_login_session_preferences();
 

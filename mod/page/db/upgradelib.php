@@ -18,10 +18,13 @@
 /**
  * Folder module upgrade related helper functions
  *
- * @package   mod-page
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage page
+ * @copyright  2009 Petr Skoda (http://skodak.org)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die;
 
 /**
  * Migrate page module data from 1.9 resource_old table to new page table
@@ -71,11 +74,19 @@ function page_20_migrate_candidate($candidate, $fs, $format) {
     global $CFG, $DB;
     upgrade_set_timeout();
 
-    $page = new object();
+    if ($CFG->texteditors !== 'textarea') {
+        $intro       = text_to_html($candidate->intro, false, false, true);
+        $introformat = FORMAT_HTML;
+    } else {
+        $intro       = $candidate->intro;
+        $introformat = FORMAT_MOODLE;
+    }
+
+    $page = new stdClass();
     $page->course        = $candidate->course;
     $page->name          = $candidate->name;
-    $page->intro         = $candidate->intro;
-    $page->introformat   = $candidate->introformat;
+    $page->intro         = $intro;
+    $page->introformat   = $introformat;
     $page->content       = $candidate->alltext;
     $page->contentformat = $format;
     $page->revision      = 1;
@@ -111,15 +122,15 @@ function page_20_migrate_candidate($candidate, $fs, $format) {
     $page = resource_migrate_to_module('page', $candidate, $page);
 
     // now try to migrate files from site files
-    // noite: this can not work for html pages or files with other relatively linked files :-(
+    // note: this can not work for html pages or files with other relatively linked files :-(
     $siteid = get_site()->id;
     if (preg_match_all("|$CFG->wwwroot/file.php(\?file=)?/$siteid(/[^\s'\"&\?#]+)|", $page->content, $matches)) {
         $context     = get_context_instance(CONTEXT_MODULE, $candidate->cmid);
         $sitecontext = get_context_instance(CONTEXT_COURSE, $siteid);
-        $file_record = array('contextid'=>$context->id, 'filearea'=>'page_content', 'itemid'=>0);
+        $file_record = array('contextid'=>$context->id, 'component'=>'mod_page', 'filearea'=>'content', 'itemid'=>0);
         $fs = get_file_storage();
         foreach ($matches[2] as $i=>$sitefile) {
-            if (!$file = $fs->get_file_by_hash(sha1($sitecontext->id.'course_content0'.$sitefile))) {
+            if (!$file = $fs->get_file_by_hash(sha1("/$sitecontext->id/course/legacy/0".$sitefile))) {
                 continue;
             }
             try {

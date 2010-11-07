@@ -16,10 +16,13 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package   moodlecore
- * @copyright (C) 2001-3001 Eloy Lafuente (stronk7) {@link http://contiento.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  (C) 2001-3001 Eloy Lafuente (stronk7) {@link http://contiento.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * As we implement the singleton pattern to use this class (only one instance
@@ -29,7 +32,7 @@
  * its capabilities so, don't forget to make the conversion
  * from every wrapper function!
  *
- * @global object
+ * @return textlib singleton instance of textlib
  */
 function textlib_get_instance() {
     global $CFG;
@@ -63,9 +66,15 @@ function textlib_get_instance() {
             $GLOBALS['TYPO3_CONF_VARS']['SYS']['t3lib_cs_utils'] = '';
         }
 
+    /// Tell Typo3 we are curl enabled always (mandatory since 2.0)
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['curlUse'] = '1';
+
     /// And this directory must exist to allow Typo to cache conversion
     /// tables when using internal functions
         make_upload_directory('temp/typo3temp/cs');
+
+    /// Make sure typo is using our dir permissions
+        $GLOBALS['TYPO3_CONF_VARS']['BE']['folderCreateMask'] = decoct($CFG->directorypermissions);
 
     /// Default mask for Typo
         $GLOBALS['TYPO3_CONF_VARS']['BE']['fileCreateMask'] = $CFG->directorypermissions;
@@ -455,5 +464,20 @@ class textlib {
             }
         }
         return implode(' ', $words);
+    }
+
+    /**
+     * Locale aware sorting, the key associations are kept, values are sorted alphabetically.
+     * @param array $arr array to be sorted
+     * @param string $lang moodle language
+     * @return void, modifies parameter
+     */
+    function asort(array &$arr) {
+        if (function_exists('collator_asort')) {
+            $coll = collator_create(get_string('locale', 'langconfig'));
+            collator_asort($coll, $arr);
+        } else {
+            asort($arr, SORT_LOCALE_STRING);
+        }
     }
 }

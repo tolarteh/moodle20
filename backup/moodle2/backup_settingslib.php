@@ -22,6 +22,8 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+// TODO: Reduce these to the minimum because ui/dependencies are 100% separated
+
 // Root backup settings
 
 /**
@@ -61,7 +63,7 @@ class backup_activities_setting extends backup_generic_setting {}
 /**
  * root setting to control if backup will generate anonymized
  * user info or no, depends of @backup_users_setting so only is
- * availabe if the former is enabled (apart from security
+ * available if the former is enabled (apart from security
  * that can change it
  */
 class backup_anonymize_setting extends root_backup_setting {}

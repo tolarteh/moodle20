@@ -90,7 +90,8 @@ if ($usetracking = forum_tp_can_track_forums()) {
 
 $subscribed_forums = forum_get_subscribed_forums($course);
 
-if ($can_subscribe = (!is_enrolled($coursecontext))) {
+$can_subscribe = is_enrolled($coursecontext);
+if ($can_subscribe) {
     $generaltable->head[] = $strsubscribed;
     $generaltable->align[] = 'center';
 }
@@ -258,7 +259,7 @@ if ($generalforums) {
                     $tooltiptext = get_string('rsssubscriberssposts', 'forum');
                 }
                 //Get html code for RSS link
-                $row[] = rss_get_link($context->id, $USER->id, 'forum', $forum->id, $tooltiptext);
+                $row[] = rss_get_link($context->id, $USER->id, 'mod_forum', $forum->id, $tooltiptext);
             } else {
                 $row[] = '&nbsp;';
             }
@@ -388,7 +389,7 @@ if ($course->id != SITEID) {    // Only real courses have learning forums
                         $tooltiptext = get_string('rsssubscriberssposts', 'forum');
                     }
                     //Get html code for RSS link
-                    $row[] = rss_get_link($context->id, $USER->id, 'forum', $forum->id, $tooltiptext);
+                    $row[] = rss_get_link($context->id, $USER->id, 'mod_forum', $forum->id, $tooltiptext);
                 } else {
                     $row[] = '&nbsp;';
                 }

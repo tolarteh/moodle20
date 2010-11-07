@@ -18,15 +18,15 @@
 /**
  * Allows the admin to configure a list of profile fields that are sent/recieved
  *
- * @package    moodlecore
+ * @package    core
+ * @subpackage mnet
  * @copyright  2010 onwards Penny Leach <penny@liip.ch>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-
-require_once(dirname(dirname(dirname(__FILE__))) . '/config.php');
+require(dirname(dirname(dirname(__FILE__))).'/config.php');
 require_once($CFG->libdir.'/adminlib.php');
-require_once($CFG->dirroot . '/admin/mnet/profileform.php');
+require_once($CFG->dirroot . '/admin/mnet/profilefields_form.php');
 $mnet = get_mnet_environment();
 
 require_login();
@@ -91,8 +91,3 @@ $form->set_data($data);
 $form->display();
 
 echo $OUTPUT->footer();
-
-
-
-
-

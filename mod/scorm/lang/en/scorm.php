@@ -22,6 +22,8 @@
  * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+$string['toc'] = 'TOC';
+$string['navigation'] = 'Navigation';
 
 $string['activation'] = 'Activation';
 $string['activityloading'] = 'You will be automatically redirected to the activity in';
@@ -57,6 +59,7 @@ $string['confirmloosetracks'] = 'WARNING: The package seems to be changed or mod
 $string['contents'] = 'Contents';
 $string['coursepacket'] = 'Course package';
 $string['coursestruct'] = 'Course structure';
+$string['currentwindow'] = 'Current window';
 $string['datadir'] = 'Filesystem Error: Can\'t create course data directory';
 $string['deleteattemptcheck'] = 'Are you absolutely sure you want to completely delete these attempts?';
 $string['deleteallattempts'] = 'Delete all SCORM attempts';
@@ -71,6 +74,7 @@ $string['displaycoursestructure_help'] = 'If enabled, the table of contents is d
 $string['displaycoursestructuredesc'] = 'This preference sets the default value for the display course structure on entry page setting';
 $string['displaydesc'] = 'This preference sets the default of whether to display the package or not for an activity';
 $string['domxml'] = 'DOMXML external library';
+$string['duedate'] = 'Due date';
 $string['element'] = 'Element';
 $string['enter'] = 'Enter';
 $string['entercourse'] = 'Enter course';
@@ -84,6 +88,8 @@ $string['expcoll'] = 'Expand/Collide';
 $string['expired'] = 'Sorry, this activity closed on {$a} and is no longer available';
 $string['external'] = 'Update external packages timing';
 $string['failed'] = 'Failed';
+$string['finishscorm'] = 'If you have finished viewing this resource, {$a}';
+$string['finishscormlinkname'] = 'click here to return to the course page';
 $string['firstaccess'] = 'First access';
 $string['firstattempt'] = 'First attempt';
 $string['forcecompleted'] = 'Force completed';
@@ -101,7 +107,7 @@ $string['gradeaverage'] = 'Average grade';
 $string['gradeforattempt'] = 'Grade for attempt';
 $string['gradehighest'] = 'Highest grade';
 $string['grademethod'] = 'Grading method';
-$string['grademethod_help'] = 'The grading method defines how a final grade for the activity is determined.
+$string['grademethod_help'] = 'The grading method defines how the grade for a single attempt of the activity is determined.
 
 There are 4 grading methods:
 
@@ -128,8 +134,6 @@ $string['hidetocdesc'] = 'This preference sets the default for whether to show o
 $string['highestattempt'] = 'Highest attempt';
 $string['chooseapacket'] = 'Choose or update a package';
 $string['identifier'] = 'Question Identifier';
-$string['iframe'] = 'Current window';
-$string['iframedisplay'] = 'Open package in the current window';
 $string['incomplete'] = 'Incomplete';
 $string['info'] = 'Info';
 $string['interactions'] = 'Interactions';
@@ -152,9 +156,9 @@ $string['missing_attribute'] = 'Missing attribute {$a->attr} in tag {$a->tag}';
 $string['missingparam'] = 'A required is missing or wrong';
 $string['missing_tag'] = 'Missing tag {$a->tag}';
 $string['mode'] = 'Mode';
-$string['modulename'] = 'SCORM/AICC';
-$string['modulename_help'] = 'SCORM is a collection of specifications that enable interoperability, accessibility and reusability of web-based learning content. The SCORM/AICC module allows for SCORM/AICC packages to be included in the course.';
-$string['modulenameplural'] = 'SCORMs/AICCs';
+$string['modulename'] = 'SCORM package';
+$string['modulename_help'] = 'SCORM and AICC are a collection of specifications that enable interoperability, accessibility and reusability of web-based learning content. The SCORM/AICC module allows for SCORM/AICC packages to be included in the course.';
+$string['modulenameplural'] = 'SCORM packages';
 $string['newattempt'] = 'Start a new attempt';
 $string['next'] = 'Continue';
 $string['noactivity'] = 'Nothing to report';
@@ -176,7 +180,7 @@ $string['onchanges'] = 'Whenever it changes';
 $string['optallstudents'] = 'all users';
 $string['optattemptsonly'] = 'users with attempts only';
 $string['optnoattemptsonly'] = 'users with no attempts only';
-$string['options'] = 'Options';
+$string['options'] = 'Options (Prevented by some browsers)';
 $string['organization'] = 'Organization';
 $string['organizations'] = 'Organizations';
 $string['othersettings'] = 'Additional settings';
@@ -186,13 +190,16 @@ $string['package'] = 'Package file';
 $string['package_help'] = 'The package file is a zip (or pif) file containing SCORM/AICC course definition files.';
 $string['packagedir'] = 'Filesystem Error: Can\'t create package directory';
 $string['packagefile'] = 'No package file specified';
+$string['packageurl'] = 'URL';
+$string['packageurl_help'] = 'This setting enables a URL for the SCORM package to be specified, rather than choosing a file via the file picker.';
 $string['passed'] = 'Passed';
 $string['php5'] = 'PHP 5 (DOMXML native library)';
+$string['pluginadministration'] = 'SCORM/AICC administration';
+$string['pluginname'] = 'SCORM package';
 $string['popup'] = 'New window';
-$string['popupblocked'] = 'If a new window does not appear, {$a}';
-$string['popupblockedlinkname'] = 'click here to launch the activity';
 $string['popupmenu'] = 'In a drop down menu';
 $string['popupopen'] = 'Open package in a new window';
+$string['popupsblocked'] = 'It appears that popup windows are blocked, stopping this scorm module from playing. Please check your browser settings, before starting again.';
 $string['position_error'] = 'The {$a->tag} tag can\'t be child of {$a->parent} tag';
 $string['preferencesuser'] = 'Preferences for this report';
 $string['preferencespage'] = 'Preferences just for this page';
@@ -209,7 +216,6 @@ $string['review'] = 'Review';
 $string['reviewmode'] = 'Review Mode';
 $string['scoes'] = 'Learning Objects';
 $string['score'] = 'Score';
-$string['scormadministration'] = 'SCORM/AICC administration';
 $string['scormclose'] = 'Until';
 $string['scormcourse'] = 'Learning Course';
 $string['scorm:deleteresponses'] = 'Delete SCORM attempts';
@@ -220,6 +226,12 @@ $string['scormresponsedeleted'] = 'Deleted user attempts';
 $string['scorm:savetrack'] = 'Save tracks';
 $string['scorm:skipview'] = 'Skip overview';
 $string['scormtype'] = 'Type';
+$string['scormtype_help'] = 'This setting determines how the package is included in the course. There are up to 4 options:
+
+* Uploaded package - Enables a SCORM package to be chosen via the file picker
+* External SCORM manifest - Enables an imsmanifest.xml URL to be specified. Note: If the URL has a different domain name than your site, then "Downloaded package" is a better option, since otherwise grades are not saved.
+* Downloaded package - Enables a package URL to be specified. The package will be unzipped and saved locally, and updated when the external SCORM package is updated.
+* Local IMS content repository - Enables a package to be selected from within an IMS repository';
 $string['scorm:viewreport'] = 'View reports';
 $string['scorm:viewscores'] = 'View scores';
 $string['scrollbars'] = 'Allow the window to be scrolled';
@@ -257,7 +269,6 @@ $string['unziperror'] = 'An error occurs during package unzip';
 $string['updatefreq'] = 'Auto-update frequency';
 $string['updatefreqdesc'] = 'This preference sets the default auto-update frequency of an activity';
 $string['updatetime'] = 'Synchronisation time';
-$string['url'] = 'URL';
 $string['validateascorm'] = 'Validate a package';
 $string['validation'] = 'Validation result';
 $string['validationtype'] = 'This preference set the DOMXML library used for validating SCORM Manifest. If you don\'t know leave the selected choice.';
@@ -266,7 +277,13 @@ $string['versionwarning'] = 'The manifest version is older than 1.3, warning at 
 $string['viewallreports'] = 'View reports for {$a} attempts';
 $string['viewalluserreports'] = 'View reports for {$a} users';
 $string['whatgrade'] = 'Attempts grading';
-$string['whatgrade_help'] = 'If multiple attempts are allowed, this setting specifies whether the highest, average (mean), first or last attempt is recorded in the gradebook.';
+$string['whatgrade_help'] = 'If multiple attempts are allowed, this setting specifies whether the highest, average (mean), first or last attempt is recorded in the gradebook.
+
+Handling of Multiple Attempts
+
+* The option to start a new attempt is provided by a checkbox above the Enter button on the content structure page, so be sure you\'re providing access to that page if you want to allow more than one attempt.
+* Some scorm packages are intelligent about new attempts, many are not. What this means is that if the learner re-enters an existing attempt, if the SCORM content does not have internal logic to avoid overwriting previous attempts they can be overwritten, even though the attempt was \'completed\' or \'passed\'.
+* The settings "Force completed", "Force new attempt" and "Lock after final attempt" also provide further management of multiple attempts.';
 $string['whatgradedesc'] = 'This preference sets the default attempts grading';
 $string['width'] = 'Width';
 $string['window'] = 'Window';

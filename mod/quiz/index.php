@@ -138,14 +138,9 @@
         if ($showing == 'stats') {
             // The $quiz objects returned by get_all_instances_in_course have the necessary $cm
             // fields set to make the following call work.
-            $attemptcount = quiz_num_attempt_summary($quiz, $quiz);
-            if ($attemptcount) {
-                $data[] = "<a$class href=\"report.php?id=$quiz->coursemodule\">$attemptcount</a>";
-            } else {
-                $data[] = '';
-            }
-        } else if ($showing == 'scores') {
+            $data[] = quiz_attempt_summary_link_to_reports($quiz, $cm, $context);
 
+        } else if ($showing == 'scores') {
             // Grade and feedback.
             $attempts = quiz_get_user_attempts($quiz->id, $USER->id, 'all');
             list($someoptions, $alloptions) = quiz_get_combined_reviewoptions($quiz, $attempts, $context);
@@ -160,7 +155,7 @@
                     $grade = get_string('outofshort', 'quiz', $a);
                 }
                 if ($alloptions->overallfeedback) {
-                    $feedback = quiz_feedback_for_grade($scores[$quiz->id], $quiz->id);
+                    $feedback = quiz_feedback_for_grade($scores[$quiz->id], $quiz, $context, $cm);
                 }
             }
             $data[] = $grade;

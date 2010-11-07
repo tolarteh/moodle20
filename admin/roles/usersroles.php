@@ -19,7 +19,7 @@
  * User roles report list all the users who have been assigned a particular
  * role in all contexts.
  *
- * @package    moodlecore
+ * @package    core
  * @subpackage role
  * @copyright  &copy; 2007 The Open University and others
  * @author     t.j.hunt@open.ac.uk and others
@@ -33,17 +33,18 @@ $userid = required_param('userid', PARAM_INT);
 $courseid = required_param('courseid', PARAM_INT);
 
 // Validate them and get the corresponding objects.
-if (!$user = $DB->get_record('user', array('id' => $userid))) {
-    print_error('invaliduserid');
-}
-if (!$course = $DB->get_record('course', array('id' => $courseid))) {
-    print_error('invalidcourse');
-}
+$user = $DB->get_record('user', array('id' => $userid), '*', MUST_EXIST);
+$course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
+
 $usercontext = get_context_instance(CONTEXT_USER, $user->id);
 $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
+$systemcontext = get_context_instance(CONTEXT_SYSTEM);
 
 $baseurl = new moodle_url('/admin/roles/usersroles.php', array('userid'=>$userid, 'courseid'=>$courseid));
+
 $PAGE->set_url($baseurl);
+$PAGE->set_context($coursecontext);
+$PAGE->set_pagelayout('admin');
 
 /// Check login and permissions.
 require_login($course);
@@ -101,7 +102,7 @@ foreach ($contexts as $conid => $con) {
     }
 }
 
-/// Put the role capabilites into the context tree.
+/// Put the role capabilities into the context tree.
 foreach ($roleassignments as $ra) {
     $contexts[$ra->contextid]->roleassignments[$ra->roleid] = $ra;
 }

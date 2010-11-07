@@ -37,7 +37,7 @@
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     require_capability('mod/quiz:view', $context);
 
-/// Cache some other capabilites we use several times.
+/// Cache some other capabilities we use several times.
     $canattempt = has_capability('mod/quiz:attempt', $context);
     $canreviewmine = has_capability('mod/quiz:reviewmyattempts', $context);
     $canpreview = has_capability('mod/quiz:preview', $context);
@@ -63,16 +63,13 @@
         $USER->editing = $edit;
     }
 
-    if ($accessmanager->securewindow_required($canpreview)) {
-        $PAGE->requires->js_function_call('popupchecker',array(get_string('popupblockerwarning', 'quiz')));
-    }
     $PAGE->requires->yui2_lib('event');
 
     // Note: MDL-19010 there will be further changes to printing header and blocks.
     // The code will be much nicer than this eventually.
     $title = $course->shortname . ': ' . format_string($quiz->name);
 
-    if ($PAGE->user_allowed_editing() && !empty($CFG->showblocksonmodpages)) {
+    if ($PAGE->user_allowed_editing()) {
         $buttons = '<table><tr><td><form method="get" action="view.php"><div>'.
             '<input type="hidden" name="id" value="'.$cm->id.'" />'.
             '<input type="hidden" name="edit" value="'.($PAGE->user_is_editing()?'off':'on').'" />'.
@@ -102,9 +99,8 @@
 
 /// Show number of attempts summary to those who can view reports.
     if (has_capability('mod/quiz:viewreports', $context)) {
-        if ($strattemptnum = quiz_num_attempt_summary($quiz, $cm)) {
-            echo '<div class="quizattemptcounts"><a href="report.php?mode=overview&amp;id=' .
-                    $cm->id . '">' . $strattemptnum . "</a></div>\n";
+        if ($strattemptnum = quiz_attempt_summary_link_to_reports($quiz, $cm, $context)) {
+            echo '<div class="quizattemptcounts">' . $strattemptnum . "</div>\n";
         }
     }
 
@@ -182,7 +178,7 @@
         $table->align = array();
         $table->size = array();
         if ($attemptcolumn) {
-            $table->head[] = get_string('attempt', 'quiz');
+            $table->head[] = get_string('attemptnumber', 'quiz');
             $table->align[] = 'center';
             $table->size[] = '';
         }
@@ -246,8 +242,8 @@
             }
             $row[] = $datecompleted;
 
-            if ($markcolumn && $attempt->timefinish > 0) {
-                if ($attemptoptions->scores) {
+            if ($markcolumn) {
+                if ($attemptoptions->scores && $attempt->timefinish > 0) {
                     $row[] = quiz_format_grade($quiz, $attempt->sumgrades);
                 } else {
                     $row[] = '';
@@ -278,7 +274,7 @@
 
             if ($feedbackcolumn && $attempt->timefinish > 0) {
                 if ($attemptoptions->overallfeedback) {
-                    $row[] = quiz_feedback_for_grade($attemptgrade, $quiz->id);
+                    $row[] = quiz_feedback_for_grade($attemptgrade, $quiz, $context, $cm);
                 } else {
                     $row[] = '';
                 }
@@ -331,7 +327,7 @@
         }
         if ($feedbackcolumn) {
             $resultinfo .= $OUTPUT->heading(get_string('overallfeedback', 'quiz'), 3, 'main');
-            $resultinfo .= '<p class="quizgradefeedback">'.quiz_feedback_for_grade($mygrade, $quiz->id)."</p>\n";
+            $resultinfo .= '<p class="quizgradefeedback">'.quiz_feedback_for_grade($mygrade, $quiz, $context, $cm)."</p>\n";
         }
 
         if ($resultinfo) {
@@ -347,13 +343,15 @@
         echo $OUTPUT->heading(get_string("noquestions", "quiz"));
     } else {
         if ($unfinished) {
-            if ($canattempt) {
-                $buttontext = get_string('continueattemptquiz', 'quiz');
-            } else if ($canpreview) {
+            if ($canpreview) {
                 $buttontext = get_string('continuepreview', 'quiz');
+            } else if ($canattempt) {
+                $buttontext = get_string('continueattemptquiz', 'quiz');
             }
         } else {
-            if ($canattempt) {
+            if ($canpreview) {
+                $buttontext = get_string('previewquiznow', 'quiz');
+            } else if ($canattempt) {
                 $messages = $accessmanager->prevent_new_attempt($numattempts, $lastfinishedattempt);
                 if ($messages) {
                     $accessmanager->print_messages($messages);
@@ -362,8 +360,6 @@
                 } else {
                     $buttontext = get_string('reattemptquiz', 'quiz');
                 }
-            } else if ($canpreview) {
-                $buttontext = get_string('previewquiznow', 'quiz');
             }
         }
 

@@ -29,7 +29,7 @@
  * @package Smarty
  */
 
-/* $Id: Config_File.class.php,v 1.3 2009-11-17 09:02:02 skodak Exp $ */
+/* $Id: Config_File.class.php,v 1.3 2009/11/17 09:02:02 skodak Exp $ */
 
 /**
  * Config file reading class

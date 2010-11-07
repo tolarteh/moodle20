@@ -21,10 +21,13 @@
  * Please see http://docs.moodle.org/en/Developement:How_Moodle_outputs_HTML
  * for an overview.
  *
- * @package   moodlecore
- * @copyright 2009 Tim Hunt
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  2009 Tim Hunt
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Simple base class for Moodle renderers.
@@ -167,7 +170,7 @@ class plugin_renderer_base extends renderer_base {
             return $this->$rendermethod($widget);
         }
         // pass to core renderer if method not found here
-        $this->output->render($widget);
+        return $this->output->render($widget);
     }
 
     /**
@@ -352,7 +355,10 @@ class core_renderer extends renderer_base {
             $output .= html_writer::tag('div', get_string('legacythemeinuse'), array('class'=>'legacythemeinuse'));
         }
         if (!empty($CFG->debugpageinfo)) {
-            $output .= '<div class="performanceinfo">This page is: ' . $this->page->debug_summary() . '</div>';
+            $output .= '<div class="performanceinfo pageinfo">This page is: ' . $this->page->debug_summary() . '</div>';
+        }
+        if (debugging(null, DEBUG_DEVELOPER) and has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM))) {  // Only in developer mode
+            $output .= '<div class="purgecaches"><a href="'.$CFG->wwwroot.'/admin/purgecaches.php?confirm=1&amp;sesskey='.sesskey().'">'.get_string('purgecaches', 'admin').'</a></div>';
         }
         if (!empty($CFG->debugvalidators)) {
             $output .= '<div class="validators"><ul>
@@ -382,18 +388,19 @@ class core_renderer extends renderer_base {
      * @return string HTML fragment.
      */
     public function login_info() {
-        global $USER, $CFG, $DB;
+        global $USER, $CFG, $DB, $SESSION;
 
         if (during_initial_install()) {
             return '';
         }
 
+        $loginapge = ((string)$this->page->url === get_login_url());
         $course = $this->page->course;
 
         if (session_is_loggedinas()) {
             $realuser = session_get_realuser();
             $fullname = fullname($realuser, true);
-            $realuserinfo = " [<a href=\"$CFG->wwwroot/course/loginas.php?id=$course->id&amp;return=1&amp;sesskey=".sesskey()."\">$fullname</a>] ";
+            $realuserinfo = " [<a href=\"$CFG->wwwroot/course/loginas.php?id=$course->id&amp;sesskey=".sesskey()."\">$fullname</a>] ";
         } else {
             $realuserinfo = '';
         }
@@ -412,10 +419,12 @@ class core_renderer extends renderer_base {
             if (is_mnet_remote_user($USER) and $idprovider = $DB->get_record('mnet_host', array('id'=>$USER->mnethostid))) {
                 $username .= " from <a href=\"{$idprovider->wwwroot}\">{$idprovider->name}</a>";
             }
-            if (isset($USER->username) && $USER->username == 'guest') {
-                $loggedinas = $realuserinfo.get_string('loggedinasguest').
-                          " (<a href=\"$loginurl\">".get_string('login').'</a>)';
-            } else if (!empty($USER->access['rsw'][$context->path])) {
+            if (isguestuser()) {
+                $loggedinas = $realuserinfo.get_string('loggedinasguest');
+                if (!$loginapge) {
+                    $loggedinas .= " (<a href=\"$loginurl\">".get_string('login').'</a>)';
+                }
+            } else if (is_role_switched($course->id)) { // Has switched roles
                 $rolename = '';
                 if ($role = $DB->get_record('role', array('id'=>$USER->access['rsw'][$context->path]))) {
                     $rolename = ': '.format_string($role->name);
@@ -427,8 +436,10 @@ class core_renderer extends renderer_base {
                           " (<a href=\"$CFG->wwwroot/login/logout.php?sesskey=".sesskey()."\">".get_string('logout').'</a>)';
             }
         } else {
-            $loggedinas = get_string('loggedinnot', 'moodle').
-                          " (<a href=\"$loginurl\">".get_string('login').'</a>)';
+            $loggedinas = get_string('loggedinnot', 'moodle');
+            if (!$loginapge) {
+                $loggedinas .= " (<a href=\"$loginurl\">".get_string('login').'</a>)';
+            }
         }
 
         $loggedinas = '<div class="logininfo">'.$loggedinas.'</div>';
@@ -436,7 +447,7 @@ class core_renderer extends renderer_base {
         if (isset($SESSION->justloggedin)) {
             unset($SESSION->justloggedin);
             if (!empty($CFG->displayloginfailures)) {
-                if (!empty($USER->username) and $USER->username != 'guest') {
+                if (!isguestuser()) {
                     if ($count = count_login_failures($CFG->displayloginfailures, $USER->username, $USER->lastlogin)) {
                         $loggedinas .= '&nbsp;<div class="loginfailures">';
                         if (empty($count->accounts)) {
@@ -561,6 +572,10 @@ class core_renderer extends renderer_base {
      */
     public function header() {
         global $USER, $CFG;
+
+        if (session_is_loggedinas()) {
+            $this->page->add_body_class('userloggedinas');
+        }
 
         $this->page->set_state(moodle_page::STATE_PRINTING_HEADER);
 
@@ -715,6 +730,17 @@ class core_renderer extends renderer_base {
      * The content is described
      * by a {@link block_contents} object.
      *
+     * <div id="inst{$instanceid}" class="block_{$blockname} block">
+     *      <div class="header"></div>
+     *      <div class="content">
+     *          ...CONTENT...
+     *          <div class="footer">
+     *          </div>
+     *      </div>
+     *      <div class="annotation">
+     *      </div>
+     * </div>
+     *
      * @param block_contents $bc HTML for the content
      * @param string $region the region the block is appearing in.
      * @return string the HTML to be output.
@@ -742,36 +768,84 @@ class core_renderer extends renderer_base {
 
         $output .= html_writer::start_tag('div', $bc->attributes);
 
-        $controlshtml = $this->block_controls($bc->controls);
+        $output .= $this->block_header($bc);
+        $output .= $this->block_content($bc);
+
+        $output .= html_writer::end_tag('div');
+
+        $output .= $this->block_annotation($bc);
+
+        $output .= $skipdest;
+
+        $this->init_block_hider_js($bc);
+        return $output;
+    }
+
+    /**
+     * Produces a header for a block
+     *
+     * @param block_contents $bc
+     * @return string
+     */
+    protected function block_header(block_contents $bc) {
 
         $title = '';
         if ($bc->title) {
             $title = html_writer::tag('h2', $bc->title, null);
         }
 
+        $controlshtml = $this->block_controls($bc->controls);
+
+        $output = '';
         if ($title || $controlshtml) {
             $output .= html_writer::tag('div', html_writer::tag('div', html_writer::tag('div', '', array('class'=>'block_action')). $title . $controlshtml, array('class' => 'title')), array('class' => 'header'));
         }
+        return $output;
+    }
 
-        $output .= html_writer::start_tag('div', array('class' => 'content'));
-        if (!$title && !$controlshtml) {
+    /**
+     * Produces the content area for a block
+     *
+     * @param block_contents $bc
+     * @return string
+     */
+    protected function block_content(block_contents $bc) {
+        $output = html_writer::start_tag('div', array('class' => 'content'));
+        if (!$bc->title && !$this->block_controls($bc->controls)) {
             $output .= html_writer::tag('div', '', array('class'=>'block_action notitle'));
         }
         $output .= $bc->content;
+        $output .= $this->block_footer($bc);
+        $output .= html_writer::end_tag('div');
 
+        return $output;
+    }
+
+    /**
+     * Produces the footer for a block
+     *
+     * @param block_contents $bc
+     * @return string
+     */
+    protected function block_footer(block_contents $bc) {
+        $output = '';
         if ($bc->footer) {
             $output .= html_writer::tag('div', $bc->footer, array('class' => 'footer'));
         }
+        return $output;
+    }
 
-        $output .= html_writer::end_tag('div');
-        $output .= html_writer::end_tag('div');
-
+    /**
+     * Produces the annotation for a block
+     *
+     * @param block_contents $bc
+     * @return string
+     */
+    protected function block_annotation(block_contents $bc) {
+        $output = '';
         if ($bc->annotation) {
             $output .= html_writer::tag('div', $bc->annotation, array('class' => 'blockannotation'));
         }
-        $output .= $skipdest;
-
-        $this->init_block_hider_js($bc);
         return $output;
     }
 
@@ -782,14 +856,15 @@ class core_renderer extends renderer_base {
      */
     protected function init_block_hider_js(block_contents $bc) {
         if (!empty($bc->attributes['id']) and $bc->collapsible != block_contents::NOT_HIDEABLE) {
-            $userpref = 'block' . $bc->blockinstanceid . 'hidden';
-            user_preference_allow_ajax_update($userpref, PARAM_BOOL);
-            $this->page->requires->yui2_lib('dom');
-            $this->page->requires->yui2_lib('event');
-            $plaintitle = strip_tags($bc->title);
-            $this->page->requires->js_function_call('new block_hider', array($bc->attributes['id'], $userpref,
-                    get_string('hideblocka', 'access', $plaintitle), get_string('showblocka', 'access', $plaintitle),
-                    $this->pix_url('t/switch_minus')->out(false), $this->pix_url('t/switch_plus')->out(false)));
+            $config = new stdClass;
+            $config->id = $bc->attributes['id'];
+            $config->title = strip_tags($bc->title);
+            $config->preference = 'block' . $bc->blockinstanceid . 'hidden';
+            $config->tooltipVisible = get_string('hideblocka', 'access', $config->title);
+            $config->tooltipHidden = get_string('showblocka', 'access', $config->title);
+
+            $this->page->requires->js_init_call('M.util.init_block_hider', array($config));
+            user_preference_allow_ajax_update($config->preference, PARAM_BOOL);
         }
     }
 
@@ -812,7 +887,7 @@ class core_renderer extends renderer_base {
             $lis[] = $item;
             $row = 1 - $row; // Flip even/odd.
         }
-        return html_writer::tag('ul', implode("\n", $lis), array('class' => 'list'));
+        return html_writer::tag('ul', implode("\n", $lis), array('class' => 'unlist'));
     }
 
     /**
@@ -1091,7 +1166,7 @@ class core_renderer extends renderer_base {
         }
 
         if ($select->label) {
-            $output .= html_writer::tag('label', $select->label, array('for'=>$select->attributes['id']));
+            $output .= html_writer::label($select->label, $select->attributes['id']);
         }
 
         if ($select->helpicon instanceof help_icon) {
@@ -1103,7 +1178,7 @@ class core_renderer extends renderer_base {
         $output .= html_writer::select($select->options, $select->name, $select->selected, $select->nothing, $select->attributes);
 
         $go = html_writer::empty_tag('input', array('type'=>'submit', 'value'=>get_string('go')));
-        $output .= html_writer::tag('noscript', $go, array('style'=>'inline'));
+        $output .= html_writer::tag('noscript', html_writer::tag('div', $go), array('style'=>'inline'));
 
         $nothing = empty($select->nothing) ? false : key($select->nothing);
         $this->page->requires->js_init_call('M.util.init_select_autosubmit', array($select->formid, $select->attributes['id'], $nothing));
@@ -1162,7 +1237,7 @@ class core_renderer extends renderer_base {
         $output = '';
 
         if ($select->label) {
-            $output .= html_writer::tag('label', $select->label, array('for'=>$select->attributes['id']));
+            $output .= html_writer::label($select->label, $select->attributes['id']);
         }
 
         if ($select->helpicon instanceof help_icon) {
@@ -1219,7 +1294,7 @@ class core_renderer extends renderer_base {
         $output .= html_writer::select($urls, 'jump', $selected, $select->nothing, $select->attributes);
 
         $go = html_writer::empty_tag('input', array('type'=>'submit', 'value'=>get_string('go')));
-        $output .= html_writer::tag('noscript', $go, array('style'=>'inline'));
+        $output .= html_writer::tag('noscript', html_writer::tag('div', $go), array('style'=>'inline'));
 
         $nothing = empty($select->nothing) ? false : key($select->nothing);
         $output .= $this->page->requires->js_init_call('M.util.init_url_select', array($select->formid, $select->attributes['id'], $nothing));
@@ -1244,7 +1319,7 @@ class core_renderer extends renderer_base {
      * @param string $text The text to be displayed for the link
      * @return string
      */
-    public function doc_link($path, $text) {
+    public function doc_link($path, $text = '') {
         global $CFG;
 
         $icon = $this->pix_icon('docs', $text, 'moodle', array('class'=>'iconhelp'));
@@ -1263,7 +1338,7 @@ class core_renderer extends renderer_base {
      * Render icon
      * @param string $pix short pix name
      * @param string $alt mandatory alt attribute
-     * @param strin $component standard compoennt name like 'moodle', 'mod_form', etc.
+     * @param string $component standard compoennt name like 'moodle', 'mod_forum', etc.
      * @param array $attributes htm lattributes
      * @return string HTML fragment
      */
@@ -1280,6 +1355,17 @@ class core_renderer extends renderer_base {
     protected function render_pix_icon(pix_icon $icon) {
         $attributes = $icon->attributes;
         $attributes['src'] = $this->pix_url($icon->pix, $icon->component);
+        return html_writer::empty_tag('img', $attributes);
+    }
+
+    /**
+     * Render emoticon
+     * @param pix_emoticon $emoticon
+     * @return string HTML fragment
+     */
+    protected function render_pix_emoticon(pix_emoticon $emoticon) {
+        $attributes = $emoticon->attributes;
+        $attributes['src'] = $this->pix_url($emoticon->pix, $emoticon->component);
         return html_writer::empty_tag('img', $attributes);
     }
 
@@ -1306,7 +1392,7 @@ class core_renderer extends renderer_base {
         //check the item we're rating was created in the assessable time window
         $inassessablewindow = true;
         if ( $rating->settings->assesstimestart && $rating->settings->assesstimefinish ) {
-            if ($rating->itemtimecreated < $rating->settings->assesstimestart || $item->itemtimecreated > $rating->settings->assesstimefinish) {
+            if ($rating->itemtimecreated < $rating->settings->assesstimestart || $rating->itemtimecreated > $rating->settings->assesstimefinish) {
                 $inassessablewindow = false;
             }
         }
@@ -1315,29 +1401,39 @@ class core_renderer extends renderer_base {
         $ratinghtml = ''; //the string we'll return
 
         //permissions check - can they view the aggregate?
-        if ( ($rating->itemuserid==$USER->id
-                && $rating->settings->permissions->view && $rating->settings->pluginpermissions->view)
-            || ($rating->itemuserid!=$USER->id
-                && $rating->settings->permissions->viewany && $rating->settings->pluginpermissions->viewany) ) {
+        $canviewaggregate = false;
 
+        //if its the current user's item and they have permission to view the aggregate on their own items
+        if ( $rating->itemuserid==$USER->id && $rating->settings->permissions->view && $rating->settings->pluginpermissions->view) {
+            $canviewaggregate = true;
+        }
+
+        //if the item doesnt belong to anyone or its another user's items and they can see the aggregate on items they don't own
+        //Note that viewany doesnt mean you can see the aggregate or ratings of your own items
+        if ( (empty($rating->itemuserid) or $rating->itemuserid!=$USER->id) && $rating->settings->permissions->viewany && $rating->settings->pluginpermissions->viewany ) {
+            $canviewaggregate = true;
+        }
+
+        if ($canviewaggregate==true) {
             $aggregatelabel = '';
             switch ($rating->settings->aggregationmethod) {
                 case RATING_AGGREGATE_AVERAGE :
-                    $aggregatelabel .= get_string("aggregateavg", "forum");
+                    $aggregatelabel .= get_string("aggregateavg", "rating");
                     break;
                 case RATING_AGGREGATE_COUNT :
-                    $aggregatelabel .= get_string("aggregatecount", "forum");
+                    $aggregatelabel .= get_string("aggregatecount", "rating");
                     break;
                 case RATING_AGGREGATE_MAXIMUM :
-                    $aggregatelabel .= get_string("aggregatemax", "forum");
+                    $aggregatelabel .= get_string("aggregatemax", "rating");
                     break;
                 case RATING_AGGREGATE_MINIMUM :
-                    $aggregatelabel .= get_string("aggregatemin", "forum");
+                    $aggregatelabel .= get_string("aggregatemin", "rating");
                     break;
                 case RATING_AGGREGATE_SUM :
-                    $aggregatelabel .= get_string("aggregatesum", "forum");
+                    $aggregatelabel .= get_string("aggregatesum", "rating");
                     break;
             }
+            $aggregatelabel .= get_string('labelsep', 'langconfig');
 
             //$scalemax = 0;//no longer displaying scale max
             $aggregatestr = '';
@@ -1351,7 +1447,7 @@ class core_renderer extends renderer_base {
                     $aggregatestr .= round($rating->aggregate,1);
                 }
             } else {
-                $aggregatestr = ' - ';
+                $aggregatestr = '';
             }
 
             $countstr = html_writer::start_tag('span', array('id'=>"ratingcount{$rating->itemid}"));
@@ -1363,15 +1459,16 @@ class core_renderer extends renderer_base {
             //$aggregatehtml = "{$ratingstr} / $scalemax ({$rating->count}) ";
             $aggregatehtml = "<span id='ratingaggregate{$rating->itemid}'>{$aggregatestr}</span> $countstr ";
 
+            $ratinghtml .= html_writer::tag('span', $aggregatelabel, array('class'=>'rating-aggregate-label'));
             if ($rating->settings->permissions->viewall && $rating->settings->pluginpermissions->viewall) {
                 $url = "/rating/index.php?contextid={$rating->context->id}&itemid={$rating->itemid}&scaleid={$rating->settings->scale->id}";
                 $nonpopuplink = new moodle_url($url);
                 $popuplink = new moodle_url("$url&popup=1");
 
                 $action = new popup_action('click', $popuplink, 'ratings', array('height' => 400, 'width' => 600));
-                $ratinghtml .= $aggregatelabel.': '.$this->action_link($nonpopuplink, $aggregatehtml, $action);
+                $ratinghtml .= $this->action_link($nonpopuplink, $aggregatehtml, $action);
             } else {
-                $ratinghtml .= "{$aggregatelabel}: $aggregatehtml";
+                $ratinghtml .= $aggregatehtml;
             }
         }
 
@@ -1428,8 +1525,8 @@ class core_renderer extends renderer_base {
             $scalearray = $rating->settings->scale->scaleitems;
             if (!is_array($scalearray)) { //almost certainly a numerical scale
                 $intscalearray = intval($scalearray);//just in case they've passed "5" instead of 5
-                if( is_int($intscalearray) && $intscalearray>0 ){
-                    $scalearray = array();
+                $scalearray = array();
+                if( is_int($intscalearray) && $intscalearray>0 ) {
                     for($i=0; $i<=$rating->settings->scale->scaleitems; $i++) {
                         $scalearray[$i] = $i;
                     }
@@ -1484,6 +1581,7 @@ class core_renderer extends renderer_base {
     /**
      * Print a help icon.
      *
+     * @deprecated since Moodle 2.0
      * @param string $page The keyword that defines a help page
      * @param string $title A descriptive text for accessibility only
      * @param string $component component name
@@ -1491,6 +1589,7 @@ class core_renderer extends renderer_base {
      * @return string HTML fragment
      */
     public function old_help_icon($helpidentifier, $title, $component = 'moodle', $linktext = '') {
+        debugging('The method old_help_icon() is deprecated, please fix the code and use help_icon() method instead', DEBUG_DEVELOPER);
         $icon = new old_help_icon($helpidentifier, $title, $component);
         if ($linktext === true) {
             $icon->linktext = $title;
@@ -1621,7 +1720,9 @@ class core_renderer extends renderer_base {
 
         $icon = $this->pix_icon('help', get_string('scales'), 'moodle', array('class'=>'iconhelp'));
 
-        $link = new moodle_url('/course/scales.php', array('id' => $courseid, 'list' => true, 'scaleid' => $scale->id));
+        $scaleid = abs($scale->id);
+
+        $link = new moodle_url('/course/scales.php', array('id' => $courseid, 'list' => true, 'scaleid' => $scaleid));
         $action = new popup_action('click', $link, 'ratingscale');
 
         return html_writer::tag('span', $this->action_link($link, $icon, $action), array('class' => 'helplink'));
@@ -1639,7 +1740,7 @@ class core_renderer extends renderer_base {
         if (empty($attributes['width'])) {
             $attributes['width'] = 1;
         }
-        if (empty($options['height'])) {
+        if (empty($attributes['height'])) {
             $attributes['height'] = 1;
         }
         $attributes['class'] = 'spacer';
@@ -1728,15 +1829,19 @@ class core_renderer extends renderer_base {
 
         $class = $userpicture->class;
 
-        if (!empty($user->picture)) {
-            require_once($CFG->libdir.'/filelib.php');
-            $src = new moodle_url(get_file_url($user->id.'/'.$file.'.jpg', null, 'user'));
+        if ($user->picture == 1) {
+            $usercontext = get_context_instance(CONTEXT_USER, $user->id);
+            $src = moodle_url::make_pluginfile_url($usercontext->id, 'user', 'icon', NULL, '/', $file);
+
+        } else if ($user->picture == 2) {
+            //TODO: gravatar user icon support
+
         } else { // Print default user pictures (use theme version if available)
             $class .= ' defaultuserpic';
             $src = $this->pix_url('u/' . $file);
         }
 
-        $attributes = array('src'=>$src, 'alt'=>$alt, 'class'=>$class, 'width'=>$size, 'height'=>$size);
+        $attributes = array('src'=>$src, 'alt'=>$alt, 'title'=>$alt, 'class'=>$class, 'width'=>$size, 'height'=>$size);
 
         // get the image html output fisrt
         $output = html_writer::empty_tag('img', $attributes);;
@@ -1767,88 +1872,6 @@ class core_renderer extends renderer_base {
         }
 
         return html_writer::tag('a', $output, $attributes);
-    }
-
-
-    /**
-     * General moodle file tree viwer
-     *
-     * <pre>
-     * $OUTPUT->moodle_file_tree_viewer($contextid, $filearea, $itemid, $filepath);
-     * </pre>
-     *
-     * @param int $contextid
-     * @param string $area
-     * @param int $itemid
-     * @param string $filepath
-     * @return string HTML fragment
-     */
-    public function moodle_file_tree_viewer($contextid, $filearea, $itemid, $filepath, $options = array()) {
-        $tree = new moodle_file_tree_viewer($contextid, $filearea, $itemid, $filepath, $options);
-        return $this->render($tree);
-    }
-    public function render_moodle_file_tree_viewer(moodle_file_tree_viewer $tree) {
-        $html = '<div>';
-        foreach($tree->path as $path) {
-            $html .= $path;
-            $html .= ' / ';
-        }
-        $html .= '</div>';
-
-        $html .= '<div id="course-file-tree-view" class="filemanager-container">';
-        if (empty($tree->tree)) {
-            $html .= get_string('nofilesavailable', 'repository');
-        } else {
-            $this->page->requires->js_init_call('M.core_filetree.init');
-            $html .= '<ul>';
-            foreach($tree->tree as $node) {
-                $link_attributes = array();
-                if (!empty($node['isdir'])) {
-                    $class = ' class="file-tree-folder"';
-                } else {
-                    $class = ' class="file-tree-file"';
-                    $link_attributes['target'] = '_blank';
-                }
-                $html .= '<li '.$class.'>';
-                $html .= html_writer::link($node['url'], $node['filename'], $link_attributes);
-                $html .= '</li>';
-            }
-            $html .= '</ul>';
-        }
-        $html .= '</div>';
-        return $html;
-    }
-
-    /**
-     * Print the area file tree viewer
-     *
-     * <pre>
-     * $OUTPUT->area_file_tree_viewer($contextid, $filearea, $itemid, $urlbase);
-     * </pre>
-     *
-     * @param int $contextid
-     * @param string $area
-     * @param int $itemid
-     * @param string $urlbase
-     * @return string HTML fragment
-     */
-    public function area_file_tree_viewer($contextid, $area, $itemid, $urlbase='') {
-        $tree = new area_file_tree_viewer($contextid, $area, $itemid, $urlbase);
-        return $this->render($tree);
-    }
-
-    /**
-     * Internal implementation of area file tree viewer rendering.
-     * @param area_file_tree_viewer $tree
-     * @return string
-     */
-    public function render_area_file_tree_viewer(area_file_tree_viewer $tree) {
-        $this->page->requires->js_init_call('M.mod_folder.init_tree', array(true));
-        $html = '';
-        $html .= '<div id="folder_tree">';
-        $html .= $this->htmllize_file_tree($tree->dir);
-        $html .= '</div>';
-        return $html;
     }
 
     /**
@@ -1911,13 +1934,24 @@ class core_renderer extends renderer_base {
         if (empty($currentfile)) {
             $currentfile = get_string('nofilesattached', 'repository');
         }
+        if ($options->maxbytes) {
+            $size = $options->maxbytes;
+        } else {
+            $size = get_max_upload_file_size();
+        }
+        if ($size == -1) {
+            $maxsize = '';
+        } else {
+            $maxsize = get_string('maxfilesize', 'moodle', display_size($size));
+        }
         $html = <<<EOD
 <div class="filemanager-loading mdl-align" id='filepicker-loading-{$client_id}'>
 $icon_progress
 </div>
 <div id="filepicker-wrapper-{$client_id}" class="mdl-left" style="display:none">
     <div>
-        <button id="filepicker-button-{$client_id}">$straddfile</button>
+        <input type="button" id="filepicker-button-{$client_id}" value="{$straddfile}" />
+        <span> $maxsize </span>
     </div>
 EOD;
         if ($options->env != 'url') {
@@ -1926,135 +1960,6 @@ EOD;
 EOD;
         }
         $html .= '</div>';
-        return $html;
-    }
-
-    /**
-     * Print the file manager
-     *
-     * <pre>
-     * $OUTPUT->file_manager($options);
-     * </pre>
-     *
-     * @param array $options associative array with file manager options
-     *   options are:
-     *       maxbytes=>-1,
-     *       maxfiles=>-1,
-     *       filearea=>'user_draft',
-     *       itemid=>0,
-     *       subdirs=>false,
-     *       client_id=>uniqid(),
-     *       acepted_types=>'*',
-     *       return_types=>FILE_INTERNAL,
-     *       context=>$PAGE->context
-     * @return string HTML fragment
-     */
-    public function file_manager($options) {
-        $fm = new file_manager($options);
-        return $this->render($fm);
-    }
-
-    /**
-     * Internal implementation of file manager rendering.
-     * @param file_manager $fm
-     * @return string
-     */
-    public function render_file_manager(file_manager $fm) {
-        global $CFG, $OUTPUT;
-        static $filemanagertemplateloaded;
-        $html = '';
-        $nonjsfilemanager = optional_param('usenonjsfilemanager', 0, PARAM_INT);
-        $options = $fm->options;
-        $options->usenonjs = $nonjsfilemanager;
-        $straddfile  = get_string('add', 'repository') . '...';
-        $strmakedir  = get_string('makeafolder', 'moodle');
-        $strdownload = get_string('downloadfolder', 'repository');
-        $strloading  = get_string('loading', 'repository');
-
-        $icon_add_file = $OUTPUT->pix_icon('t/addfile', $straddfile).'';
-        $icon_add_folder = $OUTPUT->pix_icon('t/adddir', $strmakedir).'';
-        $icon_download = $OUTPUT->pix_icon('t/download', $strdownload).'';
-        $icon_progress = $OUTPUT->pix_icon('i/loading_small', $strloading).'';
-
-        $client_id = $options->client_id;
-        $itemid    = $options->itemid;
-        $filearea  = $options->filearea;
-
-        if (empty($options->filecount)) {
-            $extra = ' style="display:none"';
-        } else {
-            $extra = '';
-        }
-
-        $html .= <<<FMHTML
-<div class="filemanager-loading mdl-align" id='filemanager-loading-{$client_id}'>
-$icon_progress
-</div>
-<div id="filemanager-wrapper-{$client_id}" style="display:none">
-    <div class="fm-breadcrumb" id="fm-path-{$client_id}"></div>
-    <div class="filemanager-toolbar">
-        <button id="btnadd-{$client_id}" onclick="return false">{$icon_add_file} $straddfile</button>
-        <button id="btncrt-{$client_id}" onclick="return false">{$icon_add_folder} $strmakedir</button>
-        <button id="btndwn-{$client_id}" onclick="return false" {$extra}>{$icon_download} $strdownload</button>
-    </div>
-    <div class="filemanager-container" id="filemanager-{$client_id}">
-        <ul id="draftfiles-{$client_id}" class="fm-filelist">
-            <li>Loading...</li>
-        </ul>
-    </div>
-</div>
-<div class='clearer'></div>
-FMHTML;
-        if (empty($filemanagertemplateloaded)) {
-            $filemanagertemplateloaded = true;
-            $html .= <<<FMHTML
-<div id="fm-template" style="display:none">___fullname___ ___action___</div>
-FMHTML;
-        }
-
-        $filemanagerurl = new moodle_url('/repository/filepicker.php', array(
-            'filearea'=>$filearea,
-            'env'=>'filemanager',
-            'action'=>'embedded',
-            'itemid'=>$itemid,
-            'subdirs'=>'/',
-            'maxbytes'=>$options->maxbytes,
-            'ctx_id'=>$this->page->context->id,
-            'course'=>$this->page->course->id,
-            ));
-
-        $module = array(
-            'name'=>'form_filemanager',
-            'fullpath'=>'/lib/form/filemanager.js',
-            'requires' => array('core_filepicker', 'base', 'io', 'node', 'json', 'yui2-button', 'yui2-container', 'yui2-layout', 'yui2-menu', 'yui2-treeview'),
-            'strings' => array(array('loading', 'repository'), array('nomorefiles', 'repository'), array('confirmdeletefile', 'repository'),
-                 array('add', 'repository'), array('accessiblefilepicker', 'repository'), array('move', 'moodle'),
-                 array('cancel', 'moodle'), array('download', 'moodle'), array('ok', 'moodle'),
-                 array('emptylist', 'repository'), array('nofilesattached', 'repository'), array('entername', 'repository'), array('enternewname', 'repository'),
-                 array('zip', 'editor'), array('unzip', 'moodle'), array('rename', 'moodle'), array('delete', 'moodle'),
-                 array('cannotdeletefile', 'error'), array('confirmdeletefile', 'repository'),
-                 array('nopathselected', 'repository'), array('popupblockeddownload', 'repository'),
-                 array('draftareanofiles', 'repository'), array('path', 'moodle'), array('setmainfile', 'repository')
-            )
-        );
-        $this->page->requires->js_module($module);
-        $this->page->requires->js_init_call('M.form_filemanager.init', array($options), true, $module);
-
-        // non javascript file manager
-        if (!empty($nonjsfilemanager)) {
-            $html = '<div id="nonjs-filemanager-'.$client_id.'">';
-            $html .= <<<NONJS
-<object type="text/html" data="$filemanagerurl" height="160" width="600" style="border:1px solid #000">Error</object>
-NONJS;
-            $html .= '</div>';
-        } else {
-            $url = new moodle_url($this->page->url, array('usenonjsfilemanager'=>1));
-            $html .= '<div id="nonjs-filemanager-'.$client_id.'" class="mdl-align">';
-            $html .= html_writer::link($url, get_string('usenonjsfilemanager', 'repository'));
-            $html .= '</div>';
-        }
-
-
         return $html;
     }
 
@@ -2083,18 +1988,17 @@ NONJS;
      * @return string HTML the button
      */
     public function edit_button(moodle_url $url) {
-        global $USER;
-        if (!empty($USER->editing)) {
-            $string = get_string('turneditingoff');
-            $edit = '0';
+
+        $url->param('sesskey', sesskey());
+        if ($this->page->user_is_editing()) {
+            $url->param('edit', 'off');
+            $editstring = get_string('turneditingoff');
         } else {
-            $string = get_string('turneditingon');
-            $edit = '1';
+            $url->param('edit', 'on');
+            $editstring = get_string('turneditingon');
         }
 
-        $url = new moodle_url($url, array('edit'=>$edit));
-
-        return $this->single_button($url, $string);
+        return $this->single_button($url, $editstring);
     }
 
     /**
@@ -2141,6 +2045,7 @@ NONJS;
      * @return string the HTML to output.
      */
     public function fatal_error($message, $moreinfourl, $link, $backtrace, $debuginfo = null) {
+        global $CFG;
 
         $output = '';
         $obbuffer = '';
@@ -2154,9 +2059,15 @@ NONJS;
             // It is really bad if library code throws exception when output buffering is on,
             // because the buffered text would be printed before our start of page.
             // NOTE: this hack might be behave unexpectedly in case output buffering is enabled in PHP.ini
+            error_reporting(0); // disable notices from gzip compression, etc.
             while (ob_get_level() > 0) {
-                $obbuffer .= ob_get_clean();
+                $buff = ob_get_clean();
+                if ($buff === false) {
+                    break;
+                }
+                $obbuffer .= $buff;
             }
+            error_reporting($CFG->debug);
 
             // Header not yet printed
             if (isset($_SERVER['SERVER_PROTOCOL'])) {
@@ -2164,6 +2075,7 @@ NONJS;
                 // can not be used from command line or when outputting custom XML
                 @header($_SERVER['SERVER_PROTOCOL'] . ' 404 Not Found');
             }
+            $this->page->set_context(null); // ugly hack - make sure page context is set to something, we do not want bogus warnings here
             $this->page->set_url('/'); // no url
             //$this->page->set_pagelayout('base'); //TODO: MDL-20676 blocks on error pages are weird, unfortunately it somehow detect the pagelayout from URL :-(
             $this->page->set_title(get_string('error'));
@@ -2653,29 +2565,6 @@ NONJS;
         // Return the sub menu
         return $content;
     }
-
-    /**
-     * Renders the image_gallery component and initialises its JavaScript
-     *
-     * @param image_gallery $imagegallery
-     * @return string
-     */
-    protected function render_image_gallery(image_gallery $imagegallery) {
-        $this->page->requires->js_gallery_module(array('gallery-lightbox','gallery-lightbox-skin'), '2010.04.08-12-35', 'Y.Lightbox.init');
-        if (count($imagegallery->images) == 0) {
-            return '';
-        }
-        $classes = array('image_gallery');
-        if ($imagegallery->displayfirstimageonly) {
-            $classes[] = 'oneimageonly';
-        }
-        $content = html_writer::start_tag('div', array('class'=>join(' ', $classes)));
-        foreach ($imagegallery->images as $image) {
-            $content .= html_writer::tag('a', html_writer::empty_tag('img', $image->thumb), $image->link);
-        }
-        $content .= html_writer::end_tag('div');
-        return $content;
-    }
 }
 
 
@@ -2696,7 +2585,6 @@ class core_renderer_cli extends core_renderer {
      * @return string HTML fragment
      */
     public function header() {
-        output_starting_hook();
         return $this->page->heading . "\n";
     }
 
@@ -2734,12 +2622,14 @@ class core_renderer_cli extends core_renderer {
 
         if (debugging('', DEBUG_DEVELOPER)) {
             if (!empty($debuginfo)) {
-                $this->notification($debuginfo, 'notifytiny');
+                $output .= $this->notification($debuginfo, 'notifytiny');
             }
             if (!empty($backtrace)) {
-                $this->notification('Stack trace: ' . format_backtrace($backtrace, true), 'notifytiny');
+                $output .= $this->notification('Stack trace: ' . format_backtrace($backtrace, true), 'notifytiny');
             }
         }
+
+        return $output;
     }
 
     /**
@@ -2779,11 +2669,17 @@ class core_renderer_ajax extends core_renderer {
      * @return string A template fragment for a fatal error
      */
     public function fatal_error($message, $moreinfourl, $link, $backtrace, $debuginfo = null) {
+        global $CFG;
+
+        $this->page->set_context(null); // ugly hack - make sure page context is set to something, we do not want bogus warnings here
+
         $e = new stdClass();
         $e->error      = $message;
         $e->stacktrace = NULL;
         $e->debuginfo  = NULL;
+        $e->reproductionlink = NULL;
         if (!empty($CFG->debug) and $CFG->debug >= DEBUG_DEVELOPER) {
+            $e->reproductionlink = $link;
             if (!empty($debuginfo)) {
                 $e->debuginfo = $debuginfo;
             }
@@ -2791,17 +2687,36 @@ class core_renderer_ajax extends core_renderer {
                 $e->stacktrace = format_backtrace($backtrace, true);
             }
         }
+        $this->header();
         return json_encode($e);
     }
 
     public function notification($message, $classes = 'notifyproblem') {
     }
+
     public function redirect_message($encodedurl, $message, $delay, $debugdisableredirect) {
     }
+
     public function header() {
+        // unfortunately YUI iframe upload does not support application/json
+        if (!empty($_FILES)) {
+            @header('Content-type: text/plain');
+        } else {
+            @header('Content-type: application/json');
+        }
+
+        /// Headers to make it not cacheable and json
+        @header('Cache-Control: no-store, no-cache, must-revalidate');
+        @header('Cache-Control: post-check=0, pre-check=0', false);
+        @header('Pragma: no-cache');
+        @header('Expires: Mon, 20 Aug 1969 09:23:00 GMT');
+        @header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+        @header('Accept-Ranges: none');
     }
+
     public function footer() {
     }
+
     public function heading($text, $level = 2, $classes = 'main', $id = null) {
     }
 }

@@ -37,7 +37,6 @@ class block_myprofile extends block_base {
      */
     public function init() {
         $this->title   = get_string('pluginname', 'block_myprofile');
-        $this->version = 2009123100;
     }
 
     /**
@@ -90,9 +89,11 @@ class block_myprofile extends block_base {
 
         if(!isset($this->config->display_country) || $this->config->display_country == 1) {
             $countries = get_string_manager()->get_list_of_countries();
-            $this->content->text .= '<div class="myprofileitem country">';
-            $this->content->text .= get_string('country') . ': ' . $countries[$user->country];
-            $this->content->text .= '</div>';
+            if (isset($countries[$user->country])) {
+                $this->content->text .= '<div class="myprofileitem country">';
+                $this->content->text .= get_string('country') . ': ' . $countries[$user->country];
+                $this->content->text .= '</div>';
+            }
         }
 
         if(!isset($this->config->display_city) || $this->config->display_city == 1) {
@@ -103,7 +104,7 @@ class block_myprofile extends block_base {
 
         if(!isset($this->config->display_email) || $this->config->display_email == 1) {
             $this->content->text .= '<div class="myprofileitem email">';
-            $this->content->text .= obfuscate_mailto($user->email, '', $user->emailstop);
+            $this->content->text .= obfuscate_mailto($user->email, '');
             $this->content->text .= '</div>';
         }
 
@@ -267,16 +268,16 @@ class block_myprofile extends block_base {
      * @return boolean
      */
     function instance_config_print() {
-        if (!$this->instance_allow_config()) {
-            return false;
-        }
+        return false;
 
+        /*
         global $CFG;
 
         $form = new block_myprofile.phpConfigForm(null, array($this->config));
         $form->display();
 
         return true;
+        */
     }
 
     /**

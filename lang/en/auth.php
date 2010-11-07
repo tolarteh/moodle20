@@ -23,7 +23,7 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['actauthhdr'] = 'Active authentication plugins';
+$string['actauthhdr'] = 'Available authentication plugins';
 $string['alternatelogin'] = 'If you enter a URL here, it will be used as the login page for this site. The page should contain a form which has the action property set to <strong>\'{$a}\'</strong> and return fields <strong>username</strong> and <strong>password</strong>.<br />Be careful not to enter an incorrect URL as you may lock yourself out of this site.<br />Leave this setting blank to use the default login page.';
 $string['alternateloginurl'] = 'Alternate login URL';
 $string['auth_common_settings'] = 'Common settings';
@@ -96,6 +96,7 @@ $string['locked'] = 'Locked';
 $string['md5'] = 'MD5 hash';
 $string['nopasswordchange'] = 'Password can not be changed';
 $string['nopasswordchangeforced'] = 'You cannot proceed without changing your password, however there is no available page for changing it. Please contact your Moodle Administrator.';
+$string['noprofileedit'] = 'Profile can not be edited';
 $string['ntlmsso_attempting'] = 'Attempting Single Sign On via NTLM...';
 $string['ntlmsso_failed'] = 'Auto-login failed, try the normal login page...';
 $string['ntlmsso_isdisabled'] = 'NTLM SSO is disabled.';
@@ -108,6 +109,7 @@ $string['recaptcha'] = 'reCAPTCHA';
 $string['recaptcha_help'] = 'The CAPTCHA is for preventing abuse from automated programs. Simply enter the words in the box, in order and separated by a space.
 
 If you are not sure what the words are, you can try getting another CAPTCHA or an audio CAPTCHA.';
+$string['recaptcha_link'] = 'auth/email';
 $string['selfregistration'] = 'Self registration';
 $string['selfregistration_help'] = 'If an authentication plugin, such as email-based self-registration, is selected, then it enables potential users to register themselves and create accounts. This results in the possibility of spammers creating accounts in order to use forum posts, blog entries etc. for spam. To avoid this risk, self-registration should be disabled or limited by <em>Allowed email domains</em> setting.';
 $string['sha1'] = 'SHA-1 hash';

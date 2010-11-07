@@ -50,7 +50,9 @@ $callbackclass = optional_param('callbackclass', null, PARAM_ALPHAEXT);       //
 $callerformats = optional_param('callerformats', null, PARAM_TAGLIST);        // comma separated list of formats the specific place exporting content supports
 
 require_login();  // this is selectively called again with $course later when we know for sure which one we're in.
+$PAGE->set_context(get_system_context());
 $PAGE->set_url('/portfolio/add.php', array('id' => $dataid, 'sesskey' => sesskey()));
+$PAGE->set_pagelayout('standard');
 $exporter = null;
 
 if ($postcontrol && $type && !$dataid) {
@@ -96,7 +98,7 @@ if (!empty($dataid)) {
             echo $OUTPUT->box_start();
             $yesbutton = new single_button(new moodle_url('/portfolio/add.php', array('id' => $dataid, 'cancel' => 1, 'cancelsure' => 1, 'logreturn' => $logreturn)), get_string('yes'));
             if ($logreturn) {
-                $nobutton  = new single_button(new moodle_url('/user/portfoliologs.php', array('id' => $dataid)), get_string('no'));
+                $nobutton  = new single_button(new moodle_url('/user/portfoliologs.php'), get_string('no'));
             } else {
                 $nobutton  = new single_button(new moodle_url('/portfolio/add.php', array('id' => $dataid)), get_string('no'));
             }

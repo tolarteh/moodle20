@@ -50,9 +50,6 @@ class admin_uploaduser_form2 extends moodleform {
     function definition (){
         global $CFG, $USER;
 
-        //no editors here - we need proper empty fields
-        $CFG->htmleditor = null;
-
         $mform   =& $this->_form;
         $columns =& $this->_customdata;
 
@@ -65,7 +62,7 @@ class admin_uploaduser_form2 extends moodleform {
 
         $choices = array(0 => get_string('infilefield', 'auth'), 1 => get_string('createpasswordifneeded', 'auth'));
         $mform->addElement('select', 'uupasswordnew', get_string('uupasswordnew', 'admin'), $choices);
-        $mform->setDefault('uupasswordnew', 0);
+        $mform->setDefault('uupasswordnew', 1);
         $mform->disabledIf('uupasswordnew', 'uutype', 'eq', UU_UPDATE);
 
         $choices = array(0 => get_string('nochanges', 'admin'),
@@ -171,9 +168,6 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->addElement('select', 'maildisplay', get_string('emaildisplay'), $choices);
         $mform->setDefault('maildisplay', 2);
 
-        $choices = array(0 => get_string('emailenable'), 1 => get_string('emaildisable'));
-        $mform->addElement('select', 'emailstop', get_string('emailactive'), $choices);
-
         $choices = array(0 => get_string('textformat'), 1 => get_string('htmlformat'));
         $mform->addElement('select', 'mailformat', get_string('emailformat'), $choices);
         $mform->setDefault('mailformat', 1);
@@ -188,16 +182,18 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->addElement('select', 'autosubscribe', get_string('autosubscribe'), $choices);
         $mform->setDefault('autosubscribe', 1);
 
-/* TODO: reimplement editor preferences
-        if ($CFG->htmleditor) {
-            $choices = array(0 => get_string('texteditor'), 1 => get_string('htmleditor'));
+        $editors = editors_get_enabled();
+        if (count($editors) > 1) {
+            $choices = array();
+            $choices['0'] = get_string('texteditor');
+            $choices['1'] = get_string('htmleditor');
             $mform->addElement('select', 'htmleditor', get_string('textediting'), $choices);
             $mform->setDefault('htmleditor', 1);
         } else {
-            $mform->addElement('static', 'htmleditor', get_string('textediting'), get_string('texteditor'));
+            $mform->addElement('hidden', 'htmleditor');
+            $mform->setDefault('htmleditor', 1);
+            $mform->setType('htmleditor', PARAM_INT);
         }
-        $mform->setAdvanced('htmleditor');
-*/
 
         if (empty($CFG->enableajax)) {
             $mform->addElement('static', 'ajax', get_string('ajaxuse'), get_string('ajaxno'));
@@ -236,7 +232,7 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->setAdvanced('url');
 
         $mform->addElement('text', 'idnumber', get_string('idnumber'), 'maxlength="64" size="25"');
-        $mform->setType('idnumber', PARAM_CLEAN);
+        $mform->setType('idnumber', PARAM_NOTAGS);
 
         $mform->addElement('text', 'institution', get_string('institution'), 'maxlength="40" size="25"');
         $mform->setType('institution', PARAM_MULTILANG);
@@ -247,11 +243,11 @@ class admin_uploaduser_form2 extends moodleform {
         $mform->setDefault('department', $templateuser->department);
 
         $mform->addElement('text', 'phone1', get_string('phone'), 'maxlength="20" size="25"');
-        $mform->setType('phone1', PARAM_CLEAN);
+        $mform->setType('phone1', PARAM_NOTAGS);
         $mform->setAdvanced('phone1');
 
         $mform->addElement('text', 'phone2', get_string('phone2'), 'maxlength="20" size="25"');
-        $mform->setType('phone2', PARAM_CLEAN);
+        $mform->setType('phone2', PARAM_NOTAGS);
         $mform->setAdvanced('phone2');
 
         $mform->addElement('text', 'address', get_string('address'), 'maxlength="70" size="25"');
@@ -318,6 +314,10 @@ class admin_uploaduser_form2 extends moodleform {
                     break;
 
                 case UU_ADDNEW:
+                    if (empty($data['uupasswordnew'])) {
+                        $errors['uupasswordnew'] = get_string('missingfield', 'error', 'password');
+                    }
+                    break;
                 case UU_ADDINC:
                     if (empty($data['uupasswordnew'])) {
                         $errors['uupasswordnew'] = get_string('missingfield', 'error', 'password');

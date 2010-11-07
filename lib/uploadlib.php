@@ -18,15 +18,14 @@
 /**
  * uploadlib.php - This class handles all aspects of fileuploading
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage file
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/** {@see eventslib.php} */
-require_once($CFG->libdir.'/eventslib.php');
+defined('MOODLE_INTERNAL') || die();
 
-//error_reporting(E_ALL ^ E_NOTICE);
 /**
  * This class handles all aspects of fileuploading
  *
@@ -137,7 +136,7 @@ class upload_manager {
                 }
                 if (!$this->status) {
                     if (!$this->config->recoverifmultiple && count($this->files) > 1) {
-                        $a = new object();
+                        $a = new stdClass();
                         $a->name    = $this->files[$name]['originalname'];
                         $a->problem = $this->files[$name]['uploadlog'];
                         if (!$this->config->silent) {
@@ -163,7 +162,7 @@ class upload_manager {
                 else {
                     $newname = clean_filename($this->files[$name]['name']);
                     if ($newname != $this->files[$name]['name']) {
-                        $a = new object();
+                        $a = new stdClass();
                         $a->oldname = $this->files[$name]['name'];
                         $a->newname = $newname;
                         $this->files[$name]['uploadlog'] .= get_string('uploadrenamedchars','moodle', $a);
@@ -348,7 +347,7 @@ class upload_manager {
         while (!$this->check_before_renaming($destination, $name.'_'.$i.$extension, $file)) {
             $i++;
         }
-        $a = new object();
+        $a = new stdClass();
         $a->oldname = $file['name'];
         $file['name'] = $name.'_'.$i.$extension;
         $a->newname = $file['name'];
@@ -506,46 +505,6 @@ FOR EXAMPLE CLAM_HANDLE_INFECTED_FILE AND CLAM_REPLACE_INFECTED_FILE USED FROM C
 UPLOAD_PRINT_FORM_FRAGMENT DOESN'T REALLY BELONG IN THE CLASS BUT CERTAINLY IN THIS FILE
 ***************************************************************************************/
 
-
-/**
- * This function prints out a number of upload form elements.
- *
- * @global object
- * @param int $numfiles The number of elements required (optional, defaults to 1)
- * @param array $names Array of element names to use (optional, defaults to FILE_n)
- * @param array $descriptions Array of strings to be printed out before each file bit.
- * @param boolean $uselabels -Whether to output text fields for file descriptions or not (optional, defaults to false)
- * @param array $labelnames Array of element names to use for labels (optional, defaults to LABEL_n)
- * @param int $coursebytes $coursebytes and $maxbytes are used to calculate upload max size ( using {@link get_max_upload_file_size})
- * @param int $modbytes $coursebytes and $maxbytes are used to calculate upload max size ( using {@link get_max_upload_file_size})
- * @param boolean $return -Whether to return the string (defaults to false - string is echoed)
- * @return string Form returned as string if $return is true
- */
-function upload_print_form_fragment($numfiles=1, $names=null, $descriptions=null, $uselabels=false, $labelnames=null, $coursebytes=0, $modbytes=0, $return=false) {
-    global $CFG;
-    $maxbytes = get_max_upload_file_size($CFG->maxbytes, $coursebytes, $modbytes);
-    $str = '<input type="hidden" name="MAX_FILE_SIZE" value="'. $maxbytes .'" />'."\n";
-    for ($i = 0; $i < $numfiles; $i++) {
-        if (is_array($descriptions) && !empty($descriptions[$i])) {
-            $str .= '<strong>'. $descriptions[$i] .'</strong><br />';
-        }
-        $name = ((is_array($names) && !empty($names[$i])) ? $names[$i] : 'FILE_'.$i);
-        $str .= '<input type="file" size="50" name="'. $name .'" alt="'. $name .'" /><br />'."\n";
-        if ($uselabels) {
-            $lname = ((is_array($labelnames) && !empty($labelnames[$i])) ? $labelnames[$i] : 'LABEL_'.$i);
-            $str .= get_string('uploadlabel').' <input type="text" size="50" name="'. $lname .'" alt="'. $lname
-                .'" /><br /><br />'."\n";
-        }
-    }
-    if ($return) {
-        return $str;
-    }
-    else {
-        echo $str;
-    }
-}
-
-
 /**
  * Deals with an infected file - either moves it to a quarantinedir
  * (specified in CFG->quarantinedir) or deletes it.
@@ -680,7 +639,7 @@ function clam_scan_moodle_file(&$file, $course) {
     $cmd = $CFG->pathtoclam .' '. $fullpath ." 2>&1";
 
     // before we do anything we need to change perms so that clamscan can read the file (clamdscan won't work otherwise)
-    chmod($fullpath,0644);
+    chmod($fullpath, $CFG->directorypermissions);
 
     exec($cmd, $output, $return);
 
@@ -689,7 +648,7 @@ function clam_scan_moodle_file(&$file, $course) {
     case 0: // glee! we're ok.
         return 1; // translate clam return code into reasonable return code consistent with everything else.
     case 1:  // bad wicked evil, we have a virus.
-        $info = new object();
+        $info = new stdClass();
         if (!empty($course)) {
             $info->course = $course->fullname;
         }
@@ -737,7 +696,7 @@ function clam_message_admins($notice) {
     $subject = get_string('clamemailsubject', 'moodle', format_string($site->fullname));
     $admins = get_admins();
     foreach ($admins as $admin) {
-        $eventdata = new object();
+        $eventdata = new stdClass();
         $eventdata->modulename        = 'moodle';
         $eventdata->userfrom          = get_admin();
         $eventdata->userto            = $admin;

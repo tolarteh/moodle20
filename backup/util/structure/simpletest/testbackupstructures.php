@@ -82,14 +82,14 @@ class backup_structure_test extends UnitTestCaseUsingDatabase {
         // With two related file
         $f1_forum_data = (object)array(
                                      'contenthash' => 'testf1', 'contextid' => $this->contextid,
-                                     'filearea' => 'forum_intro', 'filename' => 'tf1', 'itemid' => 0,
+                                     'component'=>'mod_forum', 'filearea' => 'intro', 'filename' => 'tf1', 'itemid' => 0,
                                      'filesize' => 123, 'timecreated' => 0, 'timemodified' => 0,
                                      'pathnamehash' => 'testf1'
                                  );
         $DB->insert_record('files', $f1_forum_data);
         $f2_forum_data = (object)array(
                                      'contenthash' => 'tesft2', 'contextid' => $this->contextid,
-                                     'filearea' => 'forum_intro', 'filename' => 'tf2', 'itemid' => 0,
+                                     'component'=>'mod_forum', 'filearea' => 'intro', 'filename' => 'tf2', 'itemid' => 0,
                                      'filesize' => 123, 'timecreated' => 0, 'timemodified' => 0,
                                      'pathnamehash' => 'testf2'
                                  );
@@ -112,15 +112,15 @@ class backup_structure_test extends UnitTestCaseUsingDatabase {
         $p4id = $DB->insert_record('forum_posts', $post4);
         // With two related file
         $f1_post1 = (object)array(
-                                'contenthash' => 'testp1', 'contextid' => $this->contextid,
-                                'filearea' => 'forum_post', 'filename' => 'tp1', 'itemid' => $p1id,
+                                'contenthash' => 'testp1', 'contextid' => $this->contextid, 'component'=>'mod_forum',
+                                'filearea' => 'post', 'filename' => 'tp1', 'itemid' => $p1id,
                                 'filesize' => 123, 'timecreated' => 0, 'timemodified' => 0,
                                 'pathnamehash' => 'testp1'
                             );
         $DB->insert_record('files', $f1_post1);
         $f1_post2 = (object)array(
-                                'contenthash' => 'testp2', 'contextid' => $this->contextid,
-                                'filearea' => 'forum_attachment', 'filename' => 'tp2', 'itemid' => $p2id,
+                                'contenthash' => 'testp2', 'contextid' => $this->contextid, 'component'=>'mod_forum',
+                                'filearea' => 'attachment', 'filename' => 'tp2', 'itemid' => $p2id,
                                 'filesize' => 123, 'timecreated' => 0, 'timemodified' => 0,
                                 'pathnamehash' => 'testp2'
                             );
@@ -218,13 +218,15 @@ class backup_structure_test extends UnitTestCaseUsingDatabase {
         $forum->add_child($inventeds);
         $inventeds->add_child($invented);
 
-        // Let's add 1 optigroup with 3 elements
+        // Let's add 1 optigroup with 4 elements
         $alternative1 = new backup_optigroup_element('alternative1',
                                                      array('name', 'value'), '../../id', 1);
         $alternative2 = new backup_optigroup_element('alternative2',
                                                      array('name', 'value'), backup::VAR_PARENTID, 2);
         $alternative3 = new backup_optigroup_element('alternative3',
                                                      array('name', 'value'), '/forum/discussions/discussion/posts/post/id', 3);
+        $alternative4 = new backup_optigroup_element('alternative4',
+                                                     array('forumtype', 'forumname')); // Alternative without conditions
         // Create the optigroup, adding one element
         $optigroup = new backup_optigroup('alternatives', $alternative1, false);
         // Add second opti element
@@ -234,6 +236,8 @@ class backup_structure_test extends UnitTestCaseUsingDatabase {
         $post->add_optigroup($optigroup);
         // Add third opti element, on purpose after the add_optigroup() line above to check param evaluation works ok
         $optigroup->add_child($alternative3);
+        // Add 4th opti element (the one without conditions, so will be present always)
+        $optigroup->add_child($alternative4);
 
         /// Create some new nested elements, both named 'dupetest1', and add them to alternative1 and alternative2
         /// (not problem as far as the optigroup in not unique)
@@ -272,6 +276,13 @@ class backup_structure_test extends UnitTestCaseUsingDatabase {
         // Skip alternative2 source definition on purpose (will be tested)
         // $alternative2->set_source_array(array((object)array('name' => 'alternative2', 'value' => 2))); // 1 object array
         $alternative3->set_source_array(array((object)array('name' => 'alternative3', 'value' => 3))); // 1 object array
+        // Alternative 4 source is the forum type and name, so we'll get that in ALL posts (no conditions) that
+        // have not another alternative (post4 in our testing data in the only not matching any other alternative)
+        $alternative4->set_source_sql('SELECT type AS forumtype, name AS forumname
+                                         FROM {forum}
+                                        WHERE id = ?',
+                                     array('/forum/id')
+                                    );
         // Set children of optigroup_element source
         $dupetest1->set_source_array(array((object)array('field1' => '1', 'field2' => 1))); // 1 object array
         $dupetest2->set_source_array(array((object)array('field1' => '2', 'field2' => 2))); // 1 object array
@@ -282,10 +293,11 @@ class backup_structure_test extends UnitTestCaseUsingDatabase {
         $rating->set_source_alias('rating', 'post_rating'); // Map the 'rating' value from DB to 'post_rating' final element
 
         // Mark to detect files of type 'forum_intro' in forum (and not item id)
-        $forum->annotate_files(array('forum_intro'), null);
+        $forum->annotate_files('mod_forum', 'intro', null);
 
         // Mark to detect file of type 'forum_post' and 'forum_attachment' in post (with itemid being post->id)
-        $post->annotate_files(array('forum_post', 'forum_attachment'), 'id');
+        $post->annotate_files('mod_forum', 'post', 'id');
+        $post->annotate_files('mod_forum', 'attachment', 'id');
 
         // Mark various elements to be annotated
         $discussion->annotate_ids('user1', 'userid');
@@ -406,6 +418,23 @@ class backup_structure_test extends UnitTestCaseUsingDatabase {
         $result = $xpath->query($query);
         $this->assertEqual($result->length, 0);
 
+        // Check 1st, 2nd and 3rd posts have no forumtype element
+        $query = '/forum/discussions/discussion/posts/post[@id="1"]/forumtype';
+        $result = $xpath->query($query);
+        $this->assertEqual($result->length, 0);
+        $query = '/forum/discussions/discussion/posts/post[@id="2"]/forumtype';
+        $result = $xpath->query($query);
+        $this->assertEqual($result->length, 0);
+        $query = '/forum/discussions/discussion/posts/post[@id="3"]/forumtype';
+        $result = $xpath->query($query);
+        $this->assertEqual($result->length, 0);
+
+        // Check 4th post has one forumtype element with value "general"
+        // (because it doesn't matches alternatives 1, 2, 3, then alternative 4,
+        // the one without conditions is being applied)
+        $query = '/forum/discussions/discussion/posts/post[@id="4"][forumtype="general"]';
+        $result = $xpath->query($query);
+        $this->assertEqual($result->length, 1);
 
         // Check annotations information against DB
         // Count records in original tables
@@ -541,30 +570,21 @@ class backup_structure_test extends UnitTestCaseUsingDatabase {
         }
 
         // Try various incorrect file annotations
-        $ne = new backup_nested_element('test', 'one', 'two', 'three');
-        try {
-            $ne->annotate_files('notanarray', null); // Incorrect first param
-            $this->assertTrue(false, 'base_element_struct_exception expected');
-        } catch (exception $e) {
-            $this->assertTrue($e instanceof base_element_struct_exception);
-            $this->assertEqual($e->errorcode, 'annotate_files_requires_array_of_areas');
-            $this->assertEqual($e->a, 'notanarray');
-        }
 
         $ne = new backup_nested_element('test', 'one', 'two', 'three');
-        $ne->annotate_files(array('test_filearea'), null);
+        $ne->annotate_files('test', 'filearea', null);
         try {
-            $ne->annotate_files(array('test_filearea'), null); // Try to add annotations twice
+            $ne->annotate_files('test', 'filearea', null); // Try to add annotations twice
             $this->assertTrue(false, 'base_element_struct_exception expected');
         } catch (exception $e) {
             $this->assertTrue($e instanceof base_element_struct_exception);
-            $this->assertEqual($e->errorcode, 'annotate_files_already_defined');
-            $this->assertEqual($e->a, 'test');
+            $this->assertEqual($e->errorcode, 'annotate_files_duplicate_annotation');
+            $this->assertEqual($e->a, 'test/filearea/');
         }
 
         $ne = new backup_nested_element('test', 'one', 'two', 'three');
         try {
-            $ne->annotate_files(array('test_filearea'), 'four'); // Incorrect element
+            $ne->annotate_files('test', 'filearea', 'four'); // Incorrect element
             $this->assertTrue(false, 'base_element_struct_exception expected');
         } catch (exception $e) {
             $this->assertTrue($e instanceof base_element_struct_exception);

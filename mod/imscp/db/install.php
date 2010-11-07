@@ -23,19 +23,16 @@
  *   - lib.php/modulename_install() post installation hook
  *   - partially defaults.php
  *
- * @package   mod-imscp
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage imscp
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 function xmldb_imscp_install() {
     global $CFG;
-
-    // Install logging support
-    update_log_display_entry('imscp', 'view', 'imscp', 'name');
-    update_log_display_entry('imscp', 'view all', 'imscp', 'name');
-    update_log_display_entry('imscp', 'update', 'imscp', 'name');
-    update_log_display_entry('imscp', 'add', 'imscp', 'name');
 
     // Upgrade from old resource module type if needed
     require_once("$CFG->dirroot/mod/imscp/db/upgradelib.php");

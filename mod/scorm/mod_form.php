@@ -29,7 +29,7 @@ class mod_scorm_mod_form extends moodleform_mod {
         if (!empty($CFG->formatstringstriptags)) {
             $mform->setType('name', PARAM_TEXT);
         } else {
-            $mform->setType('name', PARAM_CLEAN);
+            $mform->setType('name', PARAM_CLEANHTML);
         }
         $mform->addRule('name', null, 'required', null, 'client');
 
@@ -51,34 +51,31 @@ class mod_scorm_mod_form extends moodleform_mod {
             $options[SCORM_TYPE_IMSREPOSITORY] = get_string('typeimsrepository', 'scorm');
         }
 
-        $mform->addElement('select', 'scormtype', get_string('scormtype', 'scorm'), $options);
-
 // Reference
         if (count($options) > 1) {
-            $mform->addElement('text', 'packageurl', get_string('url', 'scorm'), array('size'=>60));
+            $mform->addElement('select', 'scormtype', get_string('scormtype', 'scorm'), $options);
+            $mform->addHelpButton('scormtype', 'scormtype', 'scorm');
+            $mform->addElement('text', 'packageurl', get_string('packageurl', 'scorm'), array('size'=>60));
             $mform->setType('packageurl', PARAM_RAW);
-            $mform->addHelpButton('packageurl', 'package', 'scorm');
+            $mform->addHelpButton('packageurl', 'packageurl', 'scorm');
             $mform->disabledIf('packageurl', 'scormtype', 'eq', SCORM_TYPE_LOCAL);
+        } else {
+            $mform->addElement('hidden', 'scormtype', SCORM_TYPE_LOCAL);
         }
 
 // New local package upload
         $maxbytes = get_max_upload_file_size($CFG->maxbytes, $COURSE->maxbytes);
         $mform->setMaxFileSize($maxbytes);
         $mform->addElement('filepicker', 'packagefile', get_string('package','scorm'));
+        $mform->addHelpButton('packagefile', 'package', 'scorm');
         $mform->disabledIf('packagefile', 'scormtype', 'noteq', SCORM_TYPE_LOCAL);
 
 //-------------------------------------------------------------------------------
 // Time restrictions
         $mform->addElement('header', 'timerestricthdr', get_string('timerestrict', 'scorm'));
-        $mform->addElement('checkbox', 'timerestrict', get_string('timerestrict', 'scorm'));
 
-
-        $mform->addElement('date_time_selector', 'timeopen', get_string("scormopen", "scorm"));
-        $mform->disabledIf('timeopen', 'timerestrict');
-
-        $mform->addElement('date_time_selector', 'timeclose', get_string("scormclose", "scorm"));
-        $mform->disabledIf('timeclose', 'timerestrict');
-
+        $mform->addElement('date_time_selector', 'timeopen', get_string("scormopen", "scorm"),array('optional' => true));
+        $mform->addElement('date_time_selector', 'timeclose', get_string("scormclose", "scorm"),array('optional' => true));
 //-------------------------------------------------------------------------------
 // Other Settings
         $mform->addElement('header', 'advanced', get_string('othersettings', 'form'));
@@ -154,24 +151,24 @@ class mod_scorm_mod_form extends moodleform_mod {
         $mform->disabledIf('dateendgrp', 'enddisabled', 'checked');
 */
 
-// Stage Size
-        $mform->addElement('static', '', '' ,'<hr />');
-        $mform->addElement('static', 'stagesize', get_string('stagesize','scorm'));
-        $mform->addHelpButton('stagesize', 'stagesize', 'scorm');
+// Framed / Popup Window
+        $mform->addElement('select', 'popup', get_string('display', 'scorm'), scorm_get_popup_display_array());
+        $mform->setDefault('popup', $cfg_scorm->popup);
+        $mform->setAdvanced('popup');
+
 // Width
         $mform->addElement('text', 'width', get_string('width','scorm'), 'maxlength="5" size="5"');
         $mform->setDefault('width', $cfg_scorm->framewidth);
         $mform->setType('width', PARAM_INT);
+        $mform->setAdvanced('width');
+        $mform->disabledIf('width', 'popup', 'eq', 0);
 
 // Height
         $mform->addElement('text', 'height', get_string('height','scorm'), 'maxlength="5" size="5"');
         $mform->setDefault('height', $cfg_scorm->frameheight);
         $mform->setType('height', PARAM_INT);
-
-// Framed / Popup Window
-        $mform->addElement('select', 'popup', get_string('display', 'scorm'), scorm_get_popup_display_array());
-        $mform->setDefault('popup', $cfg_scorm->popup);
-        $mform->setAdvanced('popup');
+        $mform->setAdvanced('height');
+        $mform->disabledIf('height', 'popup', 'eq', 0);
 
 // Window Options
         $winoptgrp = array();
@@ -261,14 +258,19 @@ class mod_scorm_mod_form extends moodleform_mod {
         if (isset($default_values['grademethod'])) {
             $default_values['grademethod'] = intval($default_values['grademethod']);
         }
-        if (isset($default_value['width']) && (strpos($default_value['width'],'%') === false) && ($default_value['width'] <= 100)) {
-            $default_value['width'] .= '%';
+        if (isset($default_values['width']) && (strpos($default_values['width'],'%') === false) && ($default_values['width'] <= 100)) {
+            $default_values['width'] .= '%';
         }
-        if (isset($default_value['width']) && (strpos($default_value['height'],'%') === false) && ($default_value['height'] <= 100)) {
-            $default_value['height'] .= '%';
+        if (isset($default_values['width']) && (strpos($default_values['height'],'%') === false) && ($default_values['height'] <= 100)) {
+            $default_values['height'] .= '%';
         }
         $scorms = get_all_instances_in_course('scorm', $COURSE);
         $coursescorm = current($scorms);
+
+        $draftitemid = file_get_submitted_draft_itemid('packagefile');
+        file_prepare_draft_area($draftitemid, $this->context->id, 'mod_scorm', 'package', 0);
+        $default_values['packagefile'] = $draftitemid;
+
         if (($COURSE->format == 'scorm') && ((count($scorms) == 0) || ($default_values['instance'] == $coursescorm->id))) {
             $default_values['redirect'] = 'yes';
             $default_values['redirecturl'] = '../course/view.php?id='.$default_values['course'];
@@ -283,9 +285,10 @@ class mod_scorm_mod_form extends moodleform_mod {
             $default_values['datadir'] = $default_values['instance'];
         }
         if (empty($default_values['timeopen'])) {
-            $default_values['timerestrict'] = 0;
-        } else {
-            $default_values['timerestrict'] = 1;
+            $default_values['timeopen'] = 0;
+        }
+        if (empty($default_values['timeclose'])) {
+            $default_values['timeclose'] = 0;
         }
     }
 
@@ -306,6 +309,7 @@ class mod_scorm_mod_form extends moodleform_mod {
                 $files = $this->get_draft_files('packagefile');
                 if (count($files)<1) {
                     $errors['packagefile'] = get_string('required');
+                    return $errors;
                 }
                 $file = reset($files);
                 $filename = $CFG->dataroot.'/temp/scormimport/scrom_'.time();

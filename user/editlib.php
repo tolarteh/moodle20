@@ -35,15 +35,20 @@ function useredit_update_user_preference($usernew) {
 
 function useredit_update_picture(&$usernew, $userform) {
     global $CFG, $DB;
+    require_once("$CFG->libdir/gdlib.php");
+
+    $fs = get_file_storage();
+    $context = get_context_instance(CONTEXT_USER, $usernew->id, MUST_EXIST);
 
     if (isset($usernew->deletepicture) and $usernew->deletepicture) {
-        $location = make_user_directory($usernew->id, true);
-        @remove_dir($location);
+        $fs->delete_area_files($context->id, 'user', 'icon'); // drop all areas
         $DB->set_field('user', 'picture', 0, array('id'=>$usernew->id));
 
-    } else if ($userform->get_new_filename('imagefile')) {
-        $usernew->picture = (int)save_profile_image($usernew->id, $userform, 'user', 'imagefile');
-        $DB->set_field('user', 'picture', $usernew->picture, array('id'=>$usernew->id));
+    } else if ($iconfile = $userform->save_temp_file('imagefile')) {
+        if (process_new_icon($context, 'user', 'icon', 0, $iconfile)) {
+            $DB->set_field('user', 'picture', 1, array('id'=>$usernew->id));
+        }
+        @unlink($iconfile);
     }
 }
 
@@ -82,7 +87,7 @@ function useredit_shared_definition(&$mform, $editoroptions = null) {
 
     $strrequired = get_string('required');
 
-    $nameordercheck = new object();
+    $nameordercheck = new stdClass();
     $nameordercheck->firstname = 'a';
     $nameordercheck->lastname  = 'b';
     if (fullname($nameordercheck) == 'b a' ) {  // See MDL-4325
@@ -118,16 +123,10 @@ function useredit_shared_definition(&$mform, $editoroptions = null) {
     $mform->setDefault('maildisplay', 2);
 
     $choices = array();
-    $choices['0'] = get_string('emailenable');
-    $choices['1'] = get_string('emaildisable');
-    $mform->addElement('select', 'emailstop', get_string('emailactive'), $choices);
-    $mform->setDefault('emailstop', 0);
-
-    $choices = array();
     $choices['0'] = get_string('textformat');
     $choices['1'] = get_string('htmlformat');
     $mform->addElement('select', 'mailformat', get_string('emailformat'), $choices);
-    $mform->setDefault('mailformat', 1);    
+    $mform->setDefault('mailformat', 1);
 
     if (!empty($CFG->allowusermailcharset)) {
         $choices = array();
@@ -138,7 +137,7 @@ function useredit_shared_definition(&$mform, $editoroptions = null) {
             $choices['0'] = get_string('site').' (UTF-8)';
         }
         $choices = array_merge($choices, $charsets);
-        $mform->addElement('select', 'preference_mailcharset', get_string('emailcharset'), $choices);        
+        $mform->addElement('select', 'preference_mailcharset', get_string('emailcharset'), $choices);
     }
 
     $choices = array();
@@ -161,15 +160,20 @@ function useredit_shared_definition(&$mform, $editoroptions = null) {
         $mform->addElement('select', 'trackforums', get_string('trackforums'), $choices);
         $mform->setDefault('trackforums', 0);
     }
-/* TODO: reimplement editor preferences
-    if (!empty($CFG->htmleditor)) {
+
+    $editors = editors_get_enabled();
+    if (count($editors) > 1) {
         $choices = array();
         $choices['0'] = get_string('texteditor');
         $choices['1'] = get_string('htmleditor');
         $mform->addElement('select', 'htmleditor', get_string('textediting'), $choices);
         $mform->setDefault('htmleditor', 1);
+    } else {
+        $mform->addElement('hidden', 'htmleditor');
+        $mform->setDefault('htmleditor', 1);
+        $mform->setType('htmleditor', PARAM_INT);
     }
-*/
+
     if (empty($CFG->enableajax)) {
         $mform->addElement('static', 'ajaxdisabled', get_string('ajaxuse'), get_string('ajaxno'));
     } else {
@@ -185,8 +189,9 @@ function useredit_shared_definition(&$mform, $editoroptions = null) {
     $choices['1'] = get_string('screenreaderyes');
     $mform->addElement('select', 'screenreader', get_string('screenreaderuse'), $choices);
     $mform->setDefault('screenreader', 0);
+    $mform->addHelpButton('screenreader', 'screenreaderuse');
 
-    $mform->addElement('text', 'city', get_string('city'), 'maxlength="20" size="21"');
+    $mform->addElement('text', 'city', get_string('city'), 'maxlength="120" size="21"');
     $mform->setType('city', PARAM_MULTILANG);
     $mform->addRule('city', $strrequired, 'required', null, 'client');
 
@@ -220,7 +225,7 @@ function useredit_shared_definition(&$mform, $editoroptions = null) {
                 $choices[$key] = $theme->name;
             }
         }
-        $mform->addElement('select', 'theme', get_string('preferredtheme'), $choices);        
+        $mform->addElement('select', 'theme', get_string('preferredtheme'), $choices);
     }
 
     $mform->addElement('editor', 'description_editor', get_string('userdescription'), null, $editoroptions);
@@ -233,9 +238,9 @@ function useredit_shared_definition(&$mform, $editoroptions = null) {
         $mform->addElement('static', 'currentpicture', get_string('currentpicture'));
 
         $mform->addElement('checkbox', 'deletepicture', get_string('delete'));
-        $mform->setDefault('deletepicture',false);
+        $mform->setDefault('deletepicture', 0);
 
-        $mform->addElement('filepicker', 'imagefile', get_string('newpicture'));
+        $mform->addElement('filepicker', 'imagefile', get_string('newpicture'), '', array('maxbytes'=>get_max_upload_file_size($CFG->maxbytes)));
         $mform->addHelpButton('imagefile', 'newpicture');
 
         $mform->addElement('text', 'imagealt', get_string('imagealt'), 'maxlength="100" size="30"');
@@ -250,28 +255,28 @@ function useredit_shared_definition(&$mform, $editoroptions = null) {
     }
 
     /// Moodle optional fields
-    $mform->addElement('header', 'moodle_optional', get_string('optional', 'form'));   
+    $mform->addElement('header', 'moodle_optional', get_string('optional', 'form'));
 
     $mform->addElement('text', 'url', get_string('webpage'), 'maxlength="255" size="50"');
     $mform->setType('url', PARAM_URL);
 
     $mform->addElement('text', 'icq', get_string('icqnumber'), 'maxlength="15" size="25"');
-    $mform->setType('icq', PARAM_CLEAN);
+    $mform->setType('icq', PARAM_NOTAGS);
 
     $mform->addElement('text', 'skype', get_string('skypeid'), 'maxlength="50" size="25"');
-    $mform->setType('skype', PARAM_CLEAN);
+    $mform->setType('skype', PARAM_NOTAGS);
 
     $mform->addElement('text', 'aim', get_string('aimid'), 'maxlength="50" size="25"');
-    $mform->setType('aim', PARAM_CLEAN);
+    $mform->setType('aim', PARAM_NOTAGS);
 
     $mform->addElement('text', 'yahoo', get_string('yahooid'), 'maxlength="50" size="25"');
-    $mform->setType('yahoo', PARAM_CLEAN);
+    $mform->setType('yahoo', PARAM_NOTAGS);
 
     $mform->addElement('text', 'msn', get_string('msnid'), 'maxlength="50" size="25"');
-    $mform->setType('msn', PARAM_CLEAN);
+    $mform->setType('msn', PARAM_NOTAGS);
 
     $mform->addElement('text', 'idnumber', get_string('idnumber'), 'maxlength="255" size="25"');
-    $mform->setType('idnumber', PARAM_CLEAN);
+    $mform->setType('idnumber', PARAM_NOTAGS);
 
     $mform->addElement('text', 'institution', get_string('institution'), 'maxlength="40" size="25"');
     $mform->setType('institution', PARAM_MULTILANG);
@@ -280,10 +285,10 @@ function useredit_shared_definition(&$mform, $editoroptions = null) {
     $mform->setType('department', PARAM_MULTILANG);
 
     $mform->addElement('text', 'phone1', get_string('phone'), 'maxlength="20" size="25"');
-    $mform->setType('phone1', PARAM_CLEAN);
+    $mform->setType('phone1', PARAM_NOTAGS);
 
     $mform->addElement('text', 'phone2', get_string('phone2'), 'maxlength="20" size="25"');
-    $mform->setType('phone2', PARAM_CLEAN);
+    $mform->setType('phone2', PARAM_NOTAGS);
 
     $mform->addElement('text', 'address', get_string('address'), 'maxlength="70" size="25"');
     $mform->setType('address', PARAM_MULTILANG);

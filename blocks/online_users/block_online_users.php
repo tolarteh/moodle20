@@ -8,7 +8,6 @@
 class block_online_users extends block_base {
     function init() {
         $this->title = get_string('pluginname','block_online_users');
-        $this->version = 2007101510;
     }
 
     function has_config() {return true;}
@@ -55,7 +54,7 @@ class block_online_users extends block_base {
             $params['currentgroup'] = $currentgroup;
         }
 
-        $userfields = user_picture::fields('u').', username';
+        $userfields = user_picture::fields('u', array('username'));
 
         if ($this->page->course->id == SITEID) {  // Site-level
             $sql = "SELECT $userfields, MAX(u.lastaccess) AS lastaccess
@@ -80,7 +79,7 @@ class block_online_users extends block_base {
 
             $sql = "SELECT $userfields, MAX(ul.timeaccess) AS lastaccess
                       FROM {user_lastaccess} ul, {user} u $groupmembers $rafrom
-                      JOIN ($esqljoin) euj ON euj.id = u.id     
+                      JOIN ($esqljoin) euj ON euj.id = u.id
                      WHERE ul.timeaccess > $timefrom
                            AND u.id = ul.userid
                            AND ul.courseid = :courseid
@@ -145,7 +144,7 @@ class block_online_users extends block_base {
                 $this->content->text .= '<li class="listentry">';
                 $timeago = format_time(time() - $user->lastaccess); //bruno to calculate correctly on frontpage
 
-                if ($user->username == 'guest') {
+                if (isguestuser($user)) {
                     $this->content->text .= '<div class="user">'.$OUTPUT->user_picture($user, array('size'=>16));
                     $this->content->text .= get_string('guestuser').'</div>';
 
@@ -153,12 +152,9 @@ class block_online_users extends block_base {
                     $this->content->text .= '<div class="user">'.$OUTPUT->user_picture($user, array('size'=>16));
                     $this->content->text .= '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.$this->page->course->id.'" title="'.$timeago.'">'.$user->fullname.'</a></div>';
                 }
-                if ($canshowicon and ($USER->id != $user->id) and  $user->username != 'guest') {  // Only when logged in and messaging active etc
-                    $link = '/message/discussion.php?id='.$user->id;
+                if ($canshowicon and ($USER->id != $user->id) and !isguestuser($user)) {  // Only when logged in and messaging active etc
                     $anchortagcontents = '<img class="iconsmall" src="'.$OUTPUT->pix_url('t/message') . '" alt="'. get_string('messageselectadd') .'" />';
-
-                    $action = new popup_action('click', $link, 'message_'.$user->id, array('width'=>400,'height'=>500));
-                    $anchortag = $OUTPUT->action_link($link, $anchortagcontents, $action, array('title'=>get_string('messageselectadd')));
+                    $anchortag = '<a href="'.$CFG->wwwroot.'/message/index.php?id='.$user->id.'" title="'.get_string('messageselectadd').'">'.$anchortagcontents .'</a>';
 
                     $this->content->text .= '<div class="message">'.$anchortag.'</div>';
                 }

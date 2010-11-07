@@ -18,9 +18,10 @@
 /**
  * Functions used by some stages of number of errors grading upgrade
  *
- * @package   workshopform_numerrors
- * @copyright 2010 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    workshopform
+ * @subpackage numerrors
+ * @copyright  2010 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once($CFG->libdir.'/gradelib.php'); // grade_floatval() called here
@@ -116,7 +117,7 @@ function workshopform_numerrors_upgrade_legacy() {
 /**
  * Transforms a given record from workshop_elements_old into an object to be saved into workshopform_numerrors
  *
- * @param stdclass $old legacy record from workshop_elements_old
+ * @param stdClass $old legacy record from workshop_elements_old
  * @param int $newworkshopid id of the new workshop instance that replaced the previous one
  * @return stdclass to be saved in workshopform_numerrors
  */
@@ -148,9 +149,9 @@ function workshopform_numerrors_upgrade_element(stdclass $old, $newworkshopid) {
 /**
  * Transforms given grade record
  *
- * @param stdclass $old
+ * @param stdClass $old
  * @param int $newassessmentid
- * @param stdclass $newdimensioninfo
+ * @param stdClass $newdimensioninfo
  * @return stdclass
  */
 function workshopform_numerrors_upgrade_grade(stdclass $old, $newassessmentid, stdclass $newdimensioninfo) {

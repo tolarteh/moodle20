@@ -19,11 +19,13 @@
 /**
  * Experimental SQLite specific SQL code generator.
  *
- * @package    moodlecore
- * @subpackage DDL
+ * @package    core
+ * @subpackage ddl
  * @copyright  2008 Andrei Bautu
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir.'/ddl/sql_generator.php');
 
@@ -84,8 +86,8 @@ class sqlite_sql_generator extends sql_generator {
         }
 
         // From http://sqlite.org/autoinc.html
-        $value = (int)$this->mdb->get_field_sql('SELECT MAX(id) FROM {'.$tablename.'}');
-        return array("UPDATE sqlite_sequence SET seq=$value WHERE name='$this->prefix$tablename'");
+        $value = (int)$this->mdb->get_field_sql('SELECT MAX(id) FROM {'.$table.'}');
+        return array("UPDATE sqlite_sequence SET seq=$value WHERE name='{$this->prefix}{$table}'");
     }
 
     /**
@@ -398,7 +400,7 @@ class sqlite_sql_generator extends sql_generator {
         foreach ($columns as $key => $column) {
             // Enum found, let's add it to the constraints list
             if (!empty($column->enums) && (!$filter || $column->name == $filter)) {
-                    $result = new object;
+                    $result = new stdClass();
                     $result->name = $key;
                     $result->description = implode(', ', $column->enums);
                     $results[$key] = $result;

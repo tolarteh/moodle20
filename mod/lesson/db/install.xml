@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/lesson/db" VERSION="20091208" COMMENT="XMLDB file for Moodle mod/lesson"
+<XMLDB PATH="mod/lesson/db" VERSION="20100720" COMMENT="XMLDB file for Moodle mod/lesson"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
@@ -30,7 +30,7 @@
         <FIELD NAME="maxtime" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="timed" NEXT="retake"/>
         <FIELD NAME="retake" TYPE="int" LENGTH="3" NOTNULL="true" UNSIGNED="true" DEFAULT="1" SEQUENCE="false" PREVIOUS="maxtime" NEXT="activitylink"/>
         <FIELD NAME="activitylink" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="retake" NEXT="mediafile"/>
-        <FIELD NAME="mediafile" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" PREVIOUS="activitylink" NEXT="mediaheight"/>
+        <FIELD NAME="mediafile" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" PREVIOUS="activitylink" NEXT="mediaheight" COMMENT="Local file path or full external URL"/>
         <FIELD NAME="mediaheight" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="100" SEQUENCE="false" PREVIOUS="mediafile" NEXT="mediawidth"/>
         <FIELD NAME="mediawidth" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="650" SEQUENCE="false" PREVIOUS="mediaheight" NEXT="mediaclose"/>
         <FIELD NAME="mediaclose" TYPE="int" LENGTH="3" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="mediawidth" NEXT="slideshow"/>
@@ -67,7 +67,8 @@
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="display" NEXT="timemodified"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="timecreated" NEXT="title"/>
         <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" PREVIOUS="timemodified" NEXT="contents"/>
-        <FIELD NAME="contents" TYPE="text" LENGTH="small" NOTNULL="true" SEQUENCE="false" PREVIOUS="title"/>
+        <FIELD NAME="contents" TYPE="text" LENGTH="small" NOTNULL="true" SEQUENCE="false" PREVIOUS="title" NEXT="contentsformat"/>
+        <FIELD NAME="contentsformat" TYPE="int" LENGTH="2" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="contents"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" NEXT="lessonid"/>
@@ -85,8 +86,10 @@
         <FIELD NAME="flags" TYPE="int" LENGTH="3" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="score" NEXT="timecreated"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="flags" NEXT="timemodified"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="timecreated" NEXT="answer"/>
-        <FIELD NAME="answer" TYPE="text" LENGTH="small" NOTNULL="false" SEQUENCE="false" PREVIOUS="timemodified" NEXT="response"/>
-        <FIELD NAME="response" TYPE="text" LENGTH="small" NOTNULL="false" SEQUENCE="false" PREVIOUS="answer"/>
+        <FIELD NAME="answer" TYPE="text" LENGTH="small" NOTNULL="false" SEQUENCE="false" PREVIOUS="timemodified" NEXT="answerformat"/>
+        <FIELD NAME="answerformat" TYPE="int" LENGTH="2" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="answer" NEXT="response"/>
+        <FIELD NAME="response" TYPE="text" LENGTH="small" NOTNULL="false" SEQUENCE="false" PREVIOUS="answerformat" NEXT="responseformat"/>
+        <FIELD NAME="responseformat" TYPE="int" LENGTH="2" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="response"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" NEXT="lessonid"/>

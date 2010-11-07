@@ -25,6 +25,7 @@
 
 $string['all'] = 'All';
 $string['apikey'] = 'API key';
+$string['backtosearch'] = 'Back to search screen';
 $string['by'] = 'Attribution License';
 $string['by-nc'] = 'Attribution-NonCommercial License';
 $string['by-nc-nd'] = 'Attribution-NonCommercial-NoDerivs License';
@@ -45,10 +46,10 @@ $string['modification'] = 'I want to be able to modify the images';
 $string['notitle'] = 'notitle';
 $string['nullphotolist'] = 'There are no photos in this account';
 $string['remember'] = 'Remember me';
-$string['repositorydesc'] = 'Repository on flickr.com';
-$string['repositoryname'] = 'Flickr public';
+$string['pluginname_help'] = 'Repository on flickr.com';
+$string['pluginname'] = 'Flickr public';
 $string['secret'] = 'Secret';
 $string['sharealike'] = 'Yes, as long as others share alike';
 $string['tag'] = 'Tag';
 $string['username'] = 'Flickr account email';
-$string['watermark'] = 'Add watermark to photos (Author and URL)';
+$string['watermark'] = 'Add watermark to photos';

@@ -3,7 +3,7 @@
  *  Base include file for SimpleTest.
  *  @package    SimpleTest
  *  @subpackage WebTester
- *  @version    $Id: web_tester.php,v 1.3 2008-06-10 20:10:53 nicolasconnault Exp $
+ *  @version    $Id: web_tester.php,v 1.5 2010/07/20 01:29:37 jonathanharker Exp $
  */
 
 /**#@+
@@ -190,7 +190,7 @@ class HttpHeaderExpectation extends SimpleExpectation {
      *    @access protected
      */
     function _findHeader($compare) {
-        $lines = split("\r\n", $compare);
+        $lines = explode("\r\n", $compare);
         foreach ($lines as $line) {
             if ($this->_testHeaderLine($line)) {
                 return $line;
@@ -206,7 +206,7 @@ class HttpHeaderExpectation extends SimpleExpectation {
      *    @access private
      */
     function _testHeaderLine($line) {
-        if (count($parsed = split(':', $line, 2)) < 2) {
+        if (count($parsed = explode(':', $line, 2)) < 2) {
             return false;
         }
         list($header, $value) = $parsed;
@@ -503,7 +503,7 @@ class WebTestCase extends SimpleTestCase {
      *    @access public
      */
     function &createBrowser() {
-        $browser = &new SimpleBrowser();
+        $browser = new SimpleBrowser();
         return $browser;
     }
     

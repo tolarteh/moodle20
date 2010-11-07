@@ -56,9 +56,9 @@ if (!$cm = get_coursemodule_from_instance('wiki', $wiki->id)) {
     print_error('invalidcoursemodule');
 }
 
-$course = $DB->get_record('course', array('id'=>$cm->course), '*', MUST_EXIST);
+$course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
 
-require_course_login($course->id, true, $cm);
+require_login($course->id, true, $cm);
 
 add_to_log($course->id, "restore", "restore", "view.php?id=$cm->id", "$wiki->id");
 

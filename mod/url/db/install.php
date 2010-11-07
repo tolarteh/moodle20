@@ -23,19 +23,16 @@
  *   - lib.php/modulename_install() post installation hook
  *   - partially defaults.php
  *
- * @package   mod-url
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage url
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die;
 
 function xmldb_url_install() {
     global $CFG;
-
-    // Install logging support
-    update_log_display_entry('url', 'view', 'url', 'name');
-    update_log_display_entry('url', 'view all', 'url', 'name');
-    update_log_display_entry('url', 'update', 'url', 'name');
-    update_log_display_entry('url', 'add', 'url', 'name');
 
     // migrate settings if present
     if (!empty($CFG->resource_secretphrase)) {

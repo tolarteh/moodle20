@@ -23,8 +23,6 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['database:config'] = 'Configure external database enrol instances';
-$string['database:manage'] = 'Manage external database enrol instances';
 $string['dbencoding'] = 'Database encoding';
 $string['dbhost'] = 'Database host';
 $string['dbhost_desc'] = 'Type database server IP address or host name';
@@ -70,8 +68,3 @@ $string['settingsheadernewcourses'] = 'Creation of new courses';
 $string['remoteuserfield_desc'] = 'The name of the field in the remote table that we are using to match entries in the user table.';
 $string['templatecourse'] = 'New course template';
 $string['templatecourse_desc'] = 'Optional: auto-created courses can copy their settings from a template course. Type here the shortname of the template course.';
-$string['unenrolaction'] = 'External unenrol action';
-$string['unenrolaction_desc'] = 'Select action to carry our when user enrolment disappears from external enrolment table. Please note that some user data and settings are purged from course during course unenrolment.';
-$string['unenrolactiondisable'] = 'Disable course enrolment';
-$string['unenrolactionkeep'] = 'Keep user enrolled';
-$string['unenrolactionunenrol'] = 'Unenrol user from course';

@@ -15,14 +15,14 @@
             print_error('cannotfindadmin', 'debug');
         }
 
-        $supportuser = new object;
+        $supportuser = new stdClass();
         $supportuser->email = $CFG->supportemail ? $CFG->supportemail : $admin->email;
         $supportuser->firstname = $CFG->supportname ? $CFG->supportname : $admin->firstname;
         $supportuser->lastname = $CFG->supportname ? '' : $admin->lastname;
         $supportuser->maildisplay = true;
 
     /// Send the message and redirect
-        $eventdata = new object();
+        $eventdata = new stdClass();
         $eventdata->modulename        = 'moodle';
         $eventdata->userfrom          = $USER;
         $eventdata->userto            = $supportuser;
@@ -48,13 +48,13 @@
     $PAGE->set_url('/error/');
     $PAGE->set_title($site->fullname .':Error');
     $PAGE->set_heading($site->fullname .': Error 404');
+    $PAGE->set_context(get_system_context());
     $PAGE->navbar->add('Error 404 - File not Found');
     echo $OUTPUT->header();
     echo $OUTPUT->box(get_string('pagenotexist', 'error'). '<br />'.s($requesturi), 'generalbox boxaligncenter');
 
     if (isloggedin()) {
 ?>
-        <center>
         <p><?php echo get_string('pleasereport', 'error'); ?>
         <p><form action="<?php echo $CFG->wwwroot ?>/error/index.php" method="post">
            <textarea rows="3" cols="50" name="text" id="text"></textarea><br />

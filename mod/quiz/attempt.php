@@ -27,7 +27,7 @@
     $attemptid = required_param('attempt', PARAM_INT);
     $page = optional_param('page', 0, PARAM_INT);
 
-    $url = new moodle_url('/mod/quiz/attempt.php', array('attempt'=>$attemptid));
+    $url = new moodle_url('/mod/quiz/attempt.php', array('attempt' => $attemptid));
     if ($page !== 0) {
         $url->param('page', $page);
     }
@@ -47,12 +47,15 @@
         }
     }
 
-/// Check capabilites and block settings
+/// Check capabilities and block settings
     if (!$attemptobj->is_preview_user()) {
         $attemptobj->require_capability('mod/quiz:attempt');
         if (empty($attemptobj->get_quiz()->showblocks)) {
             $PAGE->blocks->show_only_fake_blocks();
         }
+
+    } else {
+        navigation_node::override_active_url($attemptobj->start_attempt_url());
     }
 
 /// If the attempt is already closed, send them to the review page.
@@ -87,10 +90,10 @@
     $attemptobj->load_question_states($questionids);
 
 /// Print the quiz page ////////////////////////////////////////////////////////
-    $PAGE->requires->js('/lib/overlib/overlib.js', true);
-    $PAGE->requires->js('/lib/overlib/overlib_cssstyle.js', true);
 
-    
+    // Initialise the JavaScript.
+    $headtags = $attemptobj->get_html_head_contributions($page);
+    $PAGE->requires->js_init_call('M.mod_quiz.init_attempt_form', null, false, quiz_get_js_module());
 
     // Arrange for the navigation to be displayed.
     $navbc = $attemptobj->get_navigation_panel('quiz_attempt_nav_panel', $page);
@@ -99,12 +102,11 @@
 
     // Print the page header
     $title = get_string('attempt', 'quiz', $attemptobj->get_attempt_number());
-    $headtags = $attemptobj->get_html_head_contributions($page);
     $PAGE->set_heading($attemptobj->get_course()->fullname);
     if ($accessmanager->securewindow_required($attemptobj->is_preview_user())) {
         $accessmanager->setup_secure_page($attemptobj->get_course()->shortname . ': ' .
-                format_string($attemptobj->get_quiz_name()), $headtags);
-    } elseif ($accessmanager->safebrowser_required($attemptobj->is_preview_user())) {
+                format_string($attemptobj->get_quiz_name()));
+    } else if ($accessmanager->safebrowser_required($attemptobj->is_preview_user())) {
         $PAGE->set_title($attemptobj->get_course()->shortname . ': '.format_string($attemptobj->get_quiz_name()));
         $PAGE->set_cacheable(false);
         echo $OUTPUT->header();
@@ -112,7 +114,6 @@
         $PAGE->set_title(format_string($attemptobj->get_quiz_name()));
         echo $OUTPUT->header();
     }
-    echo '<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>'; // for overlib
 
     if ($attemptobj->is_preview_user()) {
 
@@ -134,11 +135,6 @@
     // Start the form
     echo '<form id="responseform" method="post" action="', s($attemptobj->processattempt_url()),
             '" enctype="multipart/form-data" accept-charset="utf-8">', "\n";
-
-    // A quiz page with a lot of questions can take a long time to load, and we
-    // want the protection afforded by init_quiz_form immediately, so include the
-    // JS now.
-    echo html_writer::script(js_writer::function_call('init_quiz_form'));
     echo '<div>';
 
 /// Print all the questions

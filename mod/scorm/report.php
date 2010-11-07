@@ -157,7 +157,7 @@
 
                 // We only want to show the checkbox to delete attempts
                 // if the user has permissions and if the report mode is showing attempts.
-                $candelete = has_capability('mod/scorm:deleteresponses',$contextmodule) 
+                $candelete = has_capability('mod/scorm:deleteresponses',$contextmodule)
                         && ($attemptsmode!= SCORM_REPORT_ATTEMPTS_STUDENTS_WITH_NO);
                 // select the students
                 $nostudents = false;
@@ -165,7 +165,7 @@
                 if (empty($currentgroup)) {
                     // all users who can attempt scoes
                     if (!$students = get_users_by_capability($contextmodule, 'mod/scorm:savetrack','','','','','','',false)){
-                        notify(get_string('nostudentsyet'));
+                        echo $OUTPUT->notification(get_string('nostudentsyet'));
                         $nostudents = true;
                         $allowedlist = '';
                     } else {
@@ -174,20 +174,20 @@
                 } else {
                     // all users who can attempt scoes and who are in the currently selected group
                     if (!$groupstudents = get_users_by_capability($context, 'mod/scorm:savetrack','','','','',$currentgroup,'',false)){
-                        notify(get_string('nostudentsingroup'));
+                        echo $OUTPUT->notification(get_string('nostudentsingroup'));
                         $nostudents = true;
                         $groupstudents = array();
                     }
                     $allowedlist = join(',', array_keys($groupstudents));
                 }
-                
+
                 if( !$nostudents ) {
-                    
+
                     // Now check if asked download of data
                     if ($download) {
                         $filename = clean_filename("$course->shortname ".format_string($scorm->name,true));
                     }
-                
+
                     // Define table columns
                     $columns = array();
                     $headers = array();
@@ -224,21 +224,21 @@
                     } else {
                         $scoes = NULL;
                     }
-                    
+
                     if (!$download) {
                         $table = new flexible_table('mod-scorm-report');
-            
+
                         $table->define_columns($columns);
                         $table->define_headers($headers);
                         $table->define_baseurl($reporturlwithdisplayoptions->out());
-            
+
                         $table->sortable(true);
                         $table->collapsible(true);
-                        
+
                         $table->column_suppress('picture');
                         $table->column_suppress('fullname');
                         $table->column_suppress('idnumber');
-                        
+
                         $table->no_sorting('start');
                         $table->no_sorting('finish');
                         $table->no_sorting('score');
@@ -249,20 +249,20 @@
                                 }
                             }
                         }
-                        
+
                         $table->column_class('picture', 'picture');
                         $table->column_class('fullname', 'bold');
                         $table->column_class('score', 'bold');
-            
+
                         $table->set_attribute('cellspacing', '0');
                         $table->set_attribute('id', 'attempts');
                         $table->set_attribute('class', 'generaltable generalbox');
-                        
+
                         // Start working -- this is necessary as soon as the niceties are over
                         $table->setup();
                     } else if ($download =='ODS') {
                         require_once("$CFG->libdir/odslib.class.php");
-            
+
                         $filename .= ".ods";
                         // Creating a workbook
                         $workbook = new MoodleODSWorkbook("-");
@@ -292,7 +292,7 @@
                         $formatg->set_color('green');
                         $formatg->set_align('center');
                         // Here starts workshhet headers
-            
+
                         $colnum = 0;
                         foreach ($headers as $item) {
                             $myxls->write(0,$colnum,$item,$formatbc);
@@ -301,7 +301,7 @@
                         $rownum=1;
                     } else if ($download =='Excel') {
                         require_once("$CFG->libdir/excellib.class.php");
-            
+
                         $filename .= ".xls";
                         // Creating a workbook
                         $workbook = new MoodleExcelWorkbook("-");
@@ -330,7 +330,7 @@
                         $formatg->set_bold(1);
                         $formatg->set_color('green');
                         $formatg->set_align('center');
-            
+
                         $colnum = 0;
                         foreach ($headers as $item) {
                             $myxls->write(0,$colnum,$item,$formatbc);
@@ -349,12 +349,12 @@
 
                     // Construct the SQL
                     $select = 'SELECT DISTINCT '.$DB->sql_concat('u.id', '\'#\'', 'COALESCE(st.attempt, 0)').' AS uniqueid, ';
-                    $select .= 'st.scormid AS scormid, st.attempt AS attempt, ' . 
-                            'u.id AS userid, u.idnumber, u.firstname, u.lastname, u.picture, u.imagealt ';
+                    $select .= 'st.scormid AS scormid, st.attempt AS attempt, ' .
+                            'u.id AS userid, u.idnumber, u.firstname, u.lastname, u.picture, u.imagealt, u.email ';
 
                     // This part is the same for all cases - join users and scorm_scoes_track tables
-                    $from = 'FROM '.$CFG->prefix.'user u ';
-                    $from .= 'LEFT JOIN '.$CFG->prefix.'scorm_scoes_track st ON st.userid = u.id AND st.scormid = '.$scorm->id;
+                    $from = 'FROM {user} u ';
+                    $from .= 'LEFT JOIN {scorm_scoes_track} st ON st.userid = u.id AND st.scormid = '.$scorm->id;
                     switch ($attemptsmode){
                         case SCORM_REPORT_ATTEMPTS_STUDENTS_WITH:
                             // Show only students with attempts
@@ -369,12 +369,13 @@
                             $where = ' WHERE u.id IN (' .$allowedlist. ') AND (st.userid IS NOT NULL OR st.userid IS NULL)';
                             break;
                     }
-                    
+
                     $countsql = 'SELECT COUNT(DISTINCT('.$DB->sql_concat('u.id', '\'#\'', 'COALESCE(st.attempt, 0)').')) AS nbresults, ';
                     $countsql .= 'COUNT(DISTINCT('.$DB->sql_concat('u.id', '\'#\'','st.attempt').')) AS nbattempts, ';
                     $countsql .= 'COUNT(DISTINCT(u.id)) AS nbusers ';
                     $countsql .= $from.$where;
-                    
+                    $params = array();
+
                     if (!$download) {
                         $sort = $table->get_sql_sort();
                     }
@@ -390,22 +391,24 @@
 
                     if (!$download) {
                         // Add extra limits due to initials bar
-                        if($table->get_sql_where()) {
-                            $where .= ' AND '.$table->get_sql_where();
+                        list($twhere, $tparams) = $table->get_sql_where();
+                        if ($twhere) {
+                            $where .= ' AND '.$twhere; //initial bar
+                            $params = array_merge($params, $tparams);
                         }
 
                         if (!empty($countsql)) {
                             $count = $DB->get_record_sql($countsql);
                             $totalinitials = $count->nbresults;
-                            if ($table->get_sql_where()) {
-                                $countsql .= ' AND '.$table->get_sql_where();
+                            if ($twhere) {
+                                $countsql .= ' AND '.$twhere;
                             }
-                            $count = $DB->get_record_sql($countsql);
+                            $count = $DB->get_record_sql($countsql, $params);
                             $total  = $count->nbresults;
                         }
 
                         $table->pagesize($pagesize, $total);
-                        
+
                         echo '<div class="quizattemptcounts">';
                         if ( $count->nbresults == $count->nbattempts ) {
                             echo get_string('reportcountattempts','scorm', $count);
@@ -419,12 +422,12 @@
 
                     // Fetch the attempts
                     if (!$download) {
-                        $attempts = $DB->get_records_sql($select.$from.$where.$sort, array(),
+                        $attempts = $DB->get_records_sql($select.$from.$where.$sort, $params,
                                                 $table->get_page_start(), $table->get_page_size());
                         echo '<div id="scormtablecontainer">';
                         if ($candelete) {
                             // Start form
-                            $strreallydel  = addslashes(get_string('deleteattemptcheck','scorm'));
+                            $strreallydel  = addslashes_js(get_string('deleteattemptcheck','scorm'));
                             echo '<form id="attemptsform" method="post" action="' . $reporturlwithdisplayoptions->out(true) .
                                     '" onsubmit="return confirm(\''.$strreallydel.'\');">';
                             echo '<input type="hidden" name="action" value="delete"/>';
@@ -436,7 +439,7 @@
                         }
                         $table->initialbars($totalinitials>20); // Build table rows
                     } else {
-                        $attempts = $DB->get_records_sql($select.$from.$where.$sort);
+                        $attempts = $DB->get_records_sql($select.$from.$where.$sort, $params);
                     }
 
                     if ($attempts) {
@@ -454,8 +457,9 @@
                             }
                             if (in_array('picture', $columns)){
                                 $user = (object)array('id'=>$scouser->userid,
-                                                      'picture'=>$scouser->picture, 
-                                                      'imagealt'=>$scouser->imagealt, 
+                                                      'picture'=>$scouser->picture,
+                                                      'imagealt'=>$scouser->imagealt,
+                                                      'email'=>$scouser->email,
                                                       'firstname'=>$scouser->firstname,
                                                       'lastname'=>$scouser->lastname);
                                 $row[] = $OUTPUT->user_picture($user, array('courseid'=>$course->id));
@@ -480,7 +484,7 @@
                                 else $row[] = userdate($timetracks->start);
                                 if ($download =='ODS' || $download =='Excel' ) $row[] = userdate($timetracks->finish, get_string('strftimedatetime', 'langconfig'));
                                 else $row[] = userdate($timetracks->finish);
-                                
+
                                 $row[] = scorm_grade_user_attempt($scorm, $scouser->userid, $scouser->attempt);
                             }
                             // print out all scores of attempt
@@ -527,7 +531,7 @@
                                     }
                                 }
                             }
-                            
+
                             if (!$download) {
                                 $table->add_data($row);
                             } else if ($download == 'Excel' or $download == 'ODS') {
@@ -543,6 +547,7 @@
                             }
                         }
                         if (!$download) {
+                            $table->finish_output();
                             if ($candelete) {
                                 echo '<table id="commands">';
                                 echo '<tr><td>';
@@ -638,7 +643,7 @@
                                 $row[] = '<img src="'.$OUTPUT->pix_url($trackdata->status, 'scorm').'" alt="'.$strstatus.'" title="'.
                                          $strstatus.'" />&nbsp;'.format_string($sco->title);
                                 $row[] = get_string($trackdata->status,'scorm');
-                                $row[] = scorm_format_date_time($trackdata->total_time);
+                                $row[] = scorm_format_duration($trackdata->total_time);
                                 $row[] = $score;
                                 $row[] = $detailslink;
                             } else {
@@ -678,7 +683,7 @@
             }
             $strstatus = get_string($trackdata->status,'scorm');
             echo '<img src="'.$OUTPUT->pix_url($trackdata->status, 'scorm').'" alt="'.$strstatus.'" title="'.
-            $strstatus.'" />&nbsp;'.scorm_format_date_time($trackdata->total_time).'<br />'.$scoreview.'<br />';
+            $strstatus.'" />&nbsp;'.scorm_format_duration($trackdata->total_time).'<br />'.$scoreview.'<br />';
             echo '</div>'."\n";
             echo '<hr /><h2>'.get_string('details','scorm').'</h2>';
 
@@ -716,7 +721,7 @@
                             $row[] = $strstatus;
                         break;
                         case 'time':
-                            $row[] = s(scorm_format_date_time($trackdata->$element));
+                            $row[] = s(scorm_format_duration($trackdata->$element));
                         break;
                         default:
                             s($trackdata->$element);
@@ -833,7 +838,7 @@
                         if (strpos($element, '_time') === false) {
                             $row[] = s($value);
                         } else {
-                            $row[] = s(scorm_format_date_time($value));
+                            $row[] = s(scorm_format_duration($value));
                         }
                         $table->data[] = $row;
                     }

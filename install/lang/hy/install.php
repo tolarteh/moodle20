@@ -29,11 +29,13 @@
  */
 
 $string['admindirname'] = 'Admin դիրեկտորիա';
+$string['availablelangs'] = 'Մատչելի լեզվային փաթեթներ';
 $string['chooselanguagehead'] = 'Ընտրեք լեզուն';
 $string['chooselanguagesub'] = 'Ընտրեք լեզուն ՄԻԱՅՆ տեղակայման համար: Հետագա էկրաններից դուք հնարավորություն կունենաք ընտրել կայքի և օգտագործողի լեզուն:';
 $string['dataroot'] = 'Տվյալների դիրեկտորիա';
 $string['dbprefix'] = 'Աղյուսակների նախածանց';
 $string['dirroot'] = 'Moodle դիրեկտորիա';
+$string['environmenthead'] = 'Միջավայրի ստուգում  ...';
 $string['installation'] = 'Տեղակայում';
 $string['langdownloaderror'] = 'Ցավոք "{$a}" լեզուն տեղակայված չէ և տեղակայման գործընթացը կշարունակվի անգլերենով։';
 $string['memorylimithelp'] = '<p>PHP-ի հիշողության սահմանը սպասարկչի համար ներկայումս սահմանված է՝ {$a}։</p>

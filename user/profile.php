@@ -56,12 +56,12 @@ $currentuser = ($user->id == $USER->id);
 $context = $usercontext = get_context_instance(CONTEXT_USER, $userid, MUST_EXIST);
 
 if (!$currentuser &&
-    !empty($CFG->forceloginforprofiles) && 
-    !has_capability('moodle/user:viewdetails', $context) && 
-    !has_coursemanager_role($userid)) {
+    !empty($CFG->forceloginforprofiles) &&
+    !has_capability('moodle/user:viewdetails', $context) &&
+    !has_coursecontact_role($userid)) {
     // Course managers can be browsed at site level. If not forceloginforprofiles, allow access (bug #4366)
     $struser = get_string('user');
-    $PAGE->set_title("$SITE->shortname: $struser");
+    $PAGE->set_title("$SITE->shortname: $struser");  // Do not leak the name
     $PAGE->set_heading("$SITE->shortname: $struser");
     $PAGE->set_url('/user/profile.php', array('id'=>$userid));
     $PAGE->navbar->add($struser);
@@ -96,7 +96,11 @@ if (isguestuser()) {     // Guests can never edit their profile
     }
 }
 
-
+if (has_capability('moodle/user:viewhiddendetails', $context)) {
+    $hiddenfields = array();
+} else {
+    $hiddenfields = array_flip(explode(',', $CFG->hiddenuserfields));
+}
 
 // Start setting up the page
 $strpublicprofile = get_string('publicprofile');
@@ -105,8 +109,8 @@ $params = array('id'=>$userid);
 $PAGE->set_url('/user/profile.php', $params);
 $PAGE->blocks->add_region('content');
 $PAGE->set_subpage($currentpage->id);
-$PAGE->set_title("$SITE->shortname: $strpublicprofile");
-$PAGE->set_heading("$SITE->shortname: $strpublicprofile");
+$PAGE->set_title(fullname($user).": $strpublicprofile");
+$PAGE->set_heading(fullname($user).": $strpublicprofile");
 
 if (!$currentuser) {
     $PAGE->navigation->extend_for_user($user);
@@ -184,25 +188,18 @@ echo '<div class="userprofile">';
 echo $OUTPUT->heading(fullname($user));
 
 if (is_mnet_remote_user($user)) {
-    $sql = "
-         SELECT DISTINCT h.id, h.name, h.wwwroot,
-                a.name as application, a.display_name
-           FROM {mnet_host} h, {mnet_application} a
-          WHERE h.id = ? AND h.applicationid = a.id
-       ORDER BY a.display_name, h.name";
+    $sql = "SELECT h.id, h.name, h.wwwroot,
+                   a.name as application, a.display_name
+              FROM {mnet_host} h, {mnet_application} a
+             WHERE h.id = ? AND h.applicationid = a.id";
 
     $remotehost = $DB->get_record_sql($sql, array($user->mnethostid));
+    $a = new stdclass();
+    $a->remotetype = $remotehost->display_name;
+    $a->remotename = $remotehost->name;
+    $a->remoteurl  = $remotehost->wwwroot;
 
-    echo '<p class="errorboxcontent">'.get_string('remoteappuser', $remotehost->application)." <br />\n";
-    if ($currentuser) {
-        if ($remotehost->application =='moodle') {
-            echo "Remote {$remotehost->display_name}: <a href=\"{$remotehost->wwwroot}/user/edit.php\">{$remotehost->name}</a> ".get_string('editremoteprofile')." </p>\n";
-        } else {
-            echo "Remote {$remotehost->display_name}: <a href=\"{$remotehost->wwwroot}/\">{$remotehost->name}</a> ".get_string('gotoyourserver')." </p>\n";
-        }
-    } else {
-        echo "Remote {$remotehost->display_name}: <a href=\"{$remotehost->wwwroot}/\">{$remotehost->name}</a></p>\n";
-    }
+    echo $OUTPUT->box(get_string('remoteuserinfo', 'mnet', $a), 'remoteuserinfo');
 }
 
 echo '<div class="userprofilebox clearfix"><div class="profilepicture">';
@@ -216,11 +213,13 @@ if ($user->description && !isset($hiddenfields['description'])) {
     if (!empty($CFG->profilesforenrolledusersonly) && !$currentuser && !$DB->record_exists('role_assignments', array('userid'=>$user->id))) {
         echo get_string('profilenotshown', 'moodle');
     } else {
-        $user->description = file_rewrite_pluginfile_urls($user->description, 'pluginfile.php', $usercontext->id, 'user_profile', $user->id);
-        echo format_text($user->description, $user->descriptionformat);
+        $user->description = file_rewrite_pluginfile_urls($user->description, 'pluginfile.php', $usercontext->id, 'user', 'profile', null);
+        $options = array('overflowdiv'=>true);
+        echo format_text($user->description, $user->descriptionformat, $options);
     }
 }
 echo '</div>';
+
 
 // Print all the little details in a list
 
@@ -250,47 +249,7 @@ if ($user->maildisplay == 1
    or ($user->maildisplay == 2 && !isguestuser())
    or has_capability('moodle/course:useremail', $context)) {
 
-    $emailswitch = '';
-
-    if ($currentuser or has_capability('moodle/course:useremail', $context)) {   /// Can use the enable/disable email stuff
-        if (!empty($enable) and confirm_sesskey()) {     /// Recieved a parameter to enable the email address
-            $DB->set_field('user', 'emailstop', 0, array('id'=>$user->id));
-            $user->emailstop = 0;
-        }
-        if (!empty($disable) and confirm_sesskey()) {     /// Recieved a parameter to disable the email address
-            $DB->set_field('user', 'emailstop', 1, array('id'=>$user->id));
-            $user->emailstop = 1;
-        }
-    }
-
-    if (has_capability('moodle/course:useremail', $context)) {   /// Can use the enable/disable email stuff
-        if ($user->emailstop) {
-            $switchparam = 'enable';
-            $switchtitle = get_string('emaildisable');
-            $switchclick = get_string('emailenableclick');
-            $switchpix   = 't/emailno';
-        } else {
-            $switchparam = 'disable';
-            $switchtitle = get_string('emailenable');
-            $switchclick = get_string('emaildisableclick');
-            $switchpix   = 't/email';
-        }
-        $emailswitch = "&nbsp;<a title=\"$switchclick\" ".
-                       "href=\"profile.php?id=$user->id&amp;$switchparam=1&amp;sesskey=".sesskey()."\">".
-                       "<img src=\"" . $OUTPUT->pix_url("$switchpix") . "\" alt=\"$switchclick\" /></a>";
-
-    } else if ($currentuser) {         /// Can only re-enable an email this way
-        if ($user->emailstop) {   // Include link that tells how to re-enable their email
-            $switchparam = 'enable';
-            $switchtitle = get_string('emaildisable');
-            $switchclick = get_string('emailenableclick');
-
-            $emailswitch = "&nbsp;(<a title=\"$switchclick\" ".
-                           "href=\"profile.php?id=$user->id&amp;enable=1&amp;sesskey=".sesskey()."\">$switchtitle</a>)";
-        }
-    }
-
-    print_row(get_string("email").":", obfuscate_mailto($user->email, '', $user->emailstop)."$emailswitch");
+    print_row(get_string("email").":", obfuscate_mailto($user->email, ''));
 }
 
 if ($user->url && !isset($hiddenfields['webpage'])) {
@@ -377,6 +336,14 @@ echo "</table></div></div>";
 
 
 echo $OUTPUT->blocks_for_region('content');
+
+// Print messaging link if allowed
+if (isloggedin() && has_capability('moodle/site:sendmessage', $context)
+    && !empty($CFG->messaging) && !isguestuser() && !isguestuser($user) && ($USER->id != $user->id)) {
+    echo '<div class="messagebox">';
+    echo '<a href="'.$CFG->wwwroot.'/message/index.php?id='.$user->id.'">'.get_string('messageselectadd').'</a>';
+    echo '</div>';
+}
 
 if ($CFG->debugdisplay && debugging('', DEBUG_DEVELOPER) && $currentuser) {  // Show user object
     echo '<br /><br /><hr />';

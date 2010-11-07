@@ -16,13 +16,15 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Failsafe textare editor support version file.
+ * Failsafe textarea editor support version file.
  *
- * @package    moodlecore
- * @subpackage editor
+ * @package    editor
+ * @subpackage textarea
  * @copyright  2009 Petr Skoda (http://skodak.org)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$plugin->version  = 2009051400;
-$plugin->requires = 2009051200;
+defined('MOODLE_INTERNAL') || die();
+
+$plugin->version  = 2010090501;
+$plugin->requires = 2010090501;

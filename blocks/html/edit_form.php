@@ -18,7 +18,7 @@
 /**
  * Form for editing HTML block instances.
  *
- * @package   moodlecore
+ * @package   block_html
  * @copyright 2009 Tim Hunt
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -37,21 +37,31 @@ class block_html_edit_form extends block_edit_form {
         $mform->addElement('text', 'config_title', get_string('configtitle', 'block_html'));
         $mform->setType('config_title', PARAM_MULTILANG);
 
-        $editoroptions = array('maxfiles' => EDITOR_UNLIMITED_FILES, 'trusttext'=>true, 'context'=>$this->block->context);
+        $editoroptions = array('maxfiles' => EDITOR_UNLIMITED_FILES, 'noclean'=>true, 'context'=>$this->block->context);
         $mform->addElement('editor', 'config_text', get_string('configcontent', 'block_html'), null, $editoroptions);
-        $mform->setType('config_text', PARAM_RAW); // no XSS prevention here, users must be trusted
+        $mform->setType('config_text', PARAM_RAW); // XSS is prevented when printing the block contents and serving files
     }
 
     function set_data($defaults) {
-        $block = $this->block;
-        $draftid_editor = file_get_submitted_draft_itemid('config_text');
-        if (empty($block->config->text['text'])) {
-            $currenttext = '';
+        if (!empty($this->block->config) && is_object($this->block->config)) {
+            $text = $this->block->config->text;
+            $draftid_editor = file_get_submitted_draft_itemid('config_text');
+            if (empty($text)) {
+                $currenttext = '';
+            } else {
+                $currenttext = $text;
+            }
+            $defaults->config_text['text'] = file_prepare_draft_area($draftid_editor, $this->block->context->id, 'block_html', 'content', 0, array('subdirs'=>true), $currenttext);
+            $defaults->config_text['itemid'] = $draftid_editor;
+            $defaults->config_text['format'] = $this->block->config->format;
         } else {
-            $currenttext = $block->config->text['text'];
+            $text = '';
         }
-        $block->config->text['text'] = file_prepare_draft_area($draftid_editor, $block->context->id, 'block_html', $block->instance->id, array('subdirs'=>true), $currenttext);
-        $block->config->text['itemid'] = $draftid_editor;
+        // have to delete text here, otherwise parent::set_data will empty content
+        // of editor
+        unset($this->block->config->text);
         parent::set_data($defaults);
+        // restore $text
+        $this->block->config->text = $text;
     }
 }

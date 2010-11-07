@@ -1,5 +1,27 @@
 <?php
 
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * @package    core
+ * @subpackage tag
+ * @copyright  2007 Luiz Cruz <luiz.laydner@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 require_once('../config.php');
 require_once('lib.php');
 require_once('edit_form.php');
@@ -42,7 +64,7 @@ $tagname = tag_display_name($tag);
 $tag->relatedtags = tag_get_related_tags_csv(tag_get_related_tags($tag->id, TAG_RELATED_MANUAL), TAG_RETURN_TEXT);
 
 if (can_use_html_editor()) {
-    $options = new object();
+    $options = new stdClass();
     $options->smiley = false;
     $options->filter = false;
 
@@ -54,7 +76,7 @@ if (can_use_html_editor()) {
 $errorstring = '';
 
 $editoroptions = array('maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$CFG->maxbytes, 'trusttext'=>false);
-$tag = file_prepare_standard_editor($tag, 'description', $editoroptions, $systemcontext, 'tag_description', $tag->id);
+$tag = file_prepare_standard_editor($tag, 'description', $editoroptions, $systemcontext, 'tag', 'description', $tag->id);
 
 $tagform = new tag_edit_form(null, compact('editoroptions'));
 if ( $tag->tagtype == 'official' ) {
@@ -93,7 +115,7 @@ if ($tagnew = $tagform->get_data()) {
 
     if (empty($errorstring)) {    // All is OK, let's save it
 
-        $tagnew = file_postupdate_standard_editor($tagnew, 'description', $editoroptions, $systemcontext, 'tag_description', $tag->id);
+        $tagnew = file_postupdate_standard_editor($tagnew, 'description', $editoroptions, $systemcontext, 'tag', 'description', $tag->id);
 
         tag_description_set($tag_id, $tagnew->description, $tagnew->descriptionformat);
 

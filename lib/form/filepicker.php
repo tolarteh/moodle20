@@ -70,21 +70,40 @@ class MoodleQuickForm_filepicker extends HTML_QuickForm_input {
 
         $client_id = uniqid();
 
-        $args = new stdclass;
+        $args = new stdClass();
         // need these three to filter repositories list
         $args->accepted_types = $this->_options['accepted_types']?$this->_options['accepted_types']:'*';
         $args->return_types = FILE_INTERNAL;
         $args->itemid = $draftitemid;
+        $args->maxbytes = $this->_options['maxbytes'];
         $args->context = $PAGE->context;
 
         $html = $this->_getTabs();
         $fp = new file_picker($args);
         $options = $fp->options;
+        $options->context = $PAGE->context;
         $html .= $OUTPUT->render($fp);
         $html .= '<input type="hidden" name="'.$elname.'" id="'.$id.'" value="'.$draftitemid.'" />';
 
         $module = array('name'=>'form_filepicker', 'fullpath'=>'/lib/form/filepicker.js', 'requires'=>array('core_filepicker'));
         $PAGE->requires->js_init_call('M.form_filepicker.init', array($fp->options), true, $module);
+
+        $nonjsfilepicker = new moodle_url('/repository/draftfiles_manager.php', array(
+            'env'=>'filepicker',
+            'action'=>'browse',
+            'itemid'=>$draftitemid,
+            'subdirs'=>0,
+            'maxbytes'=>$options->maxbytes,
+            'maxfiles'=>1,
+            'ctx_id'=>$PAGE->context->id,
+            'course'=>$PAGE->course->id,
+            'sesskey'=>sesskey(),
+            ));
+
+        // non js file picker
+        $html .= '<noscript>';
+        $html .= "<div><object type='text/html' data='$nonjsfilepicker' height='160' width='600' style='border:1px solid #000'></object></div>";
+        $html .= '</noscript>';
 
         return $html;
     }
@@ -93,10 +112,11 @@ class MoodleQuickForm_filepicker extends HTML_QuickForm_input {
         global $USER;
 
         // make sure max one file is present and it is not too big
-        if ($draftitemid = $submitValues[$this->_attributes['name']]) {
+        if (!empty($submitValues[$this->_attributes['name']])) {
+            $draftitemid = $submitValues[$this->_attributes['name']];
             $fs = get_file_storage();
             $usercontext = get_context_instance(CONTEXT_USER, $USER->id);
-            if ($files = $fs->get_area_files($usercontext->id, 'user_draft', $draftitemid, 'id DESC', false)) {
+            if ($files = $fs->get_area_files($usercontext->id, 'user', 'draft', $draftitemid, 'id DESC', false)) {
                 $file = array_shift($files);
                 if ($this->_options['maxbytes'] and $file->get_filesize() > $this->_options['maxbytes']) {
                     // bad luck, somebody tries to sneak in oversized file
@@ -107,8 +127,10 @@ class MoodleQuickForm_filepicker extends HTML_QuickForm_input {
                     $file->delete();
                 }
             }
+            return array($this->_attributes['name'] => $submitValues[$this->_attributes['name']]);
+        } else {
+            return null;
         }
 
-        return array($this->_attributes['name'] => $submitValues[$this->_attributes['name']]);
     }
 }

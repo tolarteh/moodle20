@@ -18,9 +18,10 @@
 /**
  * A page to display a list of ratings for a given item (forum post etc)
  *
- * @package   moodlecore
- * @copyright 2010 Andrew Davis
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage rating
+ * @copyright  2010 Andrew Davis
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once("../config.php");
@@ -40,6 +41,8 @@ if ($sort !== 0) {
     $url->param('sort', $sort);
 }
 $PAGE->set_url($url);
+$PAGE->set_context($context);
+
 if ($popup) {
     $PAGE->set_pagelayout('popup');
 }
@@ -59,13 +62,11 @@ switch ($sort) {
 
 $scalemenu = make_grades_menu($scaleid);
 
-$strratings = get_string('ratings', 'rating');
 $strrating  = get_string('rating', 'rating');
 $strname    = get_string('name');
 $strtime    = get_string('time');
 
-//Is there something more meaningful we can put in the title? It used to be forum post title
-$PAGE->set_title("$strratings: ".format_string($itemid));
+$PAGE->set_title(get_string('allratingsforitem','rating'));
 echo $OUTPUT->header();
 
 $ratingoptions = new stdclass();
@@ -76,7 +77,8 @@ $ratingoptions->sort = $sqlsort;
 $rm = new rating_manager();
 $ratings = $rm->get_all_ratings_for_item($ratingoptions);
 if (!$ratings) {
-    print_error('noresult', 'forum', '', format_string($itemid));
+    $msg = get_string('noratings','rating');
+    echo html_writer::tag('div', $msg, array('class'=>'mdl-align'));
 } else {
     $sortargs = "contextid=$contextid&amp;itemid=$itemid&amp;scaleid=$scaleid";
     if($popup) {
@@ -90,12 +92,13 @@ if (!$ratings) {
     echo "<th class=\"header\" scope=\"col\"><a href=\"index.php?$sortargs&amp;sort=time\">$strtime</a></th>";
     echo "</tr>";
 
+    $maxrating = count($scalemenu);
     foreach ($ratings as $rating) {
         //Undo the aliasing of the user id column from user_picture::fields()
         //we could clone the rating object or preserve the rating id if we needed it again
         //but we don't
         $rating->id = $rating->uid;
-        
+
         echo '<tr class="ratingitemheader">';
         echo "<td>";
         if($course && $course->id) {
@@ -104,6 +107,12 @@ if (!$ratings) {
             echo $OUTPUT->user_picture($rating);
         }
         echo '</td><td>'.fullname($rating).'</td>';
+        
+        //if they've switched to rating out of 5 but there were ratings submitted out of 10 for example
+        //Not doing this within $rm->get_all_ratings_for_item to allow access to the raw data
+        if ($rating->rating > $maxrating) {
+            $rating->rating = $maxrating;
+        }
         echo '<td style="white-space:nowrap" align="center" class="rating">'.$scalemenu[$rating->rating]."</td>";
         echo '<td style="white-space:nowrap" align="center" class="time">'.userdate($rating->timemodified)."</td>";
         echo "</tr>\n";

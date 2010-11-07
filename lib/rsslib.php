@@ -18,14 +18,25 @@
 /**
  * This file contains all the common stuff to be used in RSS System
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage rss
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
- function rss_add_http_header($context, $modname, $modinstance, $title) {
+defined('MOODLE_INTERNAL') || die();
+
+ function rss_add_http_header($context, $componentname, $componentinstance, $title) {
     global $PAGE, $USER;
-    $rsspath = rss_get_url($context->id, $USER->id, $modname, $modinstance->id);
+
+    $componentid = null;
+    if (is_object($componentinstance)) {
+        $componentid = $componentinstance->id;
+    } else {
+        $componentid = $componentinstance;
+    }
+
+    $rsspath = rss_get_url($context->id, $USER->id, $componentname, $componentid);
     $PAGE->add_alternate_version($title, $rsspath, 'application/rss+xml');
  }
 
@@ -35,12 +46,12 @@
  * @global object
  * @global object
  */
-function rss_get_link($contextid, $userid, $modulename, $id, $tooltiptext='') {
+function rss_get_link($contextid, $userid, $componentname, $id, $tooltiptext='') {
     global $OUTPUT;
 
     static $rsspath = '';
 
-    $rsspath = rss_get_url($contextid, $userid, $modulename, $id);
+    $rsspath = rss_get_url($contextid, $userid, $componentname, $id);
     $rsspix = $OUTPUT->pix_url('i/rss');
 
     return '<a href="'. $rsspath .'"><img src="'. $rsspix .'" title="'. strip_tags($tooltiptext) .'" alt="'.get_string('rss').'" /></a>';
@@ -53,20 +64,20 @@ function rss_get_link($contextid, $userid, $modulename, $id, $tooltiptext='') {
  * @param int contextid the course id
  * @param int userid the current user id
  * @param string modulename the name of the current module. For example "forum"
- * @param int id For modules, module instance id
+ * @param string $additionalargs For modules, module instance id
  */
-function rss_get_url($contextid, $userid, $modulename, $id) {
+function rss_get_url($contextid, $userid, $componentname, $additionalargs) {
     global $CFG;
     require_once($CFG->libdir.'/filelib.php');
     $usertoken = rss_get_token($userid);
-    return get_file_url($contextid.'/'.$usertoken.'/'.$modulename.'/'.$id.'/rss.xml', null, 'rssfile');
+    return get_file_url($contextid.'/'.$usertoken.'/'.$componentname.'/'.$additionalargs.'/rss.xml', null, 'rssfile');
 }
 
 /**
  * This function prints the icon (from theme) with the link to rss/file.php
  */
-function rss_print_link($contextid, $userid, $modulename, $id, $tooltiptext='') {
-    print rss_get_link($contextid, $userid, $modulename, $id, $tooltiptext);
+function rss_print_link($contextid, $userid, $componentname, $id, $tooltiptext='') {
+    print rss_get_link($contextid, $userid, $componentname, $id, $tooltiptext);
 
 }
 
@@ -74,18 +85,21 @@ function rss_print_link($contextid, $userid, $modulename, $id, $tooltiptext='') 
  * Given an object, deletes all RSS files associated with it.
  * Relies on a naming convention. See rss_get_filename()
  *
- * @param string $modname the name of the module ie 'forum'. Used to construct the cache path.
+ * @param string $componentname the name of the module ie 'forum'. Used to construct the cache path.
  * @param object $instance An object with an id member variable ie $forum, $glossary.
  * @return void
  */
-function rss_delete_file($modname, $instance) {
+function rss_delete_file($componentname, $instance) {
     global $CFG;
 
-    $dh  = opendir("$CFG->dataroot/rss/$modname");
-    while (false !== ($filename = readdir($dh))) {
-        if ($filename!='.' && $filename!='..') {
-            if (preg_match("/{$instance->id}_/", $filename)) {
-                unlink("$CFG->dataroot/rss/$modname/$filename");
+    $dirpath = "$CFG->dataroot/cache/rss/$componentname";
+    if (is_dir($dirpath)) {
+        $dh  = opendir($dirpath);
+        while (false !== ($filename = readdir($dh))) {
+            if ($filename!='.' && $filename!='..') {
+                if (preg_match("/{$instance->id}_/", $filename)) {
+                    unlink("$dirpath/$filename");
+                }
             }
         }
     }
@@ -97,7 +111,7 @@ function rss_delete_file($modname, $instance) {
  * @param boolean $hasrsstype Should there be a rsstype member variable?
  * @param boolean $hasrssarticles Should there be a rssarticles member variable?
  */
-function rss_enabled($modname, $instance, $hasrsstype=true, $hasrssarticles=true) {
+function rss_enabled_for_mod($modname, $instance=null, $hasrsstype=true, $hasrssarticles=true) {
     if ($hasrsstype) {
         if (empty($instance->rsstype) || $instance->rsstype==0) {
             return false;
@@ -111,7 +125,7 @@ function rss_enabled($modname, $instance, $hasrsstype=true, $hasrssarticles=true
         }
     }
 
-    if (!instance_is_visible($modname,$instance)) {
+    if (!empty($instance) && !instance_is_visible($modname,$instance)) {
         return false;
     }
 
@@ -122,25 +136,29 @@ function rss_enabled($modname, $instance, $hasrsstype=true, $hasrssarticles=true
  * This function saves to file the rss feed specified in the parameters
  *
  * @global object
- * @param string $modname the module name ie forum. Used to create a cache directory.
+ * @param string $componentname the module name ie forum. Used to create a cache directory.
  * @param string $filename the name of the file to be created ie "1234"
- * @param string $result the data to be written to the file
+ * @param string $contents the data to be written to the file
  */
-function rss_save_file($modname, $filename, $result) {
+function rss_save_file($componentname, $filename, $contents, $expandfilename=true) {
     global $CFG;
 
     $status = true;
 
-    if (! $basedir = make_upload_directory ('rss/'. $modname)) {
+    if (! $basedir = make_upload_directory ('cache/rss/'. $componentname)) {
         //Cannot be created, so error
         $status = false;
     }
 
     if ($status) {
-        $fullfilename = rss_get_file_full_name($modname, $filename);
+        $fullfilename = $filename;
+        if ($expandfilename) {
+            $fullfilename = rss_get_file_full_name($componentname, $filename);
+        }
+
         $rss_file = fopen($fullfilename, "w");
         if ($rss_file) {
-            $status = fwrite ($rss_file, $result);
+            $status = fwrite ($rss_file, $contents);
             fclose($rss_file);
         } else {
             $status = false;
@@ -150,9 +168,9 @@ function rss_save_file($modname, $filename, $result) {
 }
 
 
-function rss_get_file_full_name($modname, $filename) {
+function rss_get_file_full_name($componentname, $filename) {
     global $CFG;
-    return "$CFG->dataroot/rss/$modname/$filename.xml";
+    return "$CFG->dataroot/cache/rss/$componentname/$filename.xml";
 }
 
 function rss_get_file_name($instance, $sql) {
@@ -310,7 +328,7 @@ function rss_geterrorxmlfile($errortype = 'rsserror') {
 
     //XML item
     if ($return) {
-        $item = new object();
+        $item = new stdClass();
         $item->title       = "RSS Error";
         $item->link        = $CFG->wwwroot;
         $item->pubdate     = time();

@@ -62,9 +62,9 @@ if (!$cm = get_coursemodule_from_instance('wiki', $wiki->id)) {
     print_error('invalidcoursemoduleid', 'wiki');
 }
 
-$course = $DB->get_record('course', array('id'=>$cm->course), '*', MUST_EXIST);
+$course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
 
-require_course_login($course->id, true, $cm);
+require_login($course->id, true, $cm);
 
 add_to_log($course->id, 'createpage', 'createpage', 'view.php?id=' . $cm->id, $wiki->id);
 
@@ -73,7 +73,9 @@ $wikipage = new page_wiki_create($wiki, $subwiki, $cm);
 if (!empty($swid)) {
     $wikipage->set_gid($subwiki->groupid);
     $wikipage->set_uid($subwiki->userid);
+    $wikipage->set_swid($swid);
 } else {
+    $wikipage->set_wid($wid);
     $wikipage->set_gid($gid);
     $wikipage->set_uid($uid);
 }

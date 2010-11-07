@@ -18,10 +18,13 @@
  * Used for tracking conditions that apply before activities are displayed
  * to students ('conditional availability').
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  http://dougiamas.com
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage completion
+ * @copyright  1999 onwards Martin Dougiamas  http://dougiamas.com
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /** The activity is not displayed to students at all when conditions aren't met. */
 define('CONDITION_STUDENTVIEW_HIDE',0);
@@ -393,8 +396,8 @@ WHERE
                     $modinfo = get_fast_modinfo($course);
                 }
                 if (empty($modinfo->cms[$cmid])) {
-                    global $PAGE;
-                    if (isset($PAGE) && strpos($PAGE->pagetype, 'course-view-')===0) {
+                    global $PAGE, $UNITTEST;
+                    if (!empty($UNITTEST) || (isset($PAGE) && strpos($PAGE->pagetype, 'course-view-')===0)) {
                         debugging("Warning: activity {$this->cm->id} '{$this->cm->name}' has condition on deleted activity $cmid (to get rid of this message, edit the named activity)");
                     }
                     continue;

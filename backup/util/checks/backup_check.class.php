@@ -188,8 +188,8 @@ abstract class backup_check {
         // Now, enforce 'moodle/backup:anonymise' to 'anonymise' setting, applying changes if allowed,
         // else throwing exception
         $anonsetting = $backup_controller->get_plan()->get_setting('anonymize');
-        $prevvalue   = $userssetting->get_value();
-        $prevstatus  = $userssetting->get_status();
+        $prevvalue   = $anonsetting->get_value();
+        $prevstatus  = $anonsetting->get_status();
         $hasanoncap  = has_capability('moodle/backup:anonymise', $coursectx, $userid);
 
         // If setting is enabled but user lacks permission
@@ -215,6 +215,19 @@ abstract class backup_check {
             if ($userssetting->get_value()) {
                 $userssetting->set_value(false);                              // Set the value to false
                 $userssetting->set_status(base_setting::LOCKED_BY_PERMISSION);// Set the status to locked by perm
+            }
+        }
+
+        // Check the user has the ability to configure the backup. If not then we need
+        // to lock all settings by permission so that no changes can be made.
+        $hasconfigcap = has_capability('moodle/backup:configure', $coursectx, $userid);
+        if (!$hasconfigcap) {
+            $settings = $backup_controller->get_plan()->get_settings();
+            foreach ($settings as $setting) {
+                if ($setting->get_name()=='filename') {
+                    continue;
+                }
+                $setting->set_status(base_setting::LOCKED_BY_PERMISSION);
             }
         }
 

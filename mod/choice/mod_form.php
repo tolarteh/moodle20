@@ -19,7 +19,7 @@ class mod_choice_mod_form extends moodleform_mod {
         if (!empty($CFG->formatstringstriptags)) {
             $mform->setType('name', PARAM_TEXT);
         } else {
-            $mform->setType('name', PARAM_CLEAN);
+            $mform->setType('name', PARAM_CLEANHTML);
         }
         $mform->addRule('name', null, 'required', null, 'client');
 
@@ -51,7 +51,7 @@ class mod_choice_mod_form extends moodleform_mod {
         $repeateloptions['limit']['disabledif'] = array('limitanswers', 'eq', 0);
         $mform->setType('limit', PARAM_INT);
 
-        $repeateloptions['option']['helpbutton'] = array('choiceoptions', get_string('modulenameplural', 'choice'), 'choice');
+        $repeateloptions['option']['helpbutton'] = array('choiceoptions', 'choice');
         $mform->setType('option', PARAM_CLEAN);
 
         $mform->setType('optionid', PARAM_INT);
@@ -137,5 +137,27 @@ class mod_choice_mod_form extends moodleform_mod {
         return $errors;
     }
 
+    function get_data() {
+        $data = parent::get_data();
+        if (!$data) {
+            return false;
+        }
+        // Set up completion section even if checkbox is not ticked
+        if (empty($data->completionsection)) {
+            $data->completionsection=0;
+        }
+        return $data;
+    }
+
+    function add_completion_rules() {
+        $mform =& $this->_form;
+
+        $mform->addElement('checkbox', 'completionsubmit', '', get_string('completionsubmit', 'choice'));
+        return array('completionsubmit');
+    }
+
+    function completion_rule_enabled($data) {
+        return !empty($data['completionsubmit']);
+    }
 }
 

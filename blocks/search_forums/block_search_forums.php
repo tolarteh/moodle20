@@ -3,7 +3,6 @@
 class block_search_forums extends block_base {
     function init() {
         $this->title = get_string('pluginname', 'block_search_forums');
-        $this->version = 2007101509;
     }
 
     function get_content() {
@@ -36,7 +35,7 @@ class block_search_forums extends block_base {
                                 '<input id="searchform_search" name="search" type="text" size="16" />';
         $this->content->text .= '<button id="searchform_button" type="submit" title="'.$search.'">'.$button.'</button><br />';
         $this->content->text .= '<a href="'.$CFG->wwwroot.'/mod/forum/search.php?id='.$this->page->course->id.'">'.$advancedsearch.'</a>';
-        $this->content->text .= $OUTPUT->old_help_icon('search', $advancedsearch);
+        $this->content->text .= $OUTPUT->help_icon('search');
         $this->content->text .= '</fieldset></form></div>';
 
         return $this->content;

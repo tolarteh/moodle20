@@ -33,7 +33,17 @@ $path = min_optional_param('file', '', 'SAFEPATH');
 $parts = explode('/', $path);
 $version = array_shift($parts);
 
-if ($version =='gallery' && count($parts)==3) {
+if ($version == 'moodle' && count($parts) >= 3) {
+    //TODO: this is a ugly hack because we should not load any libs here!
+    define('MOODLE_INTERNAL', true);
+    require_once($CFG->libdir.'/moodlelib.php');
+    $frankenstyle = array_shift($parts);
+    $module = array_shift($parts);
+    $image = array_pop($parts);
+    $subdir = join('/', $parts);
+    $dir = get_component_directory($frankenstyle);
+    $imagepath = $dir.'/yui/'.$module.'/assets/skins/sam/'.$image;
+} else if ($version == 'gallery' && count($parts)==3) {
     list($module, $version, $image) = $parts;
     $imagepath = "$CFG->dirroot/lib/yui/gallery/$module/$version/assets/skins/sam/$image";
 } else if (count($parts) == 1 && ($version == $CFG->yui3version || $version == $CFG->yui2version)) {

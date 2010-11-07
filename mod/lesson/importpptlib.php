@@ -19,10 +19,13 @@
  * Contains functions used by importppt.php that naturally pertain to importing
  * powerpoint presentations into the lesson module
  *
- * @package   lesson
- * @copyright 2009 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage lesson
+ * @copyright  2009 Sam Hemelryk
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  **/
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * A recursive function to build a html list
@@ -134,6 +137,7 @@ function lesson_create_objects($pageobjects, $lessonid) {
     $branchtable = new stdClass;
 
     // all pages have this info
+    $page = new stdClass();
     $page->lessonid = $lessonid;
     $page->prevpageid = 0;
     $page->nextpageid = 0;
@@ -145,6 +149,7 @@ function lesson_create_objects($pageobjects, $lessonid) {
     $page->timemodified = 0;
 
     // all answers are the same
+    $answer = new stdClass();
     $answer->lessonid = $lessonid;
     $answer->jumpto = LESSON_NEXTPAGE;
     $answer->grade = 0;
@@ -183,7 +188,7 @@ function lesson_create_objects($pageobjects, $lessonid) {
             $imagetag = str_replace("'", '"', $imagetag);  // imgstyle
             $page->contents .= $imagetag;
         }
-        // go through the contents array and put <p> tags around each element and strip out \n which I have found to be uneccessary
+        // go through the contents array and put <p> tags around each element and strip out \n which I have found to be unneccessary
         foreach ($pageobject->contents as $content) {
             $content = str_replace("\n", '', $content);
             $content = str_replace("\r", '', $content);
@@ -203,8 +208,8 @@ function lesson_create_objects($pageobjects, $lessonid) {
 /**
  * Form displayed to the user asking them to select a file to upload
  *
- * @copyright 2009 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @copyright  2009 Sam Hemelryk
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class lesson_importppt_form extends moodleform {
 

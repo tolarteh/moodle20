@@ -3,7 +3,7 @@
  *  Base include file for SimpleTest.
  *  @package    SimpleTest
  *  @subpackage WebTester
- *  @version    $Id: form.php,v 1.3 2008-06-10 20:10:51 nicolasconnault Exp $
+ *  @version    $Id: form.php,v 1.4 2010/07/19 08:53:16 skodak Exp $
  */
     
 /**#@+
@@ -172,7 +172,7 @@ class SimpleForm {
      */
     function _addRadioButton(&$tag) {
         if (! isset($this->_radios[$tag->getName()])) {
-            $this->_widgets[] = &new SimpleRadioGroup();
+            $this->_widgets[] = new SimpleRadioGroup();
             $this->_radios[$tag->getName()] = count($this->_widgets) - 1;
         }
         $this->_widgets[$this->_radios[$tag->getName()]]->addWidget($tag);
@@ -191,7 +191,7 @@ class SimpleForm {
             $index = $this->_checkboxes[$tag->getName()];
             if (! SimpleTestCompatibility::isA($this->_widgets[$index], 'SimpleCheckboxGroup')) {
                 $previous = &$this->_widgets[$index];
-                $this->_widgets[$index] = &new SimpleCheckboxGroup();
+                $this->_widgets[$index] = new SimpleCheckboxGroup();
                 $this->_widgets[$index]->addWidget($previous);
             }
             $this->_widgets[$index]->addWidget($tag);

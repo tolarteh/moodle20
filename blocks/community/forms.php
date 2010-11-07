@@ -30,8 +30,9 @@
  * Form for community search
  */
 
-require_once($CFG->dirroot . '/lib/formslib.php');
+require_once($CFG->libdir . '/formslib.php');
 require_once($CFG->dirroot . '/course/publish/lib.php');
+require_once($CFG->dirroot . '/' . $CFG->admin . '/registration/lib.php');
 
 class community_hub_search_form extends moodleform {
 
@@ -39,63 +40,156 @@ class community_hub_search_form extends moodleform {
         global $CFG, $USER, $OUTPUT;
         $strrequired = get_string('required');
         $mform = & $this->_form;
+
+        //set default value
         $search = $this->_customdata['search'];
+        if (isset($this->_customdata['coverage'])) {
+            $coverage = $this->_customdata['coverage'];
+        } else {
+            $coverage = 'all';
+        }
+        if (isset($this->_customdata['licence'])) {
+            $licence = $this->_customdata['licence'];
+        } else {
+            $licence = 'all';
+        }
+        if (isset($this->_customdata['subject'])) {
+            $subject = $this->_customdata['subject'];
+        } else {
+            $subject = 'all';
+        }
+        if (isset($this->_customdata['audience'])) {
+            $audience = $this->_customdata['audience'];
+        } else {
+            $audience = 'all';
+        }
+        if (isset($this->_customdata['language'])) {
+            $language = $this->_customdata['language'];
+        } else {
+            $language = current_language();
+        }
+        if (isset($this->_customdata['educationallevel'])) {
+            $educationallevel = $this->_customdata['educationallevel'];
+        } else {
+            $educationallevel = 'all';
+        }
+        if (isset($this->_customdata['downloadable'])) {
+            $downloadable = $this->_customdata['downloadable'];
+        } else {
+            $downloadable = 0;
+        }
+        if (isset($this->_customdata['orderby'])) {
+            $orderby = $this->_customdata['orderby'];
+        } else {
+            $orderby = 'newest';
+        }
+        if (isset($this->_customdata['huburl'])) {
+            $huburl = $this->_customdata['huburl'];
+        } else {
+            $huburl = HUB_MOODLEORGHUBURL;
+        }
+
         $mform->addElement('header', 'site', get_string('search', 'block_community'));
+
+        //add the course id (of the context)
+        $mform->addElement('hidden', 'courseid', $this->_customdata['courseid']);
+        $mform->addElement('hidden', 'executesearch', 1);
 
         //retrieve the hub list on the hub directory by web service
         $function = 'hubdirectory_get_hubs';
         $params = array();
         $serverurl = HUB_HUBDIRECTORYURL . "/local/hubdirectory/webservice/webservices.php";
         require_once($CFG->dirroot . "/webservice/xmlrpc/lib.php");
-        $xmlrpcclient = new webservice_xmlrpc_client();
+        $xmlrpcclient = new webservice_xmlrpc_client($serverurl, 'publichubdirectory');
         try {
-            $hubs = $xmlrpcclient->call($serverurl, 'publichubdirectory', $function, $params);
+            $hubs = $xmlrpcclient->call($function, $params);
         } catch (Exception $e) {
             $hubs = array();
             $error = $OUTPUT->notification(get_string('errorhublisting', 'block_community', $e->getMessage()));
             $mform->addElement('static', 'errorhub', '', $error);
         }
-        if (empty($error)) {
-            //sort hubs by trusted/prioritize
+
+        //display list of registered on hub
+        $registrationmanager = new registration_manager();
+        $registeredhubs = $registrationmanager->get_registered_on_hubs();
+        //retrieve some additional hubs that we will add to
+        //the hub list got from the hub directory
+        $additionalhubs = array();
+        foreach ($registeredhubs as $registeredhub) {
+            $inthepubliclist = false;
+            foreach ($hubs as $hub) {
+                if ($hub['url'] == $registeredhub->huburl) {
+                    $inthepubliclist = true;
+                    $hub['registeredon'] = true;
+                }
+            }
+            if (!$inthepubliclist) {
+                $additionalhub = array();
+                $additionalhub['name'] = $registeredhub->hubname;
+                $additionalhub['url'] = $registeredhub->huburl;
+                $additionalhubs[] = $additionalhub;
+            }
+        }
+        if (!empty($additionalhubs)) {
+            $hubs = $hubs + $additionalhubs;
+        }
+
+        if (!empty($hubs)) {
+            //TODO: sort hubs by trusted/prioritize
             //Public hub list
             $options = array();
-            // $mform->addElement('static','huburlstring',get_string('selecthub', 'block_community'));
-
+            $brtag = html_writer::empty_tag('br');
+            $firsthub = false;
             foreach ($hubs as $hub) {
-                $params = array('hubid' => $hub['id'],
-                    'filetype' => HUB_HUBSCREENSHOT_FILE_TYPE);
-                $imgurl = new moodle_url(HUB_HUBDIRECTORYURL . "/local/hubdirectory/webservice/download.php", $params);
-                $ascreenshothtml = html_writer::empty_tag('img', array('src' => $imgurl, 'alt' => $hub['name']));
-                $brtag = html_writer::empty_tag('br');
-                $hubdescription = '&nbsp;&nbsp;' . $hub['name'];
-                $hubdescription .= $brtag;
-                $hubdescription .= html_writer::tag('span', $ascreenshothtml, array('class' => 'hubscreenshot'));
-                $hubdescription .= html_writer::tag('span', $hub['description'], array('class' => 'hubdescription'));
-                $hubdescription .= $brtag;
-                $additionaldesc = get_string('sites', 'block_community') . ': ' . $hub['sites'] . ' - ' .
-                        get_string('courses', 'block_community') . ': ' . $hub['courses'];
-                $hubdescription .= html_writer::tag('span', $additionaldesc, array('class' => 'hubadditionaldesc'));
-                $hubdescription .= $brtag;
-                $hubdescription .= html_writer::tag('span',
-                                $hub['trusted'] ? get_string('hubtrusted', 'block_community') :
-                                        get_string('hubnottrusted', 'block_community'),
-                                array('class' => $hub['trusted'] ? 'trusted' : 'nottrusted'));
-                $hubdescription = html_writer::tag('span',
-                                $hubdescription,
-                                array('class' => $hub['trusted'] ? 'hubtrusted' : 'hubnottrusted'));
+                if (key_exists('id', $hub)) {
+                    $params = array('hubid' => $hub['id'],
+                        'filetype' => HUB_HUBSCREENSHOT_FILE_TYPE);
+                    $imgurl = new moodle_url(HUB_HUBDIRECTORYURL .
+                            "/local/hubdirectory/webservice/download.php", $params);
+                    $ascreenshothtml = html_writer::empty_tag('img',
+                            array('src' => $imgurl, 'alt' => $hub['name']));
+
+                    $hubdescription = '&nbsp;&nbsp;' . html_writer::tag('a', $hub['name'],
+                                    array('class' => 'hublink', 'href' => $hub['url'],
+                                        'onclick' => 'this.target="_blank"'));
+                    $hubdescription .= $brtag;
+                    $hubdescription .= html_writer::tag('span', $ascreenshothtml,
+                            array('class' => 'hubscreenshot'));
+                    $hubdescription .= html_writer::tag('span', $hub['description'],
+                            array('class' => 'hubdescription'));
+                    $hubdescription .= $brtag;
+                    $additionaldesc = get_string('sites', 'block_community') . ': ' . $hub['sites'] . ' - ' .
+                            get_string('courses', 'block_community') . ': ' . $hub['courses'];
+                    $hubdescription .= html_writer::tag('span', $additionaldesc,
+                            array('class' => 'hubadditionaldesc'));
+                    $hubdescription .= $brtag;
+                    $hubdescription .= html_writer::tag('span',
+                                    $hub['trusted'] ? get_string('hubtrusted', 'block_community') :
+                                            get_string('hubnottrusted', 'block_community'),
+                                    array('class' => $hub['trusted'] ? 'trusted' : 'nottrusted'));
+                    $hubdescription = html_writer::tag('span',
+                                    $hubdescription,
+                                    array('class' => $hub['trusted'] ? 'hubtrusted' : 'hubnottrusted'));
+                     $hubdescription .= ' ' . $OUTPUT->doc_link('trusted_hubs');
+                } else {
+                    $hubdescription = '&nbsp;&nbsp;';
+                    $hubdescription .= html_writer::tag('a', $hub['name'],
+                                    array('class' => 'hublink', 'href' => $hub['url']));
+                }
 
                 if (empty($firsthub)) {
                     $mform->addElement('radio', 'huburl', get_string('selecthub', 'block_community'),
                             $hubdescription, $hub['url']);
-                    $mform->setDefault('huburl', HUB_MOODLEORGHUBURL);
+                    $mform->setDefault('huburl', $huburl);
                     $firsthub = true;
                 } else {
                     $mform->addElement('radio', 'huburl', '', $hubdescription, $hub['url']);
                 }
             }
 
-            //display enrol/download select box if the USER has the download capability
-            if (has_capability('moodle/community:download', get_context_instance(CONTEXT_USER, $USER->id))) {
+            //display enrol/download select box if the USER has the download capability on the course
+            if (has_capability('moodle/community:download',
+                            get_context_instance(CONTEXT_COURSE, $this->_customdata['courseid']))) {
                 $options = array(0 => get_string('enrollable', 'block_community'),
                     1 => get_string('downloadable', 'block_community'));
                 $mform->addElement('select', 'downloadable', get_string('enroldownload', 'block_community'),
@@ -111,7 +205,7 @@ class community_hub_search_form extends moodleform {
             $options[HUB_AUDIENCE_STUDENTS] = get_string('audiencestudents', 'hub');
             $options[HUB_AUDIENCE_ADMINS] = get_string('audienceadmins', 'hub');
             $mform->addElement('select', 'audience', get_string('audience', 'block_community'), $options);
-            $mform->setDefault('audience', 'all');
+            $mform->setDefault('audience', $audience);
             unset($options);
             $mform->addHelpButton('audience', 'audience', 'block_community');
 
@@ -126,11 +220,12 @@ class community_hub_search_form extends moodleform {
             $options[HUB_EDULEVEL_OTHER] = get_string('edulevelother', 'hub');
             $mform->addElement('select', 'educationallevel',
                     get_string('educationallevel', 'block_community'), $options);
-            $mform->setDefault('educationallevel', 'all');
+            $mform->setDefault('educationallevel', $educationallevel);
             unset($options);
             $mform->addHelpButton('educationallevel', 'educationallevel', 'block_community');
 
-            $options = get_string_manager()->load_component_strings('edufields', current_language());
+            $publicationmanager = new course_publish_manager();
+            $options = $publicationmanager->get_sorted_subjects();
             foreach ($options as $key => &$option) {
                 $keylength = strlen($key);
                 if ($keylength == 10) {
@@ -142,13 +237,13 @@ class community_hub_search_form extends moodleform {
             $options = array_merge(array('all' => get_string('any')), $options);
             $mform->addElement('select', 'subject', get_string('subject', 'block_community'),
                     $options, array('id' => 'communitysubject'));
-            $mform->setDefault('subject', 'all');
+            $mform->setDefault('subject', $subject);
             unset($options);
             $mform->addHelpButton('subject', 'subject', 'block_community');
             $this->init_javascript_enhancement('subject', 'smartselect',
                     array('selectablecategories' => true, 'mode' => 'compact'));
 
-            require_once($CFG->dirroot . "/lib/licenselib.php");
+            require_once($CFG->libdir . "/licenselib.php");
             $licensemanager = new license_manager();
             $licences = $licensemanager->get_licenses();
             $options = array();
@@ -157,17 +252,29 @@ class community_hub_search_form extends moodleform {
                 $options[$license->shortname] = get_string($license->shortname, 'license');
             }
             $mform->addElement('select', 'licence', get_string('licence', 'block_community'), $options);
-            $mform->setDefault('licence', 'cc');
             unset($options);
             $mform->addHelpButton('licence', 'licence', 'block_community');
-            $mform->setDefault('licence', 'all');
+            $mform->setDefault('licence', $licence);
 
             $languages = get_string_manager()->get_list_of_languages();
-            asort($languages, SORT_LOCALE_STRING);
+            textlib_get_instance()->asort($languages);
             $languages = array_merge(array('all' => get_string('any')), $languages);
             $mform->addElement('select', 'language', get_string('language'), $languages);
-            $mform->setDefault('language', 'all');
+            $mform->setDefault('language', $language);
             $mform->addHelpButton('language', 'language', 'block_community');
+
+            $mform->addElement('radio', 'orderby', get_string('orderby', 'block_community'),
+                    get_string('orderbynewest', 'block_community'), 'newest');
+            $mform->addElement('radio', 'orderby', null,
+                    get_string('orderbyeldest', 'block_community'), 'eldest');
+            $mform->addElement('radio', 'orderby', null,
+                    get_string('orderbyname', 'block_community'), 'fullname');
+            $mform->addElement('radio', 'orderby', null,
+                    get_string('orderbypublisher', 'block_community'), 'publisher');
+            $mform->addElement('radio', 'orderby', null,
+                    get_string('orderbyratingaverage', 'block_community'), 'ratingaverage');
+            $mform->setDefault('orderby', $orderby);
+            $mform->setType('orderby', PARAM_ALPHA);
 
             $mform->addElement('text', 'search', get_string('keywords', 'block_community'));
             $mform->addHelpButton('search', 'keywords', 'block_community');

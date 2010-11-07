@@ -231,12 +231,18 @@
                     feedback_send_email_anonym($cm, $feedback, $course, $userid);
                 }
                 //tracking the submit
-                $tracking = new object();
+                $tracking = new stdClass();
                 $tracking->userid = $USER->id;
                 $tracking->feedback = $feedback->id;
                 $tracking->completed = $new_completed_id;
                 $DB->insert_record('feedback_tracking', $tracking);
                 unset($SESSION->feedback->is_started);
+                
+                // Update completion state
+                $completion = new completion_info($course);
+                if ($completion->is_enabled($cm) && $feedback->completionsubmit) {
+                    $completion->update_state($cm, COMPLETION_COMPLETE);
+                }
 
             }else {
                 $savereturn = 'failed';
@@ -309,7 +315,7 @@
         if(isset($savereturn) && $savereturn == 'saved') {
             if($feedback->page_after_submit) {
                 echo $OUTPUT->box_start('generalbox boxaligncenter boxwidthwide');
-                echo format_text($feedback->page_after_submit);
+                echo format_text($feedback->page_after_submit, $feedback->page_after_submitformat, array('overflowdiv'=>true));
                 echo $OUTPUT->box_end();
             } else {
                 echo '<p align="center"><b><font color="green">'.get_string('entries_saved','feedback').'</font></b></p>';
@@ -319,10 +325,6 @@
                     echo '</p>';
                 }
             }
-
-            // Mark activity viewed for completion-tracking
-            $completion=new completion_info($course);
-            $completion->set_module_viewed($cm);
 
             if($feedback->site_after_submit) {
                 echo $OUTPUT->continue_button(feedback_encode_target_url($feedback->site_after_submit));
@@ -386,7 +388,7 @@
                 $itemnr = $DB->count_records_select('feedback_item', 'feedback = ? AND hasvalue = 1 AND position < ?', array($feedback->id, $startposition));
                 $lastbreakposition = 0;
                 $align = right_to_left() ? 'right' : 'left';
-                
+
                 foreach($feedbackitems as $feedbackitem){
                     if(!isset($startitem)) {
                         //avoid showing double pagebreaks
@@ -395,7 +397,7 @@
                         }
                         $startitem = $feedbackitem;
                     }
-                    
+
                     if($feedbackitem->dependitem > 0) {
                         //chech if the conditions are ok
                         if(!isset($feedbackcompletedtmp->id) OR !feedback_compare_item_value($feedbackcompletedtmp->id, $feedbackitem->dependitem, $feedbackitem->dependvalue, true)) {
@@ -404,13 +406,13 @@
                             continue;
                         }
                     }
-                    
+
                     if($feedbackitem->dependitem > 0) {
                         $dependstyle = ' feedback_complete_depend';
                     }else {
                         $dependstyle = '';
                     }
-                    
+
                     echo $OUTPUT->box_start('feedback_item_box_'.$align.$dependstyle);
                         $value = '';
                         //get the value
@@ -467,7 +469,7 @@
                 echo '</fieldset>';
                 echo '</form>';
                 echo $OUTPUT->box_end();
-                
+
                 echo $OUTPUT->box_start('feedback_complete_cancel');
                 if($courseid) {
                     echo '<form action="'.$CFG->wwwroot.'/course/view.php?id='.$courseid.'" method="post" onsubmit=" ">';
@@ -499,6 +501,10 @@
     ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
+
+    // Mark activity viewed for completion-tracking
+    $completion=new completion_info($course);
+    $completion->set_module_viewed($cm);
 
     echo $OUTPUT->footer();
 

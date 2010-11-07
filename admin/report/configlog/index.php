@@ -55,7 +55,7 @@ foreach ($columns as $column=>$strcolumn) {
 $baseurl = new moodle_url('index.php', array('sort' => $sort, 'dir' => $dir, 'perpage' => $perpage));
 echo $OUTPUT->paging_bar($changescount, $page, $perpage, $baseurl);
 
-$override = new object();
+$override = new stdClass();
 $override->firstname = 'firstname';
 $override->lastname = 'lastname';
 $fullnamelanguage = get_string('fullnamedisplay', '', $override);
@@ -80,7 +80,8 @@ if ($sort == 'firstname' or $sort == 'lastname') {
     $orderby = "cl.$sort $dir";
 }
 
-$sql = "SELECT u.id, u.firstname, u.lastname, u.picture, u.imagealt,
+$ufields = user_picture::fields('u');
+$sql = "SELECT $ufields,
                cl.timemodified, cl.plugin, cl.name, cl.value, cl.oldvalue
           FROM {config_log} cl
           JOIN {user} u ON u.id = cl.userid

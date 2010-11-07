@@ -56,13 +56,13 @@
  *
  *  Next, in foo.php, your file structure would resemble the following:
  * <code>
- *         require_once('.../config.php');
+ *         require(dirname(dirname(dirname(__FILE__))).'/config.php');
  *         require_once($CFG->libdir.'/adminlib.php');
  *         admin_externalpage_setup('foo');
  *         // functionality like processing form submissions goes here
- *         $OUTPUT->header();
+ *         echo $OUTPUT->header();
  *         // your HTML goes here
- *         $OUTPUT->footer();
+ *         echo $OUTPUT->footer();
  * </code>
  *
  *  The admin_externalpage_setup() function call ensures the user is logged in,
@@ -97,10 +97,13 @@
  * Original author: Vincenzo K. Marcovecchio
  * Maintainer:      Petr Skoda
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  http://dougiamas.com
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage admin
+ * @copyright  1999 onwards Martin Dougiamas  http://dougiamas.com
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /// Add libraries
 require_once($CFG->libdir.'/ddllib.php');
@@ -122,9 +125,9 @@ function uninstall_plugin($type, $name) {
 
     // recursively uninstall all module subplugins first
     if ($type === 'mod') {
-        if (file_exists("$CFG->dirroot/$name/db/subplugins.php")) {
+        if (file_exists("$CFG->dirroot/mod/$name/db/subplugins.php")) {
             $subplugins = array();
-            include("$moddir/db/subplugins.php");
+            include("$CFG->dirroot/mod/$name/db/subplugins.php");
             foreach ($subplugins as $subplugintype=>$dir) {
                 $instances = get_plugin_list($subplugintype);
                 foreach ($instances as $subpluginname => $notusedpluginpath) {
@@ -253,7 +256,7 @@ function uninstall_plugin($type, $name) {
     $DB->delete_records('log', array('module' => $pluginname));
 
     // delete log_display information
-    $DB->delete_records('log_display', array('module' => $pluginname));
+    $DB->delete_records('log_display', array('component' => $component));
 
     // delete the module configuration records
     unset_all_config_for_plugin($pluginname);
@@ -269,6 +272,84 @@ function uninstall_plugin($type, $name) {
     events_uninstall($component);
 
     echo $OUTPUT->notification(get_string('success'), 'notifysuccess');
+}
+
+/**
+ * Returns the version of installed component
+ *
+ * @param string $component component name
+ * @param string $source either 'disk' or 'installed' - where to get the version information from
+ * @return string|bool version number or false if the component is not found
+ */
+function get_component_version($component, $source='installed') {
+    global $CFG, $DB;
+
+    list($type, $name) = normalize_component($component);
+
+    // moodle core or a core subsystem
+    if ($type === 'core') {
+        if ($source === 'installed') {
+            if (empty($CFG->version)) {
+                return false;
+            } else {
+                return $CFG->version;
+            }
+        } else {
+            if (!is_readable($CFG->dirroot.'/version.php')) {
+                return false;
+            } else {
+                $version = null; //initialize variable for IDEs
+                include($CFG->dirroot.'/version.php');
+                return $version;
+            }
+        }
+    }
+
+    // activity module
+    if ($type === 'mod') {
+        if ($source === 'installed') {
+            return $DB->get_field('modules', 'version', array('name'=>$name));
+        } else {
+            $mods = get_plugin_list('mod');
+            if (empty($mods[$name]) or !is_readable($mods[$name].'/version.php')) {
+                return false;
+            } else {
+                $module = new stdclass();
+                include($mods[$name].'/version.php');
+                return $module->version;
+            }
+        }
+    }
+
+    // block
+    if ($type === 'block') {
+        if ($source === 'installed') {
+            return $DB->get_field('block', 'version', array('name'=>$name));
+        } else {
+            $blocks = get_plugin_list('block');
+            if (empty($blocks[$name]) or !is_readable($blocks[$name].'/version.php')) {
+                return false;
+            } else {
+                $plugin = new stdclass();
+                include($blocks[$name].'/version.php');
+                return $plugin->version;
+            }
+        }
+    }
+
+    // all other plugin types
+    if ($source === 'installed') {
+        return get_config($type.'_'.$name, 'version');
+    } else {
+        $plugins = get_plugin_list($type);
+        if (empty($plugins[$name])) {
+            return false;
+        } else {
+            $plugin = new stdclass();
+            include($plugins[$name].'/version.php');
+            return $plugin->version;
+        }
+    }
 }
 
 /**
@@ -483,9 +564,7 @@ function is_dataroot_insecure($fetchtest=false) {
     preg_match('|(https?://[^/]+)|i', $CFG->wwwroot, $matches);
     $httpdocroot = $matches[1];
     $datarooturl = $httpdocroot.'/'. substr($dataroot, strlen($siteroot));
-    if (make_upload_directory('diag', false) === false) {
-        return INSECURE_DATAROOT_WARNING;
-    }
+    make_upload_directory('diag');
     $testfile = $CFG->dataroot.'/diag/public.txt';
     if (!file_exists($testfile)) {
         file_put_contents($testfile, 'test file, do not delete');
@@ -922,7 +1001,7 @@ class admin_externalpage implements part_of_admin_tree {
      * @param string $url The external URL that we should link to when someone requests this external page.
      * @param mixed $req_capability The role capability/permission a user must have to access this external page. Defaults to 'moodle/site:config'.
      * @param boolean $hidden Is this external page hidden in admin tree block? Default false.
-     * @param context $context The context the page relates to. Not sure what happens
+     * @param stdClass $context The context the page relates to. Not sure what happens
      *      if you specify something other than system or front page. Defaults to system.
      */
     public function __construct($name, $visiblename, $url, $req_capability='moodle/site:config', $hidden=false, $context=NULL) {
@@ -984,7 +1063,7 @@ class admin_externalpage implements part_of_admin_tree {
                 $found = true;
             }
         if ($found) {
-            $result = new object();
+            $result = new stdClass();
             $result->page     = $this;
             $result->settings = array();
             return array($this->name => $result);
@@ -1063,11 +1142,11 @@ class admin_settingpage implements part_of_admin_tree {
      * @param string $visiblename The displayed name for this external page. Usually obtained through get_string().
      * @param mixed $req_capability The role capability/permission a user must have to access this external page. Defaults to 'moodle/site:config'.
      * @param boolean $hidden Is this external page hidden in admin tree block? Default false.
-     * @param context $context The context the page relates to. Not sure what happens
+     * @param stdClass $context The context the page relates to. Not sure what happens
      *      if you specify something other than system or front page. Defaults to system.
      */
     public function __construct($name, $visiblename, $req_capability='moodle/site:config', $hidden=false, $context=NULL) {
-        $this->settings    = new object();
+        $this->settings    = new stdClass();
         $this->name        = $name;
         $this->visiblename = $visiblename;
         if (is_array($req_capability)) {
@@ -1115,7 +1194,7 @@ class admin_settingpage implements part_of_admin_tree {
         }
 
         if ($found) {
-            $result = new object();
+            $result = new stdClass();
             $result->page     = $this;
             $result->settings = $found;
             return array($this->name => $result);
@@ -1130,7 +1209,7 @@ class admin_settingpage implements part_of_admin_tree {
                 $found = true;
             }
         if ($found) {
-            $result = new object();
+            $result = new stdClass();
             $result->page     = $this;
             $result->settings = array();
             return array($this->name => $result);
@@ -1262,7 +1341,7 @@ abstract class admin_setting {
     public function __construct($name, $visiblename, $description, $defaultsetting) {
         $this->parse_setting_name($name);
         $this->visiblename    = $visiblename;
-        $this->description    = markdown_to_html($description);
+        $this->description    = $description;
         $this->defaultsetting = $defaultsetting;
     }
 
@@ -1358,7 +1437,7 @@ abstract class admin_setting {
         set_config($name, $value, $this->plugin);
 
         // log change
-        $log = new object();
+        $log = new stdClass();
         $log->userid       = during_initial_install() ? 0 :$USER->id; // 0 as user id during install
         $log->timemodified = time();
         $log->plugin       = $this->plugin;
@@ -1508,10 +1587,10 @@ class admin_setting_heading extends admin_setting {
         global $OUTPUT;
         $return = '';
         if ($this->visiblename != '') {
-            $return .= $OUTPUT->heading($this->visiblename, 3, 'main', true);
+            $return .= $OUTPUT->heading($this->visiblename, 3, 'main');
         }
         if ($this->description != '') {
-            $return .= $OUTPUT->box(highlight($query, $this->description), 'generalbox formsettingheading');
+            $return .= $OUTPUT->box(highlight($query, markdown_to_html($this->description)), 'generalbox formsettingheading');
         }
         return $return;
     }
@@ -1544,7 +1623,7 @@ class admin_setting_configtext extends admin_setting {
         if (!is_null($size)) {
             $this->size  = $size;
         } else {
-            $this->size  = ($paramtype == PARAM_INT) ? 5 : 30;
+            $this->size  = ($paramtype === PARAM_INT) ? 5 : 30;
         }
         parent::__construct($name, $visiblename, $description, $defaultsetting);
     }
@@ -1590,7 +1669,7 @@ class admin_setting_configtext extends admin_setting {
 
         } else {
             $cleaned = clean_param($data, $this->paramtype);
-            if ("$data" == "$cleaned") { // implicit conversion to string is needed to do exact comparison
+            if ("$data" === "$cleaned") { // implicit conversion to string is needed to do exact comparison
                 return true;
             } else {
                 return get_string('validateerror', 'admin');
@@ -1690,7 +1769,7 @@ class admin_setting_confightmleditor extends admin_setting_configtext {
             $defaultinfo = "\n".$default;
         }
 
-        $editor = get_preferred_texteditor(FORMAT_HTML);
+        $editor = editors_get_preferred_editor(FORMAT_HTML);
         $editor->use_editor($this->get_id(), array('noclean'=>true));
 
         return format_admin_setting($this, $this->visiblename,
@@ -2204,7 +2283,7 @@ class admin_setting_configselect extends admin_setting {
      * @param string $name unique ascii name, either 'mysetting' for settings that in config, or 'myplugin/mysetting' for ones in config_plugins.
      * @param string $visiblename localised
      * @param string $description long localised info
-     * @param string $defaultsetting
+     * @param string|int $defaultsetting
      * @param array $choices array of $value=>$label for each selection
      */
     public function __construct($name, $visiblename, $description, $defaultsetting, $choices) {
@@ -2671,8 +2750,10 @@ class admin_setting_users_with_capability extends admin_setting_configmultiselec
                 $this->choices[$user->id] = fullname($user);
             }
         }
-        foreach ($users as $user) {
-            $this->choices[$user->id] = fullname($user);
+        if (is_array($users)) {
+            foreach ($users as $user) {
+                $this->choices[$user->id] = fullname($user);
+            }
         }
         return true;
     }
@@ -2997,7 +3078,7 @@ class admin_setting_sitesetcheckbox extends admin_setting_configcheckbox {
      */
     public function write_setting($data) {
         global $DB, $SITE;
-        $record = new object();
+        $record = new stdClass();
         $record->id            = SITEID;
         $record->{$this->name} = ($data == '1' ? 1 : 0);
         $record->timemodified  = time();
@@ -3056,7 +3137,7 @@ class admin_setting_sitesettext extends admin_setting_configtext {
             return $validated;
         }
 
-        $record = new object();
+        $record = new stdClass();
         $record->id            = SITEID;
         $record->{$this->name} = $data;
         $record->timemodified  = time();
@@ -3097,7 +3178,7 @@ class admin_setting_special_frontpagedesc extends admin_setting {
      */
     public function write_setting($data) {
         global $DB, $SITE;
-        $record = new object();
+        $record = new stdClass();
         $record->id            = SITEID;
         $record->{$this->name} = $data;
         $record->timemodified  = time();
@@ -3123,128 +3204,7 @@ class admin_setting_special_frontpagedesc extends admin_setting {
 }
 
 /**
- * Special font selector for use in admin section
- *
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-class admin_setting_special_editorfontlist extends admin_setting {
-
-/**
- * Construct method, calls parent::__construct with specific args
- */
-    public function __construct() {
-        global $CFG;
-        $name = 'editorfontlist';
-        $visiblename = get_string('editorfontlist', 'admin');
-        $description = get_string('configeditorfontlist', 'admin');
-        $defaults = array('k0' => 'Trebuchet',
-            'v0' => 'Trebuchet MS,Verdana,Arial,Helvetica,sans-serif',
-            'k1' => 'Arial',
-            'v1' => 'arial,helvetica,sans-serif',
-            'k2' => 'Courier New',
-            'v2' => 'courier new,courier,monospace',
-            'k3' => 'Georgia',
-            'v3' => 'georgia,times new roman,times,serif',
-            'k4' => 'Tahoma',
-            'v4' => 'tahoma,arial,helvetica,sans-serif',
-            'k5' => 'Times New Roman',
-            'v5' => 'times new roman,times,serif',
-            'k6' => 'Verdana',
-            'v6' => 'verdana,arial,helvetica,sans-serif',
-            'k7' => 'Impact',
-            'v7' => 'impact',
-            'k8' => 'Wingdings',
-            'v8' => 'wingdings');
-        parent::__construct($name, $visiblename, $description, $defaults);
-    }
-
-    /**
-     * Return the current setting
-     *
-     * @return array Array of the current setting(s)
-     */
-    public function get_setting() {
-        global $CFG;
-        $result = $this->config_read($this->name);
-        if (is_null($result)) {
-            return NULL;
-        }
-        $i = 0;
-        $currentsetting = array();
-        $items = explode(';', $result);
-        foreach ($items as $item) {
-            $item = explode(':', $item);
-            $currentsetting['k'.$i] = $item[0];
-            $currentsetting['v'.$i] = $item[1];
-            $i++;
-        }
-        return $currentsetting;
-    }
-
-    /**
-     * Save the new setting(s)
-     *
-     * @todo Add vartype handling to ensure $data is an array
-     * @param array $data Array containing the new settings
-     * @return bool
-     */
-    public function write_setting($data) {
-
-    // there miiight be an easier way to do this :)
-    // if this is changed, make sure the $defaults array above is modified so that this
-    // function processes it correctly
-
-        $keys = array();
-        $values = array();
-
-        foreach ($data as $key => $value) {
-            if (substr($key,0,1) == 'k') {
-                $keys[substr($key,1)] = $value;
-            } elseif (substr($key,0,1) == 'v') {
-                $values[substr($key,1)] = $value;
-            }
-        }
-
-        $result = array();
-        for ($i = 0; $i < count($keys); $i++) {
-            if (($keys[$i] !== '') && ($values[$i] !== '')) {
-                $result[] = clean_param($keys[$i],PARAM_NOTAGS).':'.clean_param($values[$i], PARAM_NOTAGS);
-            }
-        }
-
-        return ($this->config_write($this->name, implode(';', $result)) ? '' : get_string('errorsetting', 'admin'));
-    }
-
-    /**
-     * Returns XHTML for the options
-     *
-     * @todo Add vartype handling to ensure that $data is an array
-     * @param array $data An array of values to set
-     * @param string $query
-     * @return string XHTML
-     */
-    public function output_html($data, $query='') {
-        $fullname = $this->get_full_name();
-        $return = '<div class="form-group">';
-        for ($i = 0; $i < count($data) / 2; $i++) {
-            $return .= '<input type="text" class="form-text" name="'.$fullname.'[k'.$i.']" value="'.$data['k'.$i].'" />';
-            $return .= '&nbsp;&nbsp;';
-            $return .= '<input type="text" class="form-text" name="'.$fullname.'[v'.$i.']" value="'.$data['v'.$i].'" /><br />';
-        }
-        $return .= '<input type="text" class="form-text" name="'.$fullname.'[k'.$i.']" value="" />';
-        $return .= '&nbsp;&nbsp;';
-        $return .= '<input type="text" class="form-text" name="'.$fullname.'[v'.$i.']" value="" /><br />';
-        $return .= '<input type="text" class="form-text" name="'.$fullname.'[k'.($i + 1).']" value="" />';
-        $return .= '&nbsp;&nbsp;';
-        $return .= '<input type="text" class="form-text" name="'.$fullname.'[v'.($i + 1).']" value="" />';
-        $return .= '</div>';
-
-        return format_admin_setting($this, $this->visiblename, $return, $this->description, false, '', NULL, $query);
-    }
-
-}
-/**
- * Special settings for emoticons
+ * Administration interface for emoticon_manager settings.
  *
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -3255,66 +3215,10 @@ class admin_setting_emoticons extends admin_setting {
  */
     public function __construct() {
         global $CFG;
-        $name = 'emoticons';
-        $visiblename = get_string('emoticons', 'admin');
-        $description = get_string('configemoticons', 'admin');
-        $defaults = array('k0' => ':-)',
-            'v0' => 'smiley',
-            'k1' => ':)',
-            'v1' => 'smiley',
-            'k2' => ':-D',
-            'v2' => 'biggrin',
-            'k3' => ';-)',
-            'v3' => 'wink',
-            'k4' => ':-/',
-            'v4' => 'mixed',
-            'k5' => 'V-.',
-            'v5' => 'thoughtful',
-            'k6' => ':-P',
-            'v6' => 'tongueout',
-            'k7' => 'B-)',
-            'v7' => 'cool',
-            'k8' => '^-)',
-            'v8' => 'approve',
-            'k9' => '8-)',
-            'v9' => 'wideeyes',
-            'k10' => ':o)',
-            'v10' => 'clown',
-            'k11' => ':-(',
-            'v11' => 'sad',
-            'k12' => ':(',
-            'v12' => 'sad',
-            'k13' => '8-.',
-            'v13' => 'shy',
-            'k14' => ':-I',
-            'v14' => 'blush',
-            'k15' => ':-X',
-            'v15' => 'kiss',
-            'k16' => '8-o',
-            'v16' => 'surprise',
-            'k17' => 'P-|',
-            'v17' => 'blackeye',
-            'k18' => '8-[',
-            'v18' => 'angry',
-            'k19' => 'xx-P',
-            'v19' => 'dead',
-            'k20' => '|-.',
-            'v20' => 'sleepy',
-            'k21' => '}-]',
-            'v21' => 'evil',
-            'k22' => '(h)',
-            'v22' => 'heart',
-            'k23' => '(heart)',
-            'v23' => 'heart',
-            'k24' => '(y)',
-            'v24' => 'yes',
-            'k25' => '(n)',
-            'v25' => 'no',
-            'k26' => '(martin)',
-            'v26' => 'martin',
-            'k27' => '( )',
-            'v27' => 'egg');
-        parent::__construct($name, $visiblename, $description, $defaults);
+
+        $manager = get_emoticon_manager();
+        $defaults = $this->prepare_form_data($manager->default_emoticons());
+        parent::__construct('emoticons', get_string('emoticons', 'admin'), get_string('emoticons_desc', 'admin'), $defaults);
     }
 
     /**
@@ -3324,20 +3228,20 @@ class admin_setting_emoticons extends admin_setting {
      */
     public function get_setting() {
         global $CFG;
-        $result = $this->config_read($this->name);
-        if (is_null($result)) {
-            return NULL;
+
+        $manager = get_emoticon_manager();
+
+        $config = $this->config_read($this->name);
+        if (is_null($config)) {
+            return null;
         }
-        $i = 0;
-        $currentsetting = array();
-        $items = explode('{;}', $result);
-        foreach ($items as $item) {
-            $item = explode('{:}', $item);
-            $currentsetting['k'.$i] = $item[0];
-            $currentsetting['v'.$i] = $item[1];
-            $i++;
+
+        $config = $manager->decode_stored_config($config);
+        if (is_null($config)) {
+            return null;
         }
-        return $currentsetting;
+
+        return $this->prepare_form_data($config);
     }
 
     /**
@@ -3348,29 +3252,18 @@ class admin_setting_emoticons extends admin_setting {
      */
     public function write_setting($data) {
 
-    // there miiight be an easier way to do this :)
-    // if this is changed, make sure the $defaults array above is modified so that this
-    // function processes it correctly
+        $manager = get_emoticon_manager();
+        $emoticons = $this->process_form_data($data);
 
-        $keys = array();
-        $values = array();
-
-        foreach ($data as $key => $value) {
-            if (substr($key,0,1) == 'k') {
-                $keys[substr($key,1)] = $value;
-            } elseif (substr($key,0,1) == 'v') {
-                $values[substr($key,1)] = $value;
-            }
+        if ($emoticons === false) {
+            return false;
         }
 
-        $result = array();
-        for ($i = 0; $i < count($keys); $i++) {
-            if (($keys[$i] !== '') && ($values[$i] !== '')) {
-                $result[] = clean_param($keys[$i],PARAM_NOTAGS).'{:}'.clean_param($values[$i], PARAM_NOTAGS);
-            }
+        if ($this->config_write($this->name, $manager->encode_stored_config($emoticons))) {
+            return ''; // success
+        } else {
+            return get_string('errorsetting', 'admin') . $this->visiblename . html_writer::empty_tag('br');
         }
-
-        return ($this->config_write($this->name, implode('{;}', $result)) ? '' : get_string('errorsetting', 'admin').$this->visiblename.'<br />');
     }
 
     /**
@@ -3380,163 +3273,151 @@ class admin_setting_emoticons extends admin_setting {
      * @return string XHTML string for the fields and wrapping div(s)
      */
     public function output_html($data, $query='') {
-        $fullname = $this->get_full_name();
-        $return = '<div class="form-group">';
-        for ($i = 0; $i < count($data) / 2; $i++) {
-            $return .= '<input type="text" class="form-text" name="'.$fullname.'[k'.$i.']" value="'.$data['k'.$i].'" />';
-            $return .= '&nbsp;&nbsp;';
-            $return .= '<input type="text" class="form-text" name="'.$fullname.'[v'.$i.']" value="'.$data['v'.$i].'" /><br />';
+        global $OUTPUT;
+
+        $out  = html_writer::start_tag('table', array('border' => 1, 'class' => 'generaltable'));
+        $out .= html_writer::start_tag('thead');
+        $out .= html_writer::start_tag('tr');
+        $out .= html_writer::tag('th', get_string('emoticontext', 'admin'));
+        $out .= html_writer::tag('th', get_string('emoticonimagename', 'admin'));
+        $out .= html_writer::tag('th', get_string('emoticoncomponent', 'admin'));
+        $out .= html_writer::tag('th', get_string('emoticonalt', 'admin'), array('colspan' => 2));
+        $out .= html_writer::tag('th', '');
+        $out .= html_writer::end_tag('tr');
+        $out .= html_writer::end_tag('thead');
+        $out .= html_writer::start_tag('tbody');
+        $i = 0;
+        foreach($data as $field => $value) {
+            switch ($i) {
+            case 0:
+                $out .= html_writer::start_tag('tr');
+                $current_text = $value;
+                $current_filename = '';
+                $current_imagecomponent = '';
+                $current_altidentifier = '';
+                $current_altcomponent = '';
+            case 1:
+                $current_filename = $value;
+            case 2:
+                $current_imagecomponent = $value;
+            case 3:
+                $current_altidentifier = $value;
+            case 4:
+                $current_altcomponent = $value;
+            }
+
+            $out .= html_writer::tag('td',
+                html_writer::empty_tag('input',
+                    array(
+                        'type'  => 'text',
+                        'class' => 'form-text',
+                        'name'  => $this->get_full_name().'['.$field.']',
+                        'value' => $value,
+                    )
+                ), array('class' => 'c'.$i)
+            );
+
+            if ($i == 4) {
+                if (get_string_manager()->string_exists($current_altidentifier, $current_altcomponent)) {
+                    $alt = get_string($current_altidentifier, $current_altcomponent);
+                } else {
+                    $alt = $current_text;
+                }
+                if ($current_filename) {
+                    $out .= html_writer::tag('td', $OUTPUT->render(new pix_emoticon($current_filename, $alt, $current_imagecomponent)));
+                } else {
+                    $out .= html_writer::tag('td', '');
+                }
+                $out .= html_writer::end_tag('tr');
+                $i = 0;
+            } else {
+                $i++;
+            }
+
         }
-        $return .= '<input type="text" class="form-text" name="'.$fullname.'[k'.$i.']" value="" />';
-        $return .= '&nbsp;&nbsp;';
-        $return .= '<input type="text" class="form-text" name="'.$fullname.'[v'.$i.']" value="" /><br />';
-        $return .= '<input type="text" class="form-text" name="'.$fullname.'[k'.($i + 1).']" value="" />';
-        $return .= '&nbsp;&nbsp;';
-        $return .= '<input type="text" class="form-text" name="'.$fullname.'[v'.($i + 1).']" value="" />';
-        $return .= '</div>';
+        $out .= html_writer::end_tag('tbody');
+        $out .= html_writer::end_tag('table');
+        $out  = html_writer::tag('div', $out, array('class' => 'form-group'));
+        $out .= html_writer::tag('div', html_writer::link(new moodle_url('/admin/resetemoticons.php'), get_string('emoticonsreset', 'admin')));
 
-        return format_admin_setting($this, $this->visiblename, $return, $this->description, false, '', NULL, $query);
-    }
-
-}
-/**
- * Used to set editor options/settings
- *
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
-class admin_setting_special_editorhidebuttons extends admin_setting {
-/** @var array Array of possible options */
-    public $items;
-
-    /**
-     * Calls parent::__construct with specific options
-     */
-    public function __construct() {
-        parent::__construct('editorhidebuttons', get_string('editorhidebuttons', 'admin'),
-            get_string('confeditorhidebuttons', 'admin'), array());
-        // weird array... buttonname => buttonimage (assume proper path appended). if you leave buttomimage blank, text will be printed instead
-        $this->items = array('fontname' => '',
-            'fontsize' => '',
-            'formatblock' => '',
-            'bold' => 'ed_format_bold.gif',
-            'italic' => 'ed_format_italic.gif',
-            'underline' => 'ed_format_underline.gif',
-            'strikethrough' => 'ed_format_strike.gif',
-            'subscript' => 'ed_format_sub.gif',
-            'superscript' => 'ed_format_sup.gif',
-            'copy' => 'ed_copy.gif',
-            'cut' => 'ed_cut.gif',
-            'paste' => 'ed_paste.gif',
-            'clean' => 'ed_wordclean.gif',
-            'undo' => 'ed_undo.gif',
-            'redo' => 'ed_redo.gif',
-            'justifyleft' => 'ed_align_left.gif',
-            'justifycenter' => 'ed_align_center.gif',
-            'justifyright' => 'ed_align_right.gif',
-            'justifyfull' => 'ed_align_justify.gif',
-            'lefttoright' => 'ed_left_to_right.gif',
-            'righttoleft' => 'ed_right_to_left.gif',
-            'insertorderedlist' => 'ed_list_num.gif',
-            'insertunorderedlist' => 'ed_list_bullet.gif',
-            'outdent' => 'ed_indent_less.gif',
-            'indent' => 'ed_indent_more.gif',
-            'forecolor' => 'ed_color_fg.gif',
-            'hilitecolor' => 'ed_color_bg.gif',
-            'inserthorizontalrule' => 'ed_hr.gif',
-            'createanchor' => 'ed_anchor.gif',
-            'createlink' => 'ed_link.gif',
-            'unlink' => 'ed_unlink.gif',
-            'insertimage' => 'ed_image.gif',
-            'inserttable' => 'insert_table.gif',
-            'insertsmile' => 'em.icon.smile.gif',
-            'insertchar' => 'icon_ins_char.gif',
-            'spellcheck' => 'spell-check.gif',
-            'htmlmode' => 'ed_html.gif',
-            'popupeditor' => 'fullscreen_maximize.gif',
-            'search_replace' => 'ed_replace.gif');
+        return format_admin_setting($this, $this->visiblename, $out, $this->description, false, '', NULL, $query);
     }
 
     /**
-     * Get an array of current settings
+     * Converts the array of emoticon objects provided by {@see emoticon_manager} into admin settings form data
      *
-     * @return array Array of current settings
+     * @see self::process_form_data()
+     * @param array $emoticons array of emoticon objects as returned by {@see emoticon_manager}
+     * @return array of form fields and their values
      */
-    public function get_setting() {
-        $result = $this->config_read($this->name);
-        if (is_null($result)) {
-            return NULL;
+    protected function prepare_form_data(array $emoticons) {
+
+        $form = array();
+        $i = 0;
+        foreach ($emoticons as $emoticon) {
+            $form['text'.$i]            = $emoticon->text;
+            $form['imagename'.$i]       = $emoticon->imagename;
+            $form['imagecomponent'.$i]  = $emoticon->imagecomponent;
+            $form['altidentifier'.$i]   = $emoticon->altidentifier;
+            $form['altcomponent'.$i]    = $emoticon->altcomponent;
+            $i++;
         }
-        if ($result === '') {
-            return array();
-        }
-        return explode(' ', $result);
+        // add one more blank field set for new object
+        $form['text'.$i]            = '';
+        $form['imagename'.$i]       = '';
+        $form['imagecomponent'.$i]  = '';
+        $form['altidentifier'.$i]   = '';
+        $form['altcomponent'.$i]    = '';
+
+        return $form;
     }
 
     /**
-     * Save the selected settings
+     * Converts the data from admin settings form into an array of emoticon objects
      *
-     * @param array $data Array of settings to save
-     * @return mixed empty string, error string, or bool true=>success, false=>error
+     * @see self::prepare_form_data()
+     * @param array $data array of admin form fields and values
+     * @return false|array of emoticon objects
      */
-    public function write_setting($data) {
-        if (!is_array($data)) {
-            return ''; // ignore it
-        }
-        unset($data['xxxxx']);
-        $result = array();
+    protected function process_form_data(array $form) {
 
-        foreach ($data as $key => $value) {
-            if (!isset($this->items[$key])) {
-                return get_string('errorsetting', 'admin');
-            }
-            if ($value == '1') {
-                $result[] = $key;
-            }
-        }
-        return ($this->config_write($this->name, implode(' ', $result)) ? '' : get_string('errorsetting', 'admin'));
-    }
+        $count = count($form); // number of form field values
 
-    /**
-     * Return XHTML for the field and wrapping div(s)
-     *
-     * @param array $data
-     * @param string $query
-     * @return string XHTML for output
-     */
-    public function output_html($data, $query='') {
-
-        global $CFG;
-
-        // checkboxes with input name="$this->name[$key]" value="1"
-        // we do 15 fields per column
-
-        $return = '<div class="form-group">';
-        $return .= '<table><tr><td valign="top" align="right">';
-        $return .= '<input type="hidden" name="'.$this->get_full_name().'[xxxxx]" value="1" />'; // something must be submitted even if nothing selected
-
-        $count = 0;
-
-        foreach($this->items as $key => $value) {
-            if ($count % 15 == 0 and $count != 0) {
-                $return .= '</td><td valign="top" align="right">';
-            }
-
-            $return .= '<label for="'.$this->get_id().$key.'">';
-            $return .= ($value == '' ? get_string($key,'editor') : '<img width="18" height="18" src="'.$CFG->wwwroot.'/lib/editor/htmlarea/images/'.$value.'" alt="'.get_string($key,'editor').'" title="'.get_string($key,'editor').'" />').'&nbsp;';
-            $return .= '<input type="checkbox" class="form-checkbox" value="1" id="'.$this->get_id().$key.'" name="'.$this->get_full_name().'['.$key.']"'.(in_array($key,$data) ? ' checked="checked"' : '').' />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
-            $return .= '</label>';
-            $count++;
-            if ($count % 15 != 0) {
-                $return .= '<br /><br />';
-            }
+        if ($count % 5) {
+            // we must get five fields per emoticon object
+            return false;
         }
 
-        $return .= '</td></tr>';
-        $return .= '</table>';
-        $return .= '</div>';
+        $emoticons = array();
+        for ($i = 0; $i < $count / 5; $i++) {
+            $emoticon                   = new stdClass();
+            $emoticon->text             = clean_param(trim($form['text'.$i]), PARAM_NOTAGS);
+            $emoticon->imagename        = clean_param(trim($form['imagename'.$i]), PARAM_PATH);
+            $emoticon->imagecomponent   = clean_param(trim($form['imagecomponent'.$i]), PARAM_SAFEDIR);
+            $emoticon->altidentifier    = clean_param(trim($form['altidentifier'.$i]), PARAM_STRINGID);
+            $emoticon->altcomponent     = clean_param(trim($form['altcomponent'.$i]), PARAM_SAFEDIR);
 
-        return format_admin_setting($this, $this->visiblename, $return, $this->description, false, '', NULL, $query);
+            if (strpos($emoticon->text, ':/') !== false or strpos($emoticon->text, '//') !== false) {
+                // prevent from breaking http://url.addresses by accident
+                $emoticon->text = '';
+            }
+
+            if (strlen($emoticon->text) < 2) {
+                // do not allow single character emoticons
+                $emoticon->text = '';
+            }
+
+            if (preg_match('/^[a-zA-Z]+[a-zA-Z0-9]*$/', $emoticon->text)) {
+                // emoticon text must contain some non-alphanumeric character to prevent
+                // breaking HTML tags
+                $emoticon->text = '';
+            }
+
+            if ($emoticon->text !== '' and $emoticon->imagename !== '' and $emoticon->imagecomponent !== '') {
+                $emoticons[] = $emoticon;
+            }
+        }
+        return $emoticons;
     }
 }
 
@@ -4280,7 +4161,7 @@ class admin_setting_special_gradelimiting extends admin_setting_configcheckbox {
  */
     function admin_setting_special_gradelimiting() {
         parent::__construct('unlimitedgrades', get_string('unlimitedgrades', 'grades'),
-            get_string('configunlimitedgrades', 'grades'), '0', '1', '0');
+            get_string('unlimitedgrades_help', 'grades'), '0', '1', '0');
     }
 
     /**
@@ -4342,7 +4223,7 @@ class admin_setting_special_gradeexport extends admin_setting_configmulticheckbo
 
         if ($plugins = get_plugin_list('gradeexport')) {
             foreach($plugins as $plugin => $unused) {
-                $this->choices[$plugin] = get_string('modulename', 'gradeexport_'.$plugin);
+                $this->choices[$plugin] = get_string('pluginname', 'gradeexport_'.$plugin);
             }
         }
         return true;
@@ -4492,7 +4373,7 @@ class admin_setting_grade_profilereport extends admin_setting_configselect {
  * Calls parent::__construct with specific arguments
  */
     public function __construct() {
-        parent::__construct('grade_profilereport', get_string('profilereport', 'grades'), get_string('configprofilereport', 'grades'), 'user', null);
+        parent::__construct('grade_profilereport', get_string('profilereport', 'grades'), get_string('profilereport_help', 'grades'), 'user', null);
     }
 
     /**
@@ -4514,7 +4395,7 @@ class admin_setting_grade_profilereport extends admin_setting_configselect {
                 require_once($plugindir.'/lib.php');
                 $functionname = 'grade_report_'.$plugin.'_profilereport';
                 if (function_exists($functionname)) {
-                    $this->choices[$plugin] = get_string('modulename', 'gradereport_'.$plugin);
+                    $this->choices[$plugin] = get_string('pluginname', 'gradereport_'.$plugin);
                 }
             }
         }
@@ -4624,7 +4505,7 @@ class admin_page_managemods extends admin_externalpage {
             }
         }
         if ($found) {
-            $result = new object();
+            $result = new stdClass();
             $result->page     = $this;
             $result->settings = array();
             return array($this->name => $result);
@@ -4877,7 +4758,7 @@ class admin_page_manageblocks extends admin_externalpage {
             }
         }
         if ($found) {
-            $result = new object();
+            $result = new stdClass();
             $result->page     = $this;
             $result->settings = array();
             return array($this->name => $result);
@@ -4924,7 +4805,7 @@ class admin_page_manageqtypes extends admin_externalpage {
             }
         }
         if ($found) {
-            $result = new object();
+            $result = new stdClass();
             $result->page     = $this;
             $result->settings = array();
             return array($this->name => $result);
@@ -5190,7 +5071,7 @@ class admin_setting_manageeditors extends admin_setting {
         }
 
         $textlib = textlib_get_instance();
-        $editors_available = get_available_editors();
+        $editors_available = editors_get_available();
         foreach ($editors_available as $editor=>$editorstr) {
             if (strpos($editor, $query) !== false) {
                 return true;
@@ -5217,7 +5098,7 @@ class admin_setting_manageeditors extends admin_setting {
             'up', 'down', 'none'));
         $txt->updown = "$txt->up/$txt->down";
 
-        $editors_available = get_available_editors();
+        $editors_available = editors_get_available();
         $active_editors = explode(',', $CFG->texteditors);
 
         $active_editors = array_reverse($active_editors);
@@ -5286,7 +5167,8 @@ class admin_setting_manageeditors extends admin_setting {
 
             // settings link
             if (file_exists($CFG->dirroot.'/lib/editor/'.$editor.'/settings.php')) {
-                $settings = "<a href='$url&amp;editor=$editor&amp;action=edit'>{$txt->settings}</a>";
+                $eurl = new moodle_url('/admin/settings.php', array('section'=>'editorsettingstinymce'));
+                $settings = "<a href='$eurl'>{$txt->settings}</a>";
             } else {
                 $settings = '';
             }
@@ -5359,7 +5241,7 @@ class admin_setting_managelicenses extends admin_setting {
         $txt = get_strings(array('administration', 'settings', 'name', 'enable', 'disable', 'none'));
         $licenses = license_manager::get_licenses();
 
-        $return = $OUTPUT->heading(get_string('managelicenses', 'admin'), 3, 'main', true);
+        $return = $OUTPUT->heading(get_string('availablelicenses', 'admin'), 3, 'main', true);
 
         $return .= $OUTPUT->box_start('generalbox editorsui');
 
@@ -5488,6 +5370,15 @@ class admin_setting_manageportfolio extends admin_setting {
     }
 
     /**
+     * Helper function that generates a moodle_url object
+     * relevant to the portfolio
+     */
+
+    function portfolio_action_url($portfolio) {
+        return new moodle_url($this->baseurl, array('sesskey'=>sesskey(), 'pf'=>$portfolio));
+    }
+
+    /**
      * Searches the portfolio types for the specified type(string)
      *
      * @param string $query The string to search for
@@ -5524,15 +5415,30 @@ class admin_setting_manageportfolio extends admin_setting {
     public function output_html($data, $query='') {
         global $CFG, $OUTPUT;
 
-        $output = $OUTPUT->box_start('generalbox');
+        // Get strings that are used
+        $strshow = get_string('on', 'portfolio');
+        $strhide = get_string('off', 'portfolio');
+        $strdelete = get_string('disabledinstance', 'portfolio');
+        $strsettings = get_string('settings');
 
-        $namestr = get_string('name');
-        $pluginstr = get_string('plugin', 'portfolio');
+        $actionchoicesforexisting = array(
+            'show' => $strshow,
+            'hide' => $strhide,
+            'delete' => $strdelete
+        );
+
+        $actionchoicesfornew = array(
+            'newon' => $strshow,
+            'newoff' => $strhide,
+            'delete' => $strdelete
+        );
+
+        $output = $OUTPUT->box_start('generalbox');
 
         $plugins = get_plugin_list('portfolio');
         $plugins = array_keys($plugins);
         $instances = portfolio_instances(false, false);
-        $alreadyplugins = array();
+        $usedplugins = array();
 
         // to avoid notifications being sent out while admin is editing the page
         define('ADMIN_EDITING_PORTFOLIO', true);
@@ -5540,48 +5446,67 @@ class admin_setting_manageportfolio extends admin_setting {
         $insane = portfolio_plugin_sanity_check($plugins);
         $insaneinstances = portfolio_instance_sanity_check($instances);
 
-        $output .= portfolio_report_insane($insane, null, true);
-        $output .= portfolio_report_insane($insaneinstances, $instances, true);
-
         $table = new html_table();
-        $table->head = array($namestr, $pluginstr, '');
+        $table->head = array(get_string('plugin', 'portfolio'), '', '');
         $table->data = array();
 
         foreach ($instances as $i) {
-            $row = '';
-            $row .= '<a href="' . $this->baseurl . '&edit=' . $i->get('id') . '"><img src="' . $OUTPUT->pix_url('t/edit') . '" alt="' . get_string('edit') . '" /></a>' . "\n";
-            $row .= '<a href="' . $this->baseurl . '&delete=' .  $i->get('id') . '"><img src="' . $OUTPUT->pix_url('t/delete') . '" alt="' . get_string('delete') . '" /></a>' . "\n";
-            if (array_key_exists($i->get('plugin'), $insane) || array_key_exists($i->get('id'), $insaneinstances)) {
-                $row .=  '<img src="' . $OUTPUT->pix_url('t/show') . '" alt="' . get_string('hidden', 'portfolio') . '" />' . "\n";
+            $settings = '<a href="' . $this->baseurl . '&amp;action=edit&amp;pf=' . $i->get('id') . '">' . $strsettings .'</a>';
+            // Set some commonly used variables
+            $pluginid = $i->get('id');
+            $plugin = $i->get('plugin');
+            $pluginname = $i->get('name');
+
+            // Check if the instance is misconfigured
+            if (array_key_exists($plugin, $insane) || array_key_exists($pluginid, $insaneinstances)) {
+                if (!empty($insane[$plugin])) {
+                    $information = $insane[$plugin];
+                } else if (!empty($insaneinstances[$pluginid])) {
+                    $information = $insaneinstances[$pluginid];
+                }
+                $table->data[] = array($pluginname, $strdelete  . " " . $OUTPUT->help_icon($information, 'portfolio_' .  $plugin), $settings);
             } else {
-                $row .= ' <a href="' . $this->baseurl . '&hide=' . $i->get('id') . '"><img src="' .
-                    $OUTPUT->pix_url('t/' . ($i->get('visible') ? 'hide' : 'show')) . '" alt="' . get_string($i->get('visible') ? 'hide' : 'show') . '" /></a>' . "\n";
+                if ($i->get('visible')) {
+                    $currentaction = 'show';
+                } else {
+                    $currentaction = 'hide';
+                }
+                $select = new single_select($this->portfolio_action_url($pluginid, 'pf'), 'action', $actionchoicesforexisting, $currentaction, null, 'applyto' . $pluginid);
+                $table->data[] = array($pluginname, $OUTPUT->render($select), $settings);
             }
-            $table->data[] = array($i->get('name'), $i->get_name() . ' (' . $i->get('plugin') . ')', $row);
-            if (!in_array($i->get('plugin'), $alreadyplugins)) {
-                $alreadyplugins[] = $i->get('plugin');
+            if (!in_array($plugin, $usedplugins)) {
+                $usedplugins[] = $plugin;
+            }
+        }
+
+        // Create insane plugin array
+        $insaneplugins = array();
+        if (!empty($plugins)) {
+            foreach ($plugins as $p) {
+                // Check if it can not have multiple instances and has already been used
+                if (!portfolio_static_function($p, 'allows_multiple_instances') && in_array($p, $usedplugins)) {
+                    continue;
+                }
+
+                // Check if it is misconfigured - if so store in array then display later
+                if (array_key_exists($p, $insane)) {
+                    $insaneplugins[] = $p;
+                } else {
+                    $select = new single_select($this->portfolio_action_url($p, 'pf'), 'action', $actionchoicesfornew, 'delete', null, 'applyto' . $p);
+                    $table->data[] = array(portfolio_static_function($p, 'get_name'), $OUTPUT->render($select), '');
+                }
+            }
+        }
+
+        // Loop through all the insane plugins
+        if (!empty($insaneplugins)) {
+            foreach ($insaneplugins as $p) {
+                $table->data[] = array(portfolio_static_function($p, 'get_name'), $strdelete . " " . $OUTPUT->help_icon($insane[$p], 'portfolio_' .  $p), '');
             }
         }
 
         $output .= html_writer::table($table);
 
-        $instancehtml = '<br /><br />' . get_string('addnewportfolio', 'portfolio') . ': <br /><br />';
-        $addable = 0;
-        foreach ($plugins as $p) {
-            if (!portfolio_static_function($p, 'allows_multiple_instances') && in_array($p, $alreadyplugins)) {
-                continue;
-            }
-            if (array_key_exists($p, $insane)) {
-                continue;
-            }
-
-            $instancehtml .= '<a href="' . $this->baseurl . '&amp;new=' . $p . '">' . portfolio_static_function($p, 'get_name') . ' (' . s($p) . ')' . '</a><br />' . "\n";
-            $addable++;
-        }
-
-        if ($addable) {
-            $output .= $instancehtml;
-        }
         $output .= $OUTPUT->box_end();
 
         return highlight($query, $output);
@@ -5601,11 +5526,13 @@ class admin_setting_manageportfolio extends admin_setting {
  *      added to the turn blocks editing on/off form, so this page reloads correctly.
  * @param string $actualurl if the actual page being viewed is not the normal one for this
  *      page (e.g. admin/roles/allowassin.php, instead of admin/roles/manage.php, you can pass the alternate URL here.
+ * @param array $options Additional options that can be specified for page setup.
+ *      pagelayout - This option can be used to set a specific pagelyaout, admin is default.
  */
-function admin_externalpage_setup($section, $extrabutton = '', array $extraurlparams = null, $actualurl = '') {
+function admin_externalpage_setup($section, $extrabutton = '', array $extraurlparams = null, $actualurl = '', array $options = array()) {
     global $CFG, $PAGE, $USER, $SITE, $OUTPUT;
 
-    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
+    $PAGE->set_context(null); // hack - set context to something, by default to system context
 
     $site = get_site();
     require_login();
@@ -5624,7 +5551,10 @@ function admin_externalpage_setup($section, $extrabutton = '', array $extraurlpa
         die;
     }
 
-    if ($section === 'upgradesettings') {
+    if (!empty($options['pagelayout'])) {
+        // A specific page layout has been requested.
+        $PAGE->set_pagelayout($options['pagelayout']);
+    } else if ($section === 'upgradesettings') {
         $PAGE->set_pagelayout('maintenance');
     } else {
         $PAGE->set_pagelayout('admin');
@@ -5643,7 +5573,6 @@ function admin_externalpage_setup($section, $extrabutton = '', array $extraurlpa
     if (strpos($PAGE->pagetype, 'admin-') !== 0) {
         $PAGE->set_pagetype('admin-' . $PAGE->pagetype);
     }
-    $PAGE->set_pagelayout('admin');
 
     if (empty($SITE->fullname) || empty($SITE->shortname)) {
         // During initial install.
@@ -5789,7 +5718,7 @@ function admin_write_settings($formdata) {
         $original = serialize($setting->get_setting()); // comparison must work for arrays too
         $error = $setting->write_setting($data[$fullname]);
         if ($error !== '') {
-            $adminroot->errors[$fullname] = new object();
+            $adminroot->errors[$fullname] = new stdClass();
             $adminroot->errors[$fullname]->data  = $data[$fullname];
             $adminroot->errors[$fullname]->id    = $setting->get_id();
             $adminroot->errors[$fullname]->error = $error;
@@ -6021,7 +5950,7 @@ function format_admin_setting($setting, $title='', $form='', $description='', $l
     </label>
   </div>
   <div class="form-setting">'.$form.$defaultinfo.'</div>
-  <div class="form-description">'.highlight($query, $description).'</div>
+  <div class="form-description">'.highlight($query, markdown_to_html($description)).'</div>
 </div>';
 
     $adminroot = admin_get_root();
@@ -6116,7 +6045,6 @@ function print_plugin_tables() {
         'folder',
         'forum',
         'glossary',
-        'hotpot',
         'imscp',
         'label',
         'lesson',
@@ -6145,7 +6073,6 @@ function print_plugin_tables() {
         'feedback',
         'glossary_random',
         'html',
-        'loancalc',
         'login',
         'mentees',
         'messages',
@@ -6174,11 +6101,13 @@ function print_plugin_tables() {
         'algebra',
         'censor',
         'emailprotect',
+        'emoticon',
         'filter',
         'mediaplugin',
         'multilang',
         'tex',
-        'tidy');
+        'tidy',
+        'urltolink');
 
     $plugins_installed = array();
     $installed_mods = $DB->get_records('modules', null, 'name');
@@ -6378,7 +6307,7 @@ class admin_setting_managerepository extends admin_setting {
      */
 
     function repository_action_url($repository) {
-        return new moodle_url('/admin/repository.php', array('sesskey'=>sesskey(), 'repos'=>$repository));
+        return new moodle_url($this->baseurl, array('sesskey'=>sesskey(), 'repos'=>$repository));
     }
 
     /**
@@ -6391,16 +6320,21 @@ class admin_setting_managerepository extends admin_setting {
     public function output_html($data, $query='') {
         global $CFG, $USER, $OUTPUT;
 
+        // Get strings that are used
+        $strshow = get_string('on', 'repository');
+        $strhide = get_string('off', 'repository');
+        $strdelete = get_string('disabled', 'repository');
+
         $actionchoicesforexisting = array(
-            'show' => get_string('on', 'repository'),
-            'hide' => get_string('off', 'repository'),
-            'delete' => get_string('disabled', 'repository')
+            'show' => $strshow,
+            'hide' => $strhide,
+            'delete' => $strdelete
         );
 
         $actionchoicesfornew = array(
-            'newon' => get_string('on', 'repository'),
-            'newoff' => get_string('off', 'repository'),
-            'delete' => get_string('disabled', 'repository')
+            'newon' => $strshow,
+            'newoff' => $strhide,
+            'delete' => $strdelete
         );
 
         $return = '';
@@ -6438,16 +6372,43 @@ class admin_setting_managerepository extends admin_setting {
                         $params['onlyvisible'] = false;
                         $params['type'] = $typename;
                         $admininstancenumber = count(repository::static_function($typename, 'get_instances', $params));
-                        $admininstancenumbertext =   " <br/> ". $admininstancenumber . " " . get_string('instancesforadmin', 'repository');
+                        // site instances
+                        $admininstancenumbertext = get_string('instancesforsite', 'repository', $admininstancenumber);
                         $params['context'] = array();
-                        $instancenumber =  count(repository::static_function($typename, 'get_instances', $params)) - $admininstancenumber;
-                        $instancenumbertext =  "<br/>" . $instancenumber . " " . get_string('instancesforothers', 'repository');
+                        $instances = repository::static_function($typename, 'get_instances', $params);
+                        $courseinstances = array();
+                        $userinstances = array();
+
+                        foreach ($instances as $instance) {
+                            if ($instance->context->contextlevel == CONTEXT_COURSE) {
+                                $courseinstances[] = $instance;
+                            } else if ($instance->context->contextlevel == CONTEXT_USER) {
+                                $userinstances[] = $instance;
+                            }
+                        }
+                        // course instances
+                        $instancenumber = count($courseinstances);
+                        $courseinstancenumbertext = get_string('instancesforcourses', 'repository', $instancenumber);
+
+                        // user private instances
+                        $instancenumber =  count($userinstances);
+                        $userinstancenumbertext = get_string('instancesforusers', 'repository', $instancenumber);
                     } else {
                         $admininstancenumbertext = "";
-                        $instancenumbertext = "";
+                        $courseinstancenumbertext = "";
+                        $userinstancenumbertext = "";
                     }
 
-                    $settings .= '<a href="' . $this->baseurl . '&amp;action=edit&amp;repos=' . $typename . '">' . $settingsstr .'</a>' . $admininstancenumbertext . $instancenumbertext . "\n";
+                    $settings .= '<a href="' . $this->baseurl . '&amp;action=edit&amp;repos=' . $typename . '">' . $settingsstr .'</a>';
+
+                    $settings .= $OUTPUT->container_start('mdl-left');
+                    $settings .= '<br/>';
+                    $settings .= $admininstancenumbertext;
+                    $settings .= '<br/>';
+                    $settings .= $courseinstancenumbertext;
+                    $settings .= '<br/>';
+                    $settings .= $userinstancenumbertext;
+                    $settings .= $OUTPUT->container_end();
                 }
                 // Get the current visibility
                 if ($i->get_visible()) {
@@ -6494,7 +6455,7 @@ class admin_setting_managerepository extends admin_setting {
                 // Check that it has not already been listed
                 if (!in_array($plugin, $alreadyplugins)) {
                     $select = new single_select($this->repository_action_url($plugin, 'repos'), 'action', $actionchoicesfornew, 'delete', null, 'applyto' . basename($plugin));
-                    $table->data[] = array(get_string('repositoryname', 'repository_'.$plugin), $OUTPUT->render($select), '', '');
+                    $table->data[] = array(get_string('pluginname', 'repository_'.$plugin), $OUTPUT->render($select), '', '');
                 }
             }
         }
@@ -6687,6 +6648,92 @@ class admin_setting_manageexternalservices extends admin_setting {
         return highlight($query, $return);
     }
 }
+/**
+ * Special class for plagiarism administration.
+ *
+ * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class admin_setting_manageplagiarism extends admin_setting {
+/**
+ * Calls parent::__construct with specific arguments
+ */
+    public function __construct() {
+        $this->nosave = true;
+        parent::__construct('plagiarismui', get_string('plagiarismsettings', 'plagiarism'), '', '');
+    }
+
+    /**
+     * Always returns true
+     *
+     * @return true
+     */
+    public function get_setting() {
+        return true;
+    }
+
+    /**
+     * Always returns true
+     *
+     * @return true
+     */
+    public function get_defaultsetting() {
+        return true;
+    }
+
+    /**
+     * Always returns '' and doesn't write anything
+     *
+     * @return string Always returns ''
+     */
+    public function write_setting($data) {
+    // do not write any setting
+        return '';
+    }
+
+    /**
+     * Return XHTML to display control
+     *
+     * @param mixed $data Unused
+     * @param string $query
+     * @return string highlight
+     */
+    public function output_html($data, $query='') {
+        global $CFG, $OUTPUT;
+
+        // display strings
+        $txt = get_strings(array('settings', 'name'));
+
+        $plagiarismplugins = get_plugin_list('plagiarism');
+        if (empty($plagiarismplugins)) {
+            return get_string('nopluginsinstalled', 'plagiarism');
+        }
+
+        $return = $OUTPUT->heading(get_string('availableplugins', 'plagiarism'), 3, 'main');
+        $return .= $OUTPUT->box_start('generalbox authsui');
+
+        $table = new html_table();
+        $table->head  = array($txt->name, $txt->settings);
+        $table->align = array('left', 'center');
+        $table->data  = array();
+        $table->attributes['class'] = 'manageplagiarismtable generaltable';
+
+        // iterate through auth plugins and add to the display table
+        $authcount = count($plagiarismplugins);
+        foreach ($plagiarismplugins as $plugin => $dir) {
+            if (file_exists($dir.'/settings.php')) {
+                $displayname = "<span>".get_string($plugin, 'plagiarism_'.$plugin)."</span>";
+                // settings link
+                $settings = "<a href=\"$CFG->wwwroot/plagiarism/$plugin/settings.php\">{$txt->settings}</a>";
+                // add a row to the table
+                $table->data[] =array($displayname, $settings);
+            }
+        }
+        $return .= html_writer::table($table);
+        $return .= get_string('configplagiarismplugins', 'plagiarism');
+        $return .= $OUTPUT->box_end();
+        return highlight($query, $return);
+    }
+}
 
 /**
  * Special class for overview of external services
@@ -6694,12 +6741,14 @@ class admin_setting_manageexternalservices extends admin_setting {
  * @author Jerome Mouneyrac
  */
 class admin_setting_webservicesoverview extends admin_setting {
+
     /**
      * Calls parent::__construct with specific arguments
      */
     public function __construct() {
         $this->nosave = true;
-        parent::__construct('webservicesoverviewui', get_string('webservicesoverview', 'webservice'), '', '');
+        parent::__construct('webservicesoverviewui',
+                        get_string('webservicesoverview', 'webservice'), '', '');
     }
 
     /**
@@ -6726,7 +6775,7 @@ class admin_setting_webservicesoverview extends admin_setting {
      * @return string Always returns ''
      */
     public function write_setting($data) {
-    // do not write any setting
+        // do not write any setting
         return '';
     }
 
@@ -6742,23 +6791,27 @@ class admin_setting_webservicesoverview extends admin_setting {
 
         $return = "";
 
-    /// One system controlling Moodle with Token
+        /// One system controlling Moodle with Token
+        $brtag = html_writer::empty_tag('br');
 
         $return .= $OUTPUT->heading(get_string('onesystemcontrolling', 'webservice'), 3, 'main');
         $table = new html_table();
-        $table->head  = array(get_string('step', 'webservice'), get_string('status'), get_string('description'));
-        $table->size  = array('30%', '10%', '60%' );
+        $table->head = array(get_string('step', 'webservice'), get_string('status'),
+            get_string('description'));
+        $table->size = array('30%', '10%', '60%');
         $table->align = array('left', 'left', 'left');
         $table->width = '90%';
-        $table->data  = array();
+        $table->data = array();
 
-        $return .= "<br/>".get_string('onesystemcontrollingdescription', 'webservice')."<br/><br/>";
+        $return .= $brtag . get_string('onesystemcontrollingdescription', 'webservice')
+                . $brtag . $brtag;
 
         /// 1. Enable Web Services
         $row = array();
         $url = new moodle_url("/admin/search.php?query=enablewebservices");
-        $row[0] = "1. "."<a href=".$url.">".get_string('enablews', 'webservice')."</a>";
-        $status = '<span class="statuscritical">'.get_string('no').'</span>'; //should never happens as this page should only be seen once web service are activated
+        $row[0] = "1. " . html_writer::tag('a', get_string('enablews', 'webservice'),
+                        array('href' => $url));
+        $status = html_writer::tag('span', get_string('no'), array('class' => 'statuscritical'));
         if ($CFG->enablewebservices) {
             $status = get_string('yes');
         }
@@ -6769,14 +6822,16 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 2. Enable protocols
         $row = array();
         $url = new moodle_url("/admin/settings.php?section=webserviceprotocols");
-        $row[0] = "2. "."<a href=".$url.">".get_string('enableprotocols', 'webservice')."</a>";
-        $status = '<span class="statuscritical">'.get_string('none').'</span>'; //should never happens as this page should only be seen once web service are activated
+        $row[0] = "2. " . html_writer::tag('a', get_string('enableprotocols', 'webservice'),
+                        array('href' => $url));
+        $status = html_writer::tag('span', get_string('none'), array('class' => 'statuscritical'));
         //retrieve activated protocol
-        $active_protocols = empty($CFG->webserviceprotocols) ? array() : explode(',', $CFG->webserviceprotocols);
+        $active_protocols = empty($CFG->webserviceprotocols) ?
+                array() : explode(',', $CFG->webserviceprotocols);
         if (!empty($active_protocols)) {
             $status = "";
-            foreach($active_protocols as $protocol) {
-                $status .= $protocol."<br/>";
+            foreach ($active_protocols as $protocol) {
+                $status .= $protocol . $brtag;
             }
         }
         $row[1] = $status;
@@ -6786,7 +6841,8 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 3. Create user account
         $row = array();
         $url = new moodle_url("/user/editadvanced.php?id=-1");
-        $row[0] = "3. "."<a href=".$url.">".get_string('createuser', 'webservice')."</a>";
+        $row[0] = "3. " . html_writer::tag('a', get_string('createuser', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('createuserdescription', 'webservice');
         $table->data[] = $row;
@@ -6794,7 +6850,8 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 4. Add capability to users
         $row = array();
         $url = new moodle_url("/admin/roles/check.php?contextid=1");
-        $row[0] = "4. "."<a href=".$url.">".get_string('checkusercapability', 'webservice')."</a>";
+        $row[0] = "4. " . html_writer::tag('a', get_string('checkusercapability', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('checkusercapabilitydescription', 'webservice');
         $table->data[] = $row;
@@ -6802,7 +6859,8 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 5. Select a web service
         $row = array();
         $url = new moodle_url("/admin/settings.php?section=externalservices");
-        $row[0] = "5. "."<a href=".$url.">".get_string('selectservice', 'webservice')."</a>";
+        $row[0] = "5. " . html_writer::tag('a', get_string('selectservice', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('createservicedescription', 'webservice');
         $table->data[] = $row;
@@ -6810,7 +6868,8 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 6. Add functions
         $row = array();
         $url = new moodle_url("/admin/settings.php?section=externalservices");
-        $row[0] = "6. "."<a href=".$url.">".get_string('addfunctions', 'webservice')."</a>";
+        $row[0] = "6. " . html_writer::tag('a', get_string('addfunctions', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('addfunctionsdescription', 'webservice');
         $table->data[] = $row;
@@ -6818,15 +6877,17 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 7. Add the specific user
         $row = array();
         $url = new moodle_url("/admin/settings.php?section=externalservices");
-        $row[0] = "7. "."<a href=".$url.">".get_string('selectspecificuser', 'webservice')."</a>";
+        $row[0] = "7. " . html_writer::tag('a', get_string('selectspecificuser', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('selectspecificuserdescription', 'webservice');
         $table->data[] = $row;
 
         /// 8. Create token for the specific user
         $row = array();
-        $url = new moodle_url("/admin/webservice/tokens.php?sesskey=".sesskey()."&action=create");
-        $row[0] = "8. "."<a href=".$url.">".get_string('createtokenforuser', 'webservice')."</a>";
+        $url = new moodle_url("/admin/webservice/tokens.php?sesskey=" . sesskey() . "&action=create");
+        $row[0] = "8. " . html_writer::tag('a', get_string('createtokenforuser', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('createtokenforuserdescription', 'webservice');
         $table->data[] = $row;
@@ -6834,8 +6895,9 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 9. Enable the documentation
         $row = array();
         $url = new moodle_url("/admin/search.php?query=enablewsdocumentation");
-        $row[0] = "9. "."<a href=".$url.">".get_string('enabledocumentation', 'webservice')."</a>";
-        $status = '<span class="warning">'.get_string('no').'</span>'; //should never happens as this page should only be seen once web service are activated
+        $row[0] = "9. " . html_writer::tag('a', get_string('enabledocumentation', 'webservice'),
+                        array('href' => $url));
+        $status = '<span class="warning">' . get_string('no') . '</span>';
         if ($CFG->enablewsdocumentation) {
             $status = get_string('yes');
         }
@@ -6846,30 +6908,34 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 10. Test the service
         $row = array();
         $url = new moodle_url("/admin/webservice/testclient.php");
-        $row[0] = "10. "."<a href=".$url.">".get_string('testwithtestclient', 'webservice')."</a>";
+        $row[0] = "10. " . html_writer::tag('a', get_string('testwithtestclient', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('testwithtestclientdescription', 'webservice');
         $table->data[] = $row;
 
         $return .= html_writer::table($table);
 
-    /// Users as clients with token
-        $return .= "<br/><br/><br/>";
+        /// Users as clients with token
+        $return .= $brtag . $brtag . $brtag;
         $return .= $OUTPUT->heading(get_string('userasclients', 'webservice'), 3, 'main');
         $table = new html_table();
-        $table->head  = array(get_string('step', 'webservice'), get_string('status'), get_string('description'));
-        $table->size  = array('30%', '10%', '60%' );
+        $table->head = array(get_string('step', 'webservice'), get_string('status'),
+            get_string('description'));
+        $table->size = array('30%', '10%', '60%');
         $table->align = array('left', 'left', 'left');
         $table->width = '90%';
-        $table->data  = array();
+        $table->data = array();
 
-        $return .= "<br/>".get_string('userasclientsdescription', 'webservice')."<br/><br/>";
+        $return .= $brtag . get_string('userasclientsdescription', 'webservice') .
+                $brtag . $brtag;
 
         /// 1. Enable Web Services
         $row = array();
         $url = new moodle_url("/admin/search.php?query=enablewebservices");
-        $row[0] = "1. "."<a href=".$url.">".get_string('enablews', 'webservice')."</a>";
-        $status = '<span class="statuscritical">'.get_string('no').'</span>'; //should never happens as this page should only be seen once web service are activated
+        $row[0] = "1. " . html_writer::tag('a', get_string('enablews', 'webservice'),
+                        array('href' => $url));
+        $status = html_writer::tag('span', get_string('no'), array('class' => 'statuscritical'));
         if ($CFG->enablewebservices) {
             $status = get_string('yes');
         }
@@ -6880,14 +6946,16 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 2. Enable protocols
         $row = array();
         $url = new moodle_url("/admin/settings.php?section=webserviceprotocols");
-        $row[0] = "2. "."<a href=".$url.">".get_string('enableprotocols', 'webservice')."</a>";
-        $status = '<span class="statuscritical">'.get_string('none').'</span>'; //should never happens as this page should only be seen once web service are activated
+        $row[0] = "2. " . html_writer::tag('a', get_string('enableprotocols', 'webservice'),
+                        array('href' => $url));
+        $status = html_writer::tag('span', get_string('none'), array('class' => 'statuscritical'));
         //retrieve activated protocol
-        $active_protocols = empty($CFG->webserviceprotocols) ? array() : explode(',', $CFG->webserviceprotocols);
+        $active_protocols = empty($CFG->webserviceprotocols) ?
+                array() : explode(',', $CFG->webserviceprotocols);
         if (!empty($active_protocols)) {
             $status = "";
-            foreach($active_protocols as $protocol) {
-                $status .= $protocol."<br/>";
+            foreach ($active_protocols as $protocol) {
+                $status .= $protocol . $brtag;
             }
         }
         $row[1] = $status;
@@ -6898,7 +6966,8 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 3. Select a web service
         $row = array();
         $url = new moodle_url("/admin/settings.php?section=externalservices");
-        $row[0] = "3. "."<a href=".$url.">".get_string('selectservice', 'webservice')."</a>";
+        $row[0] = "3. " . html_writer::tag('a', get_string('selectservice', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('createserviceforusersdescription', 'webservice');
         $table->data[] = $row;
@@ -6906,7 +6975,8 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 4. Add functions
         $row = array();
         $url = new moodle_url("/admin/settings.php?section=externalservices");
-        $row[0] = "4. "."<a href=".$url.">".get_string('addfunctions', 'webservice')."</a>";
+        $row[0] = "4. " . html_writer::tag('a', get_string('addfunctions', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('addfunctionsdescription', 'webservice');
         $table->data[] = $row;
@@ -6914,7 +6984,8 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 5. Add capability to users
         $row = array();
         $url = new moodle_url("/admin/roles/check.php?contextid=1");
-        $row[0] = "5. "."<a href=".$url.">".get_string('addcapabilitytousers', 'webservice')."</a>";
+        $row[0] = "5. " . html_writer::tag('a', get_string('addcapabilitytousers', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('addcapabilitytousersdescription', 'webservice');
         $table->data[] = $row;
@@ -6922,7 +6993,8 @@ class admin_setting_webservicesoverview extends admin_setting {
         /// 6. Test the service
         $row = array();
         $url = new moodle_url("/admin/webservice/testclient.php");
-        $row[0] = "6. "."<a href=".$url.">".get_string('testwithtestclient', 'webservice')."</a>";
+        $row[0] = "6. " . html_writer::tag('a', get_string('testwithtestclient', 'webservice'),
+                        array('href' => $url));
         $row[1] = "";
         $row[2] = get_string('testauserwithtestclientdescription', 'webservice');
         $table->data[] = $row;
@@ -6931,6 +7003,7 @@ class admin_setting_webservicesoverview extends admin_setting {
 
         return highlight($query, $return);
     }
+
 }
 
 /**
@@ -7031,7 +7104,7 @@ class admin_setting_managewebserviceprotocols extends admin_setting {
             }
         }
 
-        $return = $OUTPUT->heading(get_string('actwebserviceshhdr', 'webservice'), 3, 'main', true);
+        $return = $OUTPUT->heading(get_string('actwebserviceshhdr', 'webservice'), 3, 'main');
         $return .= $OUTPUT->box_start('generalbox webservicesui');
 
         $table = new html_table();
@@ -7045,7 +7118,7 @@ class admin_setting_managewebserviceprotocols extends admin_setting {
         foreach ($protocols_available as $protocol => $location) {
             $name = get_string('pluginname', 'webservice_'.$protocol);
 
-            $plugin = new object();
+            $plugin = new stdClass();
             if (file_exists($CFG->dirroot.'/webservice/'.$protocol.'/version.php')) {
                 include($CFG->dirroot.'/webservice/'.$protocol.'/version.php');
             }
@@ -7149,8 +7222,8 @@ class admin_setting_managewebservicetokens extends admin_setting {
         $return = $OUTPUT->box_start('generalbox webservicestokenui');
 
         $table = new html_table();
-        $table->head  = array($strtoken, $struser, $strservice, $strcontext, $striprestriction, $strvaliduntil, $stroperation);
-        $table->align = array('left', 'left', 'left', 'center', 'center', 'center', 'center');
+        $table->head  = array($strtoken, $struser, $strservice, $striprestriction, $strvaliduntil, $stroperation);
+        $table->align = array('left', 'left', 'left', 'center', 'center', 'center');
         $table->width = '100%';
         $table->data  = array();
 
@@ -7159,7 +7232,7 @@ class admin_setting_managewebservicetokens extends admin_setting {
         //TODO: in order to let the administrator delete obsolete token, split this request in multiple request or use LEFT JOIN
 
         //here retrieve token list (including linked users firstname/lastname and linked services name)
-        $sql = "SELECT t.id, t.token, u.id AS userid, u.firstname, u.lastname, s.name, t.validuntil
+        $sql = "SELECT t.id, t.token, u.id AS userid, u.firstname, u.lastname, s.name, t.validuntil, s.id AS serviceid
                   FROM {external_tokens} t, {user} u, {external_services} s
                  WHERE t.creatorid=? AND t.tokentype = ? AND s.id = t.externalserviceid AND t.userid = u.id";
         $tokens = $DB->get_records_sql($sql, array($USER->id, EXTERNAL_TOKEN_PERMANENT));
@@ -7184,7 +7257,27 @@ class admin_setting_managewebservicetokens extends admin_setting {
                 $useratag = html_writer::start_tag('a', array('href' => $userprofilurl));
                 $useratag .= $token->firstname." ".$token->lastname;
                 $useratag .= html_writer::end_tag('a');
-                $table->data[] = array($token->token, $useratag, $token->name, '', $iprestriction, $validuntil, $delete);
+
+                //check user missing capabilities
+                require_once($CFG->dirroot . '/webservice/lib.php');
+                $webservicemanager = new webservice();
+                $usermissingcaps = $webservicemanager->get_missing_capabilities_by_users(
+                        array(array('id' => $token->userid)), $token->serviceid);
+
+                if (!is_siteadmin($token->userid) and
+                        key_exists($token->userid, $usermissingcaps)) {
+                    $missingcapabilities = implode(',',
+                            $usermissingcaps[$token->userid]);
+                    if (!empty($missingcapabilities)) {
+                        $useratag .= html_writer::tag('div',
+                                        get_string('usermissingcaps', 'webservice',
+                                                $missingcapabilities)
+                                        . '&nbsp;' . $OUTPUT->help_icon('missingcaps', 'webservice'),
+                                        array('class' => 'missingcaps'));
+                    }
+                }
+
+                $table->data[] = array($token->token, $useratag, $token->name, $iprestriction, $validuntil, $delete);
             }
 
             $return .= html_writer::table($table);
@@ -7203,7 +7296,7 @@ class admin_setting_managewebservicetokens extends admin_setting {
 
 /**
  * Colour picker
- * 
+ *
  * @copyright 2010 Sam Hemelryk
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -7240,7 +7333,7 @@ class admin_setting_configcolourpicker extends admin_setting {
 
     /**
      * Saves the setting
-     * 
+     *
      * @param string $data
      * @return bool
      */
@@ -7264,8 +7357,10 @@ class admin_setting_configcolourpicker extends admin_setting {
                 $data = '#'.$data;
             }
             return $data;
-        } else if (preg_match('/^[a-zA-Z]{3, 25}$/')) {
+        } else if (preg_match('/^[a-zA-Z]{3, 25}$/', $data)) {
             return $data;
+        } else if (empty($data)) {
+            return $this->defaultsetting;
         } else {
             return false;
         }

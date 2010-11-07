@@ -18,9 +18,10 @@
 /**
  * Allocates the submissions randomly
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    workshopallocation
+ * @subpackage random
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -156,29 +157,43 @@ class workshop_random_allocator implements workshop_allocator {
      * Returns the HTML code to print the user interface
      */
     public function ui() {
-        global $OUTPUT, $PAGE;
+        global $PAGE;
+
+        $output = $PAGE->get_renderer('mod_workshop');
 
         $m = optional_param('m', null, PARAM_INT);  // status message code
-        $msg = new stdclass();
+        $message = new workshop_message();
         if ($m == self::MSG_SUCCESS) {
-            $msg = (object)array('text' => get_string('randomallocationdone', 'workshopallocation_random'), 'sty' => 'ok');
+            $message->set_text(get_string('randomallocationdone', 'workshopallocation_random'));
+            $message->set_type(workshop_message::TYPE_OK);
         }
 
-        $out = '';
-        $out .= $OUTPUT->container_start('random-allocator');
-        $wsoutput = $PAGE->get_renderer('mod_workshop');
-        $out .= $wsoutput->status_message($msg);
+        $out  = $output->container_start('random-allocator');
+        $out .= $output->render($message);
         // the nasty hack follows to bypass the sad fact that moodle quickforms do not allow to actually
         // return the HTML content, just to display it
         ob_start();
         $this->mform->display();
         $out .= ob_get_contents();
         ob_end_clean();
-        $out .= $OUTPUT->container_end();
+        $out .= $output->container_end();
 
-        $out .= $OUTPUT->heading(get_string('stats', 'workshopallocation_random'));
-        // TODO
+        // TODO $out .= $output->heading(get_string('stats', 'workshopallocation_random'));
+
         return $out;
+    }
+
+    /**
+     * Delete all data related to a given workshop module instance
+     *
+     * This plugin does not store any data.
+     *
+     * @see workshop_delete_instance()
+     * @param int $workshopid id of the workshop module instance being deleted
+     * @return void
+     */
+    public static function delete_instance($workshopid) {
+        return;
     }
 
     /**
@@ -357,7 +372,7 @@ class workshop_random_allocator implements workshop_allocator {
      * @param array    $authors      structure of grouped authors
      * @param resource $reviewers    structure of grouped reviewers
      * @param array    $assessments  currently assigned assessments to be kept
-     * @param mixed    $numofreviews number of reviewes to be allocated to each circle
+     * @param mixed    $numofreviews number of reviews to be allocated to each circle
      * @param mixed    $numper       what user type the circles represent
      * @param array    $o            reference to an array of log messages
      * @return array                 array of (reviewerid => authorid) pairs

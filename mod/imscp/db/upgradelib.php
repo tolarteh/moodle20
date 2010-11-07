@@ -18,10 +18,13 @@
 /**
  * IMS CP module upgrade related helper functions
  *
- * @package   mod-imscp
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage imscp
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Migrate imscp module data from 1.9 resource_old table to new imscp table
@@ -55,11 +58,19 @@ function imscp_20_migrate() {
     foreach ($candidates as $candidate) {
         upgrade_set_timeout(60);
 
-        $imscp = new object();
+        if ($CFG->texteditors !== 'textarea') {
+            $intro       = text_to_html($candidate->intro, false, false, true);
+            $introformat = FORMAT_HTML;
+        } else {
+            $intro       = $candidate->intro;
+            $introformat = FORMAT_MOODLE;
+        }
+
+        $imscp = new stdClass();
         $imscp->course       = $candidate->course;
         $imscp->name         = $candidate->name;
-        $imscp->intro        = $candidate->intro;
-        $imscp->introformat  = $candidate->introformat;
+        $imscp->intro        = $intro;
+        $imscp->introformat  = $introformat;
         $imscp->revision     = 1;
         $imscp->keepold      = 1;
         $imscp->timemodified = time();
@@ -77,7 +88,8 @@ function imscp_20_migrate() {
             $fullpath = $root.'/'.$package;
             if (file_exists($fullpath)) {
                 $file_record = array('contextid' => $context->id,
-                                     'filearea'  => 'imscp_backup',
+                                     'component' => 'mod_imscp',
+                                     'filearea'  => 'backup',
                                      'itemid'    => 1,
                                      'filepath'  => '/',
                                      'filename'  => $package);
@@ -93,7 +105,7 @@ function imscp_20_migrate() {
             continue;
         }
 
-        $file_record = array('contextid'=>$context->id, 'filearea'=>'imscp_content', 'itemid'=>1);
+        $file_record = array('contextid'=>$context->id, 'component'=>'mod_imscp', 'filearea'=>'content', 'itemid'=>1);
         $error = false;
         foreach ($files as $relname=>$fullpath) {
             $parts = explode('/', $relname);
@@ -141,7 +153,7 @@ function imsc_migrate_get_old_files($path, $relative) {
     $items = new DirectoryIterator($path);
     foreach ($items as $item) {
         if ($item->isDot() or $item->isLink()) {
-            // symbolik links could create infinite loops or cause unintended file migration, sorry
+            // symbolic links could create infinite loops or cause unintended file migration, sorry
             continue;
         }
         $pathname = $item->getPathname();

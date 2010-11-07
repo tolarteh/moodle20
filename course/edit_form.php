@@ -16,6 +16,7 @@ class course_edit_form extends moodleform {
         $course        = $this->_customdata['course']; // this contains the data of this form
         $category      = $this->_customdata['category'];
         $editoroptions = $this->_customdata['editoroptions'];
+        $returnto = $this->_customdata['returnto'];
 
         $systemcontext   = get_context_instance(CONTEXT_SYSTEM);
         $categorycontext = get_context_instance(CONTEXT_COURSECAT, $category->id);
@@ -36,6 +37,10 @@ class course_edit_form extends moodleform {
 /// form definition with new course defaults
 //--------------------------------------------------------------------------------
         $mform->addElement('header','general', get_string('general', 'form'));
+
+        $mform->addElement('hidden', 'returnto', null);
+        $mform->setType('returnto', PARAM_ALPHANUM);
+        $mform->setConstant('returnto', $returnto);
 
         // verify permissions to change course category or keep current
         if (empty($course->id)) {
@@ -149,10 +154,20 @@ class course_edit_form extends moodleform {
         $mform->addHelpButton('maxbytes', 'maximumupload');
         $mform->setDefault('maxbytes', $courseconfig->maxbytes);
 
-        if (!empty($course->legacyfiles)) {
-            $choices = array('1'=>get_string('no'), '2'=>get_string('yes'));
+        if (!empty($course->legacyfiles) or !empty($CFG->legacyfilesinnewcourses)) {
+            if (empty($course->legacyfiles)) {
+                //0 or missing means no legacy files ever used in this course - new course or nobody turned on legacy files yet
+                $choices = array('0'=>get_string('no'), '2'=>get_string('yes'));
+            } else {
+                $choices = array('1'=>get_string('no'), '2'=>get_string('yes'));
+            }
             $mform->addElement('select', 'legacyfiles', get_string('courselegacyfiles'), $choices);
             $mform->addHelpButton('legacyfiles', 'courselegacyfiles');
+            if (!isset($courseconfig->legacyfiles)) {
+                // in case this was not initialised properly due to switching of $CFG->legacyfilesinnewcourses
+                $courseconfig->legacyfiles = 0;
+            }
+            $mform->setDefault('legacyfiles', $courseconfig->legacyfiles);
         }
 
         if (!empty($CFG->allowcoursethemes)) {
@@ -200,9 +215,13 @@ class course_edit_form extends moodleform {
         $mform->addElement('select', 'visible', get_string('availability'), $choices);
         $mform->addHelpButton('visible', 'availability');
         $mform->setDefault('visible', $courseconfig->visible);
-        if (!empty($course->id) and !has_capability('moodle/course:visibility', $coursecontext)) {
+        if (!has_capability('moodle/course:visibility', $context)) {
             $mform->hardFreeze('visible');
-            $mform->setConstant('visible', $course->visible);
+            if (!empty($course->id)) {
+                $mform->setConstant('visible', $course->visible);
+            } else {
+                $mform->setConstant('visible', $category->visible);
+            }
         }
 
 //--------------------------------------------------------------------------------

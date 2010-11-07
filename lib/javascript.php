@@ -18,14 +18,17 @@
 /**
  * This file is serving optimised JS
  *
- * @package   moodlecore
- * @copyright 2010 Petr Skoda (skodak)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  2010 Petr Skoda (skodak)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 // we need just the values from config.php and minlib.php
 define('ABORT_AFTER_CONFIG', true);
 require('../config.php'); // this stops immediately at the beginning of lib/setup.php
+
+ini_set('zlib.output_compression', 'Off');
 
 // setup include path
 set_include_path($CFG->libdir . '/minify/lib' . PATH_SEPARATOR . get_include_path());

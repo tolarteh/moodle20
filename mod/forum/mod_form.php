@@ -41,7 +41,7 @@ class mod_forum_mod_form extends moodleform_mod {
         if (!empty($CFG->formatstringstriptags)) {
         $mform->setType('name', PARAM_TEXT);
         } else {
-            $mform->setType('name', PARAM_CLEAN);
+            $mform->setType('name', PARAM_CLEANHTML);
         }
         $mform->addRule('name', null, 'required', null, 'client');
         $mform->addRule('name', get_string('maximumchars', '', 255), 'maxlength', 255, 'client');
@@ -77,7 +77,7 @@ class mod_forum_mod_form extends moodleform_mod {
         $mform->addHelpButton('maxbytes', 'maxattachmentsize', 'forum');
         $mform->setDefault('maxbytes', $CFG->forum_maxbytes);
 
-        $choices = array(0,1,2,3,4,5,6,7,8,9);
+        $choices = array(0,1,2,3,4,5,6,7,8,9,10,20,50,100);
         $mform->addElement('select', 'maxattachments', get_string('maxattachments', 'forum'), $choices);
         $mform->addHelpButton('maxattachments', 'maxattachments', 'forum');
         $mform->setDefault('maxattachments', $CFG->forum_maxattachments);
@@ -140,6 +140,9 @@ class mod_forum_mod_form extends moodleform_mod {
         $mform->disabledIf('warnafter', 'blockperiod', 'eq', 0);
 
 //-------------------------------------------------------------------------------
+
+        $this->standard_grading_coursemodule_elements();
+
         $this->standard_coursemodule_elements();
 //-------------------------------------------------------------------------------
 // buttons
@@ -170,6 +173,8 @@ class mod_forum_mod_form extends moodleform_mod {
     }
 
     function data_preprocessing(&$default_values) {
+        parent::data_preprocessing($default_values);
+
         // Set up the completion checkboxes which aren't part of standard data.
         // We also make the default value (if you turn on the checkbox) for those
         // numbers to be 1, this will not apply unless checkbox is ticked.

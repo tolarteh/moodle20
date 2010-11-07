@@ -16,10 +16,13 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package   mod-page
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage page
+ * @copyright  2009 Petr Skoda (http://skodak.org)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die;
 
 /**
  * List of features supported in Page module
@@ -79,7 +82,7 @@ function page_get_post_actions() {
  * Add page instance.
  * @param object $data
  * @param object $mform
- * @return int new resoruce instance id
+ * @return int new page instance id
  */
 function page_add_instance($data, $mform) {
     global $CFG, $DB;
@@ -108,7 +111,7 @@ function page_add_instance($data, $mform) {
     $context = get_context_instance(CONTEXT_MODULE, $cmid);
 
     if ($draftitemid) {
-        $data->content = file_save_draft_area_files($draftitemid, $context->id, 'page_content', 0, page_get_editor_options($context), $data->content);
+        $data->content = file_save_draft_area_files($draftitemid, $context->id, 'mod_page', 'content', 0, page_get_editor_options($context), $data->content);
         $DB->update_record('page', $data);
     }
 
@@ -148,7 +151,7 @@ function page_update_instance($data, $mform) {
 
     $context = get_context_instance(CONTEXT_MODULE, $cmid);
     if ($draftitemid) {
-        $data->content = file_save_draft_area_files($draftitemid, $context->id, 'page_content', 0, page_get_editor_options($context), $data->content);
+        $data->content = file_save_draft_area_files($draftitemid, $context->id, 'mod_page', 'content', 0, page_get_editor_options($context), $data->content);
         $DB->update_record('page', $data);
     }
 
@@ -191,7 +194,7 @@ function page_user_outline($course, $user, $mod, $page) {
         $numviews = count($logs);
         $lastlog = array_pop($logs);
 
-        $result = new object();
+        $result = new stdClass();
         $result->info = get_string('numviews', '', $numviews);
         $result->time = $lastlog->time;
 
@@ -253,7 +256,7 @@ function page_get_coursemodule_info($coursemodule) {
         return NULL;
     }
 
-    $info = new object();
+    $info = new stdClass();
     $info->name = $page->name;
 
     if ($page->display != RESOURCELIB_DISPLAY_POPUP) {
@@ -280,14 +283,12 @@ function page_get_coursemodule_info($coursemodule) {
  */
 function page_get_file_areas($course, $cm, $context) {
     $areas = array();
-    if (has_capability('moodle/course:managefiles', $context)) {
-        $areas['page_content'] = get_string('pagecontent', 'page');
-    }
+    $areas['content'] = get_string('content', 'page');
     return $areas;
 }
 
 /**
- * File browsing support for page module ontent area.
+ * File browsing support for page module content area.
  * @param object $browser
  * @param object $areas
  * @param object $course
@@ -302,25 +303,28 @@ function page_get_file_areas($course, $cm, $context) {
 function page_get_file_info($browser, $areas, $course, $cm, $context, $filearea, $itemid, $filepath, $filename) {
     global $CFG;
 
-    $canwrite = has_capability('moodle/course:managefiles', $context);
+    if (!has_capability('moodle/course:managefiles', $context)) {
+        // students can not peak here!
+        return null;
+    }
 
     $fs = get_file_storage();
 
-    if ($filearea === 'page_content') {
+    if ($filearea === 'content') {
         $filepath = is_null($filepath) ? '/' : $filepath;
         $filename = is_null($filename) ? '.' : $filename;
 
         $urlbase = $CFG->wwwroot.'/pluginfile.php';
-        if (!$storedfile = $fs->get_file($context->id, $filearea, 0, $filepath, $filename)) {
+        if (!$storedfile = $fs->get_file($context->id, 'mod_page', 'content', 0, $filepath, $filename)) {
             if ($filepath === '/' and $filename === '.') {
-                $storedfile = new virtual_root_file($context->id, $filearea, 0);
+                $storedfile = new virtual_root_file($context->id, 'mod_page', 'content', 0);
             } else {
                 // not found
                 return null;
             }
         }
         require_once("$CFG->dirroot/mod/page/locallib.php");
-        return new page_content_file_info($browser, $context, $storedfile, $urlbase, $areas[$filearea], true, true, $canwrite, false);
+        return new page_content_file_info($browser, $context, $storedfile, $urlbase, $areas[$filearea], true, true, true, false);
     }
 
     // note: page_intro handled in file_browser automatically
@@ -331,43 +335,42 @@ function page_get_file_info($browser, $areas, $course, $cm, $context, $filearea,
 /**
  * Serves the page files.
  * @param object $course
- * @param object $cminfo
+ * @param object $cm
  * @param object $context
  * @param string $filearea
  * @param array $args
  * @param bool $forcedownload
- * @return bool false if file not found, does not return if found - justsend the file
+ * @return bool false if file not found, does not return if found - just send the file
  */
-function page_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedownload) {
+function page_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload) {
     global $CFG, $DB;
     require_once("$CFG->libdir/resourcelib.php");
 
-    if (!$cminfo->uservisible) {
-        return false;
-    }
-
-    if ($filearea !== 'page_content') {
-        // intro is handled automatically in pluginfile.php
-        return false;
-    }
-
-    if (!$cm = get_coursemodule_from_instance('page', $cminfo->instance, $course->id)) {
+    if ($context->contextlevel != CONTEXT_MODULE) {
         return false;
     }
 
     require_course_login($course, true, $cm);
+    if (!has_capability('mod/page:view', $context)) {
+        return false;
+    }
+
+    if ($filearea !== 'content') {
+        // intro is handled automatically in pluginfile.php
+        return false;
+    }
 
     array_shift($args); // ignore revision - designed to prevent caching problems only
 
     $fs = get_file_storage();
-    $relativepath = '/'.implode('/', $args);
-    $fullpath = $context->id.$filearea.'0'.$relativepath;
+    $relativepath = implode('/', $args);
+    $fullpath = "/$context->id/mod_page/$filearea/0/$relativepath";
     if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
-        $page = $DB->get_record('page', array('id'=>$cminfo->instance), 'id, legacyfiles', MUST_EXIST);
+        $page = $DB->get_record('page', array('id'=>$cm->instance), 'id, legacyfiles', MUST_EXIST);
         if ($page->legacyfiles != RESOURCELIB_LEGACYFILES_ACTIVE) {
             return false;
         }
-        if (!$file = resourcelib_try_file_migration($relativepath, $cminfo->id, $cminfo->course, 'page_content', 0)) {
+        if (!$file = resourcelib_try_file_migration('/'.$relativepath, $cm->id, $cm->course, 'mod_page', 'content', 0)) {
             return false;
         }
         //file migrate - update flag
@@ -381,7 +384,7 @@ function page_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedow
 
 
 /**
- * This function extends the global navigaiton for the site.
+ * This function extends the global navigation for the site.
  * It is important to note that you should not rely on PAGE objects within this
  * body of code as there is no guarantee that during an AJAX request they are
  * available
@@ -389,7 +392,7 @@ function page_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedow
  * @param navigation_node $navigation The page node within the global navigation
  * @param stdClass $course The course object returned from the DB
  * @param stdClass $module The module object returned from the DB
- * @param stdClass $cm The course module isntance returned from the DB
+ * @param stdClass $cm The course module instance returned from the DB
  */
 function page_extend_navigation($navigation, $course, $module, $cm) {
     /**

@@ -1,4 +1,4 @@
-<?php // $Id: Server.php,v 1.2 2008-02-27 03:01:56 martinlanghoff Exp $
+<?php // $Id: Server.php,v 1.2 2008/02/27 03:01:56 martinlanghoff Exp $
 /*
    +----------------------------------------------------------------------+
    | Copyright (c) 2002-2007 Christian Stocker, Hartmut Holzgraefe        |

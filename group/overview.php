@@ -21,7 +21,7 @@ if (!$course = $DB->get_record('course', array('id'=>$courseid))) {
     print_error('invalidcourse');
 }
 
-$url = new moodle_url('/group/overview.php', array('course'=>$courseid));
+$url = new moodle_url('/group/overview.php', array('id'=>$courseid));
 if ($groupid !== 0) {
     $url->param('group', $groupid);
 }
@@ -81,7 +81,7 @@ $sql = "SELECT g.id AS groupid, gg.groupingid, u.id AS userid, u.firstname, u.la
 
 if ($rs = $DB->get_recordset_sql($sql, $params)) {
     foreach ($rs as $row) {
-        $user = new object();
+        $user = new stdClass();
         $user->id        = $row->userid;
         $user->firstname = $row->firstname;
         $user->lastname  = $row->lastname;
@@ -100,7 +100,7 @@ if ($rs = $DB->get_recordset_sql($sql, $params)) {
     $rs->close();
 }
 
-$PAGE->settingsnav->get('courseadmin')->get('groups')->make_active();
+navigation_node::override_active_url(new moodle_url('/group/index.php', array('id'=>$courseid)));
 $PAGE->navbar->add(get_string('overview', 'group'));
 
 /// Print header
@@ -158,10 +158,11 @@ foreach ($members as $gpgid=>$groupdata) {
             continue;
         }
         $line = array();
-        $name = format_string($groups[$gpid]->name);
-        $description = file_rewrite_pluginfile_urls($groups[$gpid]->description, 'pluginfile.php', $context->id, 'course_group_description', $gpid);
+        $name = print_group_picture($groups[$gpid], $course->id, false, true, false) . format_string($groups[$gpid]->name);
+        $description = file_rewrite_pluginfile_urls($groups[$gpid]->description, 'pluginfile.php', $context->id, 'group', 'description', $gpid);
         $options = new stdClass;
         $options->noclean = true;
+        $options->overflowdiv = true;
         $jsdescription = trim(format_text($description, $groups[$gpid]->descriptionformat, $options));
         if (empty($jsdescription)) {
             $line[] = $name;
@@ -184,9 +185,10 @@ foreach ($members as $gpgid=>$groupdata) {
         echo $OUTPUT->heading($strnotingrouping, 3);
     } else {
         echo $OUTPUT->heading(format_string($groupings[$gpgid]->name), 3);
-        $description = file_rewrite_pluginfile_urls($groupings[$gpgid]->description, 'pluginfile.php', $context->id, 'course_grouping_description', $gpgid);
+        $description = file_rewrite_pluginfile_urls($groupings[$gpgid]->description, 'pluginfile.php', $context->id, 'grouping', 'description', $gpgid);
         $options = new stdClass;
         $options->noclean = true;
+        $options->overflowdiv = true;
         echo $OUTPUT->box(format_text($description, $groupings[$gpgid]->descriptionformat, $options), 'generalbox boxwidthnarrow boxaligncenter');
     }
     echo html_writer::table($table);

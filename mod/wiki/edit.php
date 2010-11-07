@@ -42,9 +42,12 @@ $contentformat = optional_param('contentformat', '', PARAM_ALPHA);
 $option = optional_param('editoption', '', PARAM_TEXT);
 $section = optional_param('section', "", PARAM_TEXT);
 $version = optional_param('version', -1, PARAM_INT);
-$newcontent = optional_param('newcontent', '', PARAM_CLEANHTML);
 $attachments = optional_param('attachments', 0, PARAM_INT);
 $deleteuploads = optional_param('deleteuploads', 0, PARAM_RAW);
+
+if (is_array($newcontent)) {
+    $newcontent = $newcontent['text'];
+}
 
 if (!$page = wiki_get_page($pageid)) {
     print_error('incorrectpageid', 'wiki');
@@ -62,13 +65,13 @@ if (!$cm = get_coursemodule_from_instance('wiki', $wiki->id)) {
     print_error('invalidcoursemodule');
 }
 
-$course = $DB->get_record('course', array('id'=>$cm->course), '*', MUST_EXIST);
+$course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
 
 if (!empty($section) && !$sectioncontent = wiki_get_section_page($page, $section)) {
     print_error('invalidsection', 'wiki');
 }
 
-require_course_login($course, true, $cm);
+require_login($course, true, $cm);
 
 $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 require_capability('mod/wiki:editpage', $context);
@@ -90,7 +93,6 @@ if ($option == get_string('save', 'wiki')) {
         }
         $wikipage = new page_wiki_preview($wiki, $subwiki, $cm);
         $wikipage->set_page($page);
-        $wikipage->set_newcontent($newcontent);
     } else {
         if ($option == get_string('cancel')) {
             //delete lock

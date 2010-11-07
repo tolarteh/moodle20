@@ -1,4 +1,5 @@
 <?php
+
 ///////////////////////////////////////////////////////////////////////////
 //                                                                       //
 // This file is part of Moodle - http://moodle.org/                      //
@@ -31,45 +32,55 @@
  * should be using the same browser during all the registration process.
  * This page save the token that the hub gave us, in order to call the hub
  * directory later by web service.
-*/
+ */
 
 require('../../config.php');
-require_once($CFG->libdir.'/adminlib.php');
-require_once($CFG->dirroot.'/admin/registration/lib.php');
+require_once($CFG->libdir . '/adminlib.php');
+require_once($CFG->dirroot . '/' . $CFG->admin . '/registration/lib.php');
 
-$newtoken        = optional_param('newtoken', '', PARAM_ALPHANUM);
-$url             = optional_param('url', '', PARAM_URL);
-$hubname         = optional_param('hubname', '', PARAM_TEXT);
-$token           = optional_param('token', '', PARAM_ALPHANUM);
-$error           = optional_param('error', '', PARAM_ALPHANUM);
+$newtoken = optional_param('newtoken', '', PARAM_ALPHANUM);
+$url = optional_param('url', '', PARAM_URL);
+$hubname = optional_param('hubname', '', PARAM_TEXT);
+$token = optional_param('token', '', PARAM_TEXT);
+$error = optional_param('error', '', PARAM_ALPHANUM);
 
-admin_externalpage_setup('siteregistrationconfirmed');
+admin_externalpage_setup('registrationindex');
+
+if (!empty($error) and $error == 'urlalreadyexist') {
+    throw new moodle_exception('urlalreadyregistered', 'hub', 
+            $CFG->wwwroot . '/' . $CFG->admin . '/registration/index.php');
+}
 
 //check that we are waiting a confirmation from this hub, and check that the token is correct
 $registrationmanager = new registration_manager();
 $registeredhub = $registrationmanager->get_unconfirmedhub($url);
-if (!empty($registeredhub) and $registeredhub->token == $token) {  
+if (!empty($registeredhub) and $registeredhub->token == $token) {
 
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('registrationconfirmed', 'hub'), 3, 'main');
     $hublink = html_writer::tag('a', $hubname, array('href' => $url));
 
-    if (!empty($error) and $error == 'urlalreadyexist') {
-        $notificationmessage = $OUTPUT->notification(get_string('urlalreadyregistered', 'hub', $hublink));
-    } else {
-        $registeredhub->token = $newtoken;
-        $registeredhub->confirmed = 1;
-        $registeredhub->huname = $hubname;
-        $registrationmanager->update_registeredhub($registeredhub);
-        
-        $notificationmessage = $OUTPUT->notification(get_string('registrationconfirmedon', 'hub', $hublink), 'notifysuccess');
-    }
+    $registeredhub->token = $newtoken;
+    $registeredhub->confirmed = 1;
+    $registeredhub->hubname = $hubname;
+    $registrationmanager->update_registeredhub($registeredhub);
+
+    $notificationmessage = $OUTPUT->notification(
+            get_string('registrationconfirmedon', 'hub', $hublink), 'notifysuccess');
 
     echo $notificationmessage;
+
+    if (!extension_loaded('xmlrpc')) {
+        //display notice about xmlrpc
+        $xmlrpcnotification = $OUTPUT->doc_link('admin/environment/php_extension/xmlrpc', '');
+        $xmlrpcnotification .= get_string('xmlrpcdisabledregistration', 'hub');
+        echo $OUTPUT->notification($xmlrpcnotification);
+    }
+
     echo $OUTPUT->footer();
-    
 } else {
-    throw new moodle_exception('wrongtoken', 'hub', $CFG->wwwroot.'/admin/registration/index.php');
+    throw new moodle_exception('wrongtoken', 'hub', 
+            $CFG->wwwroot . '/' . $CFG->admin . '/registration/index.php');
 }
 
 

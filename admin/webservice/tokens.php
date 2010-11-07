@@ -23,86 +23,96 @@
  * @copyright 2009 Moodle Pty Ltd (http://moodle.com)
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
 require_once('../../config.php');
-require_once($CFG->libdir.'/adminlib.php');
-require_once('forms.php');
-require_once($CFG->libdir.'/externallib.php');
+require_once($CFG->libdir . '/adminlib.php');
+require_once($CFG->dirroot . '/' . $CFG->admin . '/webservice/forms.php');
+require_once($CFG->libdir . '/externallib.php');
 
-$action  = optional_param('action', '', PARAM_ACTION);
+$action = optional_param('action', '', PARAM_ACTION);
 $tokenid = optional_param('tokenid', '', PARAM_SAFEDIR);
 $confirm = optional_param('confirm', 0, PARAM_BOOL);
 
-$PAGE->set_url('/admin/webservice/tokens.php');
-$PAGE->navbar->ignore_active(true);
-$PAGE->navbar->add(get_string('administrationsite'));
-$PAGE->navbar->add(get_string('plugins', 'admin'));
-$PAGE->navbar->add(get_string('webservices', 'webservice'));
-$PAGE->navbar->add(get_string('managetokens', 'webservice'), new moodle_url('/admin/settings.php?section=webservicetokens'));
-if ($action == "delete") {
-    $PAGE->navbar->add(get_string('delete'));
-} else {
-    $PAGE->navbar->add(get_string('createtoken', 'webservice'));
-}
-
 admin_externalpage_setup('addwebservicetoken');
 
-require_login();
-require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
-
-$returnurl = "$CFG->wwwroot/$CFG->admin/settings.php?section=webservicetokens";
-
-////////////////////////////////////////////////////////////////////////////////
-// process actions
-
-if (!confirm_sesskey()) {
-    redirect($returnurl);
+//Deactivate the second 'Manage token' navigation node, and use the main 'Manage token' navigation node
+$node = $PAGE->settingsnav->find('addwebservicetoken', navigation_node::TYPE_SETTING);
+$newnode = $PAGE->settingsnav->find('webservicetokens', navigation_node::TYPE_SETTING);
+if ($node && $newnode) {
+    $node->display = false;
+    $newnode->make_active();
 }
 
+require_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
+
+$tokenlisturl = new moodle_url("/" . $CFG->admin . "/settings.php", array('section' => 'webservicetokens'));
+
+require_once($CFG->dirroot . "/webservice/lib.php");
+$webservicemanager = new webservice();
+
 switch ($action) {
-    
+
     case 'create':
         $mform = new web_service_token_form(null, array('action' => 'create'));
+        $data = $mform->get_data();
         if ($mform->is_cancelled()) {
-            redirect($returnurl);
-        } else if ($data = $mform->get_data()) {
-            ignore_user_abort(true); // no interruption here!
-            external_generate_token(EXTERNAL_TOKEN_PERMANENT, $data->service, $data->user, get_context_instance(CONTEXT_SYSTEM), $data->validuntil, $data->iprestriction);
-            redirect($returnurl);
+            redirect($tokenlisturl);
+        } else if ($data and confirm_sesskey()) {
+            ignore_user_abort(true);
+
+            //check the the user is allowed for the service
+            $selectedservice = $webservicemanager->get_external_service_by_id($data->service);
+            if ($selectedservice->restrictedusers) {
+                $restricteduser = $webservicemanager->get_ws_authorised_user($data->service, $data->user);
+                if (empty($restricteduser)) {
+                    $allowuserurl = new moodle_url('/' . $CFG->admin . '/webservice/service_users.php',
+                            array('id' => $selectedservice->id));
+                    $allowuserlink = html_writer::tag('a', $selectedservice->name , array('href' => $allowuserurl));
+                    $errormsg = $OUTPUT->notification(get_string('usernotallowed', 'webservice', $allowuserlink));
+                }
+            }
+
+            //process the creation
+            if (empty($errormsg)) {
+                //TODO improvement: either move this function from externallib.php to webservice/lib.php
+                // either move most of webservicelib.php functions into externallib.php
+                // (create externalmanager class) MDL-23523
+                external_generate_token(EXTERNAL_TOKEN_PERMANENT, $data->service,
+                        $data->user, get_context_instance(CONTEXT_SYSTEM),
+                        $data->validuntil, $data->iprestriction);
+                redirect($tokenlisturl);
+            }
         }
 
-        //ask for function id
+        //OUTPUT: create token form
         echo $OUTPUT->header();
         echo $OUTPUT->heading(get_string('createtoken', 'webservice'));
+        if (!empty($errormsg)) {
+            echo $errormsg;
+        }
         $mform->display();
         echo $OUTPUT->footer();
         die;
         break;
 
-    case 'delete':
-        $sql = "SELECT
-                    t.id, t.token, u.firstname, u.lastname, s.name
-                FROM
-                    {external_tokens} t, {user} u, {external_services} s
-                WHERE
-                    t.creatorid=? AND t.id=? AND t.tokentype = ".EXTERNAL_TOKEN_PERMANENT." AND s.id = t.externalserviceid AND t.userid = u.id";
-        $token = $DB->get_record_sql($sql, array($USER->id, $tokenid), MUST_EXIST); //must be the token creator
-        if (!$confirm) {
-            echo $OUTPUT->header();
-            $optionsyes = array('tokenid'=>$tokenid, 'action'=>'delete', 'confirm'=>1, 'sesskey'=>sesskey());
-            $optionsno  = array('section'=>'webservicetokens', 'sesskey'=>sesskey());
-            $formcontinue = new single_button(new moodle_url('/admin/webservice/tokens.php', $optionsyes), get_string('delete'));
-            $formcancel = new single_button(new moodle_url('/admin/settings.php', $optionsno), get_string('cancel'), 'get');
-            echo $OUTPUT->confirm(get_string('deletetokenconfirm', 'webservice', (object)array('user'=>$token->firstname." ".$token->lastname, 'service'=>$token->name)), $formcontinue, $formcancel);
-            echo $OUTPUT->footer();
-            die;
+    case 'delete':        
+        $token = $webservicemanager->get_created_by_user_ws_token($USER->id, $tokenid);
+
+        //Delete the token
+        if ($confirm and confirm_sesskey()) {
+            $webservicemanager->delete_user_ws_token($token->id);
+            redirect($tokenlisturl);
         }
-        $DB->delete_records('external_tokens', array('id'=>$token->id));
-        redirect($returnurl);
+
+        ////OUTPUT: display delete token confirmation box
+        echo $OUTPUT->header();
+        $renderer = $PAGE->get_renderer('core', 'webservice');
+        echo $renderer->admin_delete_token_confirmation($token);
+        echo $OUTPUT->footer();
+        die;
         break;
 
     default:
+        //wrong url access
+        redirect($tokenlisturl);
         break;
 }
-
-redirect($returnurl);

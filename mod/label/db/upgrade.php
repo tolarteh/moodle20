@@ -1,5 +1,29 @@
 <?php
 
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
+/**
+ * Label module upgrade
+ *
+ * @package    mod
+ * @subpackage label
+ * @copyright  2006 onwards Eloy Lafuente (stronk7) {@link http://stronk7.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 // This file keeps track of upgrades to
 // the label module
 //
@@ -9,7 +33,7 @@
 //
 // The upgrade function in this file will attempt
 // to perform all the necessary actions to upgrade
-// your older installtion to the current version.
+// your older installation to the current version.
 //
 // If there's something it cannot do itself, it
 // will tell you what you need to do.
@@ -20,21 +44,16 @@
 // Please do not forget to use upgrade_set_timeout()
 // before any action that may take longer time to finish.
 
+defined('MOODLE_INTERNAL') || die;
+
 function xmldb_label_upgrade($oldversion) {
     global $CFG, $DB;
 
     $dbman = $DB->get_manager();
-    $result = true;
 
 //===== 1.9.0 upgrade line ======//
 
-    if ($result && $oldversion < 2007101510) {
-        $sql = "UPDATE {log_display} SET mtable = 'label' WHERE module = 'label'";
-        $result = $DB->execute($sql);
-        upgrade_mod_savepoint($result, 2007101510, 'label');
-    }
-
-    if ($result && $oldversion < 2009042200) {
+    if ($oldversion < 2009042200) {
 
     /// Rename field content on table label to intro
         $table = new xmldb_table('label');
@@ -44,10 +63,10 @@ function xmldb_label_upgrade($oldversion) {
         $dbman->rename_field($table, $field, 'intro');
 
     /// label savepoint reached
-        upgrade_mod_savepoint($result, 2009042200, 'label');
+        upgrade_mod_savepoint(true, 2009042200, 'label');
     }
 
-    if ($result && $oldversion < 2009042201) {
+    if ($oldversion < 2009042201) {
 
     /// Define field introformat to be added to label
         $table = new xmldb_table('label');
@@ -56,27 +75,14 @@ function xmldb_label_upgrade($oldversion) {
     /// Launch add field introformat
         $dbman->add_field($table, $field);
 
-    /// label savepoint reached
-        upgrade_mod_savepoint($result, 2009042201, 'label');
-    }
-
-    if ($result && $oldversion < 2009080400) {
-
-    /// Define field introformat to be added to label
-        $table = new xmldb_table('label');
-        $field = new xmldb_field('introformat', XMLDB_TYPE_INTEGER, '4', XMLDB_UNSIGNED, null, null, '0', 'intro');
-
-    /// Launch add field introformat
-        $dbman->change_field_default($table, $field);
-
-    /// Convert existing markdown formats to 0 (due to an existing bug in early versions of label upgrade, defaulting to 4)
-        $DB->set_field('label', 'introformat', 0, array('introformat' => 4));
+        // all existing lables in 1.9 are in HTML format
+        $DB->set_field('label', 'introformat', FORMAT_HTML, array());
 
     /// label savepoint reached
-        upgrade_mod_savepoint($result, 2009080400, 'label');
+        upgrade_mod_savepoint(true, 2009042201, 'label');
     }
 
-    return $result;
+    return true;
 }
 
 

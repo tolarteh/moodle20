@@ -16,7 +16,7 @@
 // | Author: Alexey Borzov <avb@php.net>                                  |
 // +----------------------------------------------------------------------+
 //
-// $Id: Compare.php,v 1.1 2006-09-24 17:04:56 jamiesensei Exp $
+// $Id: Compare.php,v 1.1 2006/09/24 17:04:56 jamiesensei Exp $
 
 require_once 'HTML/QuickForm/Rule.php';
 

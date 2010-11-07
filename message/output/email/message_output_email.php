@@ -35,48 +35,28 @@ require_once($CFG->dirroot.'/message/output/lib.php');
 class message_output_email extends message_output {
     /**
      * Processes the message (sends by email).
-     * @param object $message the message to be sent
+     * @param object $eventdata the event data submitted by the message sender plus $eventdata->savedmessageid
      */
-    function send_message($message) {
-        global $DB;
+    function send_message($eventdata) {
+        global $SITE;
 
-        //send an email
-        //if fails saved as read message
+        //hold onto email preference because /admin/cron.php sends a lot of messages at once
+        static $useremailaddresses = array();
 
-        //first try to get preference
-        $usertoemail = get_user_preferences( 'message_processor_email_email', '', $message->useridto);
-        //if fails use user profile default
-        if ( $usertoemail == NULL){
-            $userto   = $DB->get_record('user', array('id' => $message->useridto));
-            $usertoemail = $userto->email;
+        //check user preference for where user wants email sent
+        if (!array_key_exists($eventdata->userto->id, $useremailaddresses)) {
+            $useremailaddresses[$eventdata->userto->id] = get_user_preferences('message_processor_email_email', $eventdata->userto->email, $eventdata->userto->id);
         }
-        $userfrom = $DB->get_record('user', array('id' => $message->useridfrom));
-        if ( email_to_user($usertoemail, $userfrom->email,
-            $message->subject, $message->fullmessage,
-            $message->fullmessagehtml)
-        ){
-            /// Move the entry to the other table
-            $message->timeread = time();
-            $messageid = $message->id;
-            unset($message->id);
+        $usertoemailaddress = $useremailaddresses[$eventdata->userto->id];
 
-            //if there is no more processor that want to process this can move message
-            if ( $DB->count_records('message_working', array('unreadmessageid' => $messageid)) == 0){
-                if ($DB->insert_record('message_read', $message)) {
-                    $DB->delete_records('message', array('id' => $messageid));
-                }
-            }
-        }else{
-            //delete what we've processed and check if can move message
-            $messageid = $message->id;
-            unset($message->id);
-            if ( $DB->count_records('message_working', array('unreadmessageid' => $messageid)) == 0){
-                if ($DB->insert_record('message_read', $message)) {
-                    $DB->delete_records('message', array('id' => $messageid));
-                }
-            }
+        if ( !empty($usertoemailaddress)) {
+            $userto->email = $usertoemailaddress;
         }
-        return true;
+
+        $result = email_to_user($eventdata->userto, $eventdata->userfrom,
+            $eventdata->subject, $eventdata->fullmessage, $eventdata->fullmessagehtml);
+
+        return $result;
     }
 
     /**
@@ -85,7 +65,7 @@ class message_output_email extends message_output {
      */
     function config_form($preferences){
         global $USER;
-        $string = get_string('email').': <input size="30" name="email_email" value="'.$preferences->email_email.'" />';
+        $string = get_string('email','message_email').': <input size="30" name="email_email" value="'.$preferences->email_email.'" />';
         if (empty($preferences->email_email)) {
             $string .= ' ('.get_string('default').': '.$USER->email.')';
         }
@@ -93,7 +73,7 @@ class message_output_email extends message_output {
     }
 
     /**
-     * Parses the form submited data and saves it into preferences array.
+     * Parses the form submitted data and saves it into preferences array.
      * @param object $mform preferences form class
      * @param array $preferences preferences array
      */

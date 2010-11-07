@@ -29,17 +29,14 @@ require_once($CFG->dirroot.'/user/edit_form.php');
 require_once($CFG->dirroot.'/user/editlib.php');
 require_once($CFG->dirroot.'/user/profile/lib.php');
 
-httpsrequired();
+//HTTPS is required in this page when $CFG->loginhttps enabled
+$PAGE->https_required();
 
 $userid = optional_param('id', $USER->id, PARAM_INT);    // user id
 $course = optional_param('course', SITEID, PARAM_INT);   // course id (defaults to Site)
-$cancelemailchange = optional_param('cancelemailchange', false, PARAM_INT);   // course id (defaults to Site)
+$cancelemailchange = optional_param('cancelemailchange', 0, PARAM_INT);   // course id (defaults to Site)
 
-$url = new moodle_url('/user/edit.php', array('course'=>$course));
-if ($userid !== $USER->id) {
-    $url->param('id', $userid);
-}
-$PAGE->set_url($url);
+$PAGE->set_url('/user/edit.php', array('course'=>$course, 'id'=>$userid, 'cancelemailchange'=>$cancelemailchange));
 
 if (!$course = $DB->get_record('course', array('id'=>$course))) {
     print_error('invalidcourseid');
@@ -86,6 +83,18 @@ if (is_mnet_remote_user($user)) {
     redirect($CFG->wwwroot . "/user/view.php?course={$course->id}");
 }
 
+// load the appropriate auth plugin
+$userauth = get_auth_plugin($user->auth);
+
+if (!$userauth->can_edit_profile()) {
+    print_error('noprofileedit', 'auth');
+}
+
+if ($editurl = $userauth->edit_profile_url()) {
+    // this internal script not used
+    redirect($editurl);
+}
+
 if ($course->id == SITEID) {
     $coursecontext = get_context_instance(CONTEXT_SYSTEM);   // SYSTEM context
 } else {
@@ -109,8 +118,8 @@ if ($user->id == $USER->id) {
         print_error('guestnoeditprofileother');
     }
     // no editing of primary admin!
-    if (is_primary_admin($user->id)) {
-        print_error('adminprimarynoedit');
+    if (is_siteadmin($user) and !is_siteadmin($USER)) {  // Only admins may edit other admins
+        print_error('useradmineditadmin');
     }
 }
 
@@ -135,7 +144,7 @@ profile_load_data($user);
 
 // Prepare the editor and create form
 $editoroptions = array('maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$CFG->maxbytes, 'trusttext'=>false, 'forcehttps'=>false);
-$user = file_prepare_standard_editor($user, 'description', $editoroptions, $personalcontext, 'user_profile', $user->id);
+$user = file_prepare_standard_editor($user, 'description', $editoroptions, $personalcontext, 'user', 'profile', 0);
 $userform = new user_edit_form(null, array('editoroptions'=>$editoroptions));
 if (empty($user->country)) {
     // MDL-16308 - we must unset the value here so $CFG->country can be used as default one
@@ -172,7 +181,7 @@ if ($usernew = $userform->get_data()) {
 
     // description editor element may not exist!
     if (isset($usernew->description_editor)) {
-        $usernew = file_postupdate_standard_editor($usernew, 'description', $editoroptions, $personalcontext, 'user_profile', $usernew->id);
+        $usernew = file_postupdate_standard_editor($usernew, 'description', $editoroptions, $personalcontext, 'user', 'profile', 0);
     }
 
     $DB->update_record('user', $usernew);
@@ -210,7 +219,6 @@ if ($usernew = $userform->get_data()) {
     if ($email_changed && $CFG->emailchangeconfirmation) {
         $temp_user = fullclone($user);
         $temp_user->email = $usernew->preference_newemail;
-        $temp_user->emailstop = NULL;
 
         $a = new stdClass();
         $a->url = $CFG->wwwroot . '/user/emailupdate.php?key=' . $usernew->preference_newemailkey . '&id=' . $user->id;
@@ -234,12 +242,22 @@ if ($usernew = $userform->get_data()) {
         foreach ((array)$usernew as $variable => $value) {
             $USER->$variable = $value;
         }
+        // preload custom fields
+        profile_load_custom_fields($USER);
+    }
+
+    if (is_siteadmin() and empty($SITE->shortname)) {
+        // fresh cli install - we need to finish site settings
+        redirect(new moodle_url('/admin/index.php'));
     }
 
     if (!$email_changed || !$CFG->emailchangeconfirmation) {
         redirect("$CFG->wwwroot/user/view.php?id=$user->id&course=$course->id");
     }
 }
+
+// make sure we really are on the https page when https login required
+$PAGE->verify_https_required();
 
 
 /// Display page header

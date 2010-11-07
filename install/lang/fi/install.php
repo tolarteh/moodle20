@@ -29,11 +29,13 @@
  */
 
 $string['admindirname'] = 'Ylläpitohakemisto';
+$string['availablelangs'] = 'Saatavilla olevat kielipaketit';
 $string['chooselanguagehead'] = 'Valitse kieli';
 $string['chooselanguagesub'] = 'Valitse kieli asennusohjelmaa varten. Voit valita muita kieliä käyttöösi myöhemmin.';
 $string['dataroot'] = 'Datahakemisto';
 $string['dbprefix'] = 'Taulukon etumerkki';
 $string['dirroot'] = 'Moodle hakemisto';
+$string['environmenthead'] = 'Ympäristön tarkistus';
 $string['installation'] = 'Asennus';
 $string['memorylimithelp'] = '<p>PHP muistiraja palvelimellesi on tällä hetkellä asetettu {$a}:han.</p>
 

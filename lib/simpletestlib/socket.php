@@ -3,7 +3,7 @@
  *  base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage MockObjects
- *  @version    $Id: socket.php,v 1.3 2008-06-10 20:10:51 nicolasconnault Exp $
+ *  @version    $Id: socket.php,v 1.3 2008/06/10 20:10:51 nicolasconnault Exp $
  */
 
 /**#@+

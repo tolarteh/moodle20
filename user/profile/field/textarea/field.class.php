@@ -8,7 +8,7 @@ class profile_field_textarea extends profile_field_base {
 
         /// Create the form field
         $mform->addElement('editor', $this->inputname, format_string($this->field->name), null, null);
-        $mform->setType($this->inputname, PARAM_CLEAN);
+        $mform->setType($this->inputname, PARAM_RAW); // we MUST clean this before display!
     }
 
     /// Overwrite base class method, data in this field type is potentially too large to be
@@ -36,7 +36,7 @@ class profile_field_textarea extends profile_field_base {
      * Display the data for this field
      */
     function display_data() {
-        return format_text($this->data, $this->dataformat, new stdClass());
+        return format_text($this->data, $this->dataformat, array('overflowdiv'=>true));
     }
 
 }

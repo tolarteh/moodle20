@@ -40,7 +40,8 @@ class backup_choice_activity_structure_step extends backup_activity_structure_st
         $choice = new backup_nested_element('choice', array('id'), array(
             'name', 'intro', 'introformat', 'publish',
             'showresults', 'display', 'allowupdate', 'allowunanswered',
-            'limitanswers', 'timeopen', 'timeclose', 'timemodified'));
+            'limitanswers', 'timeopen', 'timeclose', 'timemodified',
+            'completionsubmit'));
 
         $options = new backup_nested_element('options');
 
@@ -77,7 +78,7 @@ class backup_choice_activity_structure_step extends backup_activity_structure_st
         $answer->annotate_ids('user', 'userid');
 
         // Define file annotations
-        $choice->annotate_files(array('choice_intro'), null); // This file area hasn't itemid
+        $choice->annotate_files('mod_choice', 'intro', null); // This file area hasn't itemid
 
         // Return the root element (choice), wrapped into standard activity structure
         return $this->prepare_activity_structure($choice);

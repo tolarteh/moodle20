@@ -106,7 +106,7 @@ if ($cancel) {
 
 /// RSS and CSS and JS meta
 if (!empty($CFG->enablerssfeeds) && !empty($CFG->data_enablerssfeeds) && $data->rssarticles > 0) {
-    $rsspath = rss_get_url($context->id, $USER->id, 'data', $data->id);
+    $rsspath = rss_get_url($context->id, $USER->id, 'mod_data', $data->id);
     $PAGE->add_alternate_version(format_string($course->shortname) . ': %fullname%',
             $rsspath, 'application/rss+xml');
 }
@@ -126,7 +126,7 @@ foreach ($possiblefields as $field) {
     }
 }
 
-/// Print the page header
+/// Define page variables
 $strdata = get_string('modulenameplural','data');
 
 if ($rid) {
@@ -135,14 +135,10 @@ if ($rid) {
 
 $PAGE->set_title($data->name);
 $PAGE->set_heading($course->fullname);
-echo $OUTPUT->header();
 
 /// Check to see if groups are being used here
-groups_print_activity_menu($cm, $CFG->wwwroot . '/mod/data/edit.php?d='.$data->id);
 $currentgroup = groups_get_activity_group($cm);
 $groupmode = groups_get_activity_groupmode($cm);
-
-echo $OUTPUT->heading(format_string($data->name));
 
 if ($currentgroup) {
     $groupselect = " AND groupid = '$currentgroup'";
@@ -153,13 +149,6 @@ if ($currentgroup) {
     $currentgroup = 0;
 }
 
-/// Print the tabs
-
-$currenttab = 'add';
-if ($rid) {
-    $editentry = true;  //used in tabs
-}
-include('tabs.php');
 
 /// Process incoming data for adding/updating records
 
@@ -197,7 +186,7 @@ if ($datarecord = data_submitted() and confirm_sesskey()) {
 
         add_to_log($course->id, 'data', 'update', "view.php?d=$data->id&amp;rid=$rid", $data->id, $cm->id);
 
-        redirect($CFG->wwwroot.'/mod/data/view.php?d='.$data->id.'&amp;rid='.$rid);
+        redirect($CFG->wwwroot.'/mod/data/view.php?d='.$data->id.'&rid='.$rid);
 
     } else { /// Add some new records
 
@@ -245,7 +234,7 @@ if ($datarecord = data_submitted() and confirm_sesskey()) {
                 $DB->insert_record('data_content',$content);
             }
 
-            //for each field in the add form, add it to the data_content.
+            /// For each field in the add form, add it to the data_content.
             foreach ($datarecord as $name => $value){
                 if (!in_array($name, $ignorenames)) {
                     $namearr = explode('_', $name);  // Second one is the field id
@@ -260,15 +249,27 @@ if ($datarecord = data_submitted() and confirm_sesskey()) {
 
             add_to_log($course->id, 'data', 'add', "view.php?d=$data->id&amp;rid=$recordid", $data->id, $cm->id);
 
-            echo $OUTPUT->notification(get_string('entrysaved','data'));
-
             if (!empty($datarecord->saveandview)) {
-                redirect($CFG->wwwroot.'/mod/data/view.php?d='.$data->id.'&amp;rid='.$recordid);
+                redirect($CFG->wwwroot.'/mod/data/view.php?d='.$data->id.'&rid='.$recordid);
             }
         }
     }
 }  // End of form processing
 
+
+/// Print the page header
+
+echo $OUTPUT->header();
+groups_print_activity_menu($cm, $CFG->wwwroot.'/mod/data/edit.php?d='.$data->id);
+echo $OUTPUT->heading(format_string($data->name));
+
+/// Print the tabs
+
+$currenttab = 'add';
+if ($rid) {
+    $editentry = true;  //used in tabs
+}
+include('tabs.php');
 
 
 /// Print the browsing interface
@@ -302,19 +303,23 @@ if ($data->addtemplate){
         $patterns[]="[[".$field->field->name."#id]]";
         $replacements[] = 'field_'.$field->field->id;
     }
-    $newtext = str_ireplace($patterns, $replacements, $data->{$mode});    
+    $newtext = str_ireplace($patterns, $replacements, $data->{$mode});
 
-} else {    //if the add template is not yet defined, print the default form!    
+} else {    //if the add template is not yet defined, print the default form!
     echo data_generate_default_template($data, 'addtemplate', $rid, true, false);
     $newtext = '';
 }
 
-echo $newtext;
+$formatoptions = (object)array('noclean'=>true, 'para'=>false, 'filter'=>true);
+echo format_text($newtext, FORMAT_HTML, $formatoptions);
+
 echo '<div class="mdl-align"><input type="submit" name="saveandview" value="'.get_string('saveandview','data').'" />';
 if ($rid) {
     echo '&nbsp;<input type="submit" name="cancel" value="'.get_string('cancel').'" onclick="javascript:history.go(-1)" />';
 } else {
-    echo '<input type="submit" value="'.get_string('saveandadd','data').'" />';
+    if ( (!$data->maxentries) || (data_numentries($data)<($data->maxentries-1)) ) {
+        echo '&nbsp;<input type="submit" value="'.get_string('saveandadd','data').'" />';
+    }
 }
 echo '</div>';
 echo $OUTPUT->box_end();

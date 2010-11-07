@@ -22,7 +22,9 @@ abbr {cursor: help;}
 a.dimmed,
 a.dimmed_text,
 .dimmed_text,
-.dimmed_text a {color:#AAAAAA;}
+.dimmed_text a,
+.dimmed_category,
+.dimmed_category a {color:#AAAAAA;}
 
 .unlist,
 .unlist li,
@@ -33,6 +35,8 @@ a.dimmed_text,
 .sitetopic .section li,
 .course-content .section li.activity,
 .tabtree li {list-style: none;margin:0;padding:0;}
+
+.course-content .current {background:#E3E3E3;}
 
 .inline-list li {display: inline;}
 .notifytiny {font-size:0.7em;}
@@ -93,6 +97,13 @@ img.emoticon {vertical-align: middle;width: 15px;height: 15px;}
 form.popupform,
 form.popupform div {display: inline;}
 .arrow_button input {overflow:hidden;}
+
+/** The 1-pixel padding is there to avoid phantom scroll bars on OS X (FF, Safari and Chrome)**/
+.no-overflow {overflow:auto;padding-bottom:1px;}
+.pagelayout-report .no-overflow {overflow:visible;}
+.no-overflow > .generaltable {margin-bottom:0;}
+.ie6 .no-overflow {width:100%;}
+
 /** IE6 float + background bug solution **/
 .ie6 li.section {line-height:1.2em;width:100%;}
 
@@ -100,10 +111,10 @@ form.popupform div {display: inline;}
  * Accessibility features
  */
 /*Accessibility: text 'seen' by screen readers but not visual users. */
-.accesshide {position:absolute;top:-100000px;left:10px;font-weight:normal;font-size:1em;}
+.accesshide {position:absolute;left:-10000px;font-weight:normal;font-size:1em;}
+.dir-rtl .accesshide {right:-10000px;left:auto;}
 span.hide,
-div.hide,
-.jsenabled .advancedbutton .showadvancedbtn {display:none;}
+div.hide {display:none;}
 .invisiblefieldset {display:inline;border-width:0;padding:0;margin:0;}
 /*Accessibility: Skip block link, for keyboard-only users. */
 a.skip-block,
@@ -174,7 +185,7 @@ a.skip:active {position: static;display: block;}
 .mform .fitem {width:100%;overflow:hidden;margin-top:5px;margin-bottom:1px;clear:right;}
 .mform .fitem .fitemtitle {width:15%;text-align:right;float:left;}
 .mform .fitem .fitemtitle div {display: inline;}
-.mform .fitem .felement {border-width: 0;width:60%;margin-left:16%;}
+.mform .fitem .felement {border-width: 0;width:80%;margin-left:16%;}
 .mform .fitem fieldset.felement {margin-left:0;padding-left:1%;}
 .mform .error,
 .mform .required {color:#A00;}
@@ -192,16 +203,11 @@ a.skip:active {position: static;display: block;}
 .mform fieldset.fdate_selector label {display:inline;float: none;width: auto;}
 .mform .ftags label.accesshide {display: block;position: static;}
 .mform .ftags select {margin-bottom: 0.7em;min-width: 22em;}
+
 /** Browser corrections for mforms **/
 .ie .mform .fitem .felement {margin-left:0;text-align:left;float:left;}
 /** Fix IE double margin + float bugs **/
 .ie .mform .fitem .fitemtitle {padding-right:1em;}
-#date_selector_calendar_panel .bd {padding: 0;}
-#date_selector_calendar_panel .yui-calcontainer {border: none;float: none;}
-/* Prevent border-collapse:collapse from bleeding through in IE6, IE7 */
-#date_selector_calendar_panel.yui-overlay-hidden table {*display:none;}
-#date_selector_calendar_panel th.calhead {padding-right: 2em;}
-#date_selector_calendar_panel a.container-close {top: 10px;}
 #portfolio-add-button {display:inline;}
 
 /**
@@ -215,15 +221,6 @@ a.skip:active {position: static;display: block;}
 .phpinfo .h {border: 1px solid #000000;font-size: 0.8em;vertical-align: baseline;color: #000000;background-color: #cccccc;}
 .phpinfo .e {background-color: #ccccff;font-weight: bold;}
 .phpinfo .h {background-color: #9999cc;font-weight: bold;}
-
-/**
- * Navigation
- */
-.block_js_expansion .block_tree {overflow:scroll;}
-.block_js_expansion.mouseover .content {width:200%;z-index:1000;position:relative;}
-.block_js_expansion.mouseover .content .block_tree {width:100%;background-color:#fcfcfc;padding-bottom:0;}
-.ie6 .block_js_expansion.mouseover .content,
-.ie7 .block_js_expansion.mouseover .content {padding-bottom:2px;}
 
 /**
  * Blogs
@@ -286,10 +283,11 @@ a.skip:active {position: static;display: block;}
 /**
  * My Moodle
  */
-.my .coursebox .overview .info {margin-left:20px;}
-.my .coursebox .overview {margin-bottom:10px;}
-#page-my-index .coursebox .info {float: none;}
-#page-my-index .name {margin-left: 5px;}
+.path-my .coursebox .overview .name {margin-left:20px;}
+.path-my .coursebox .overview .info {margin-left:25px;}
+.path-my .coursebox .overview .details {margin-left:25px;}
+.path-my .coursebox .overview {margin-bottom:10px;}
+.path-my .coursebox .info {float: none;}
 
 /**
  * Logs
@@ -326,6 +324,7 @@ table.mod_index {width:100%;}
 .comment-meta span {color:gray;}
 .comment-list {font-size: 11px;overflow:auto;list-style:none;padding:0;margin:0;}
 .comment-list li {margin: 2px;margin-bottom:5px;clear:both;}
+.comment-list li.first {display:none}
 .comment-paging{text-align:center;}
 .comment-paging .pageno{padding:2px;}
 .comment-paging .curpage{border:1px solid #CCC;}
@@ -334,9 +333,12 @@ table.mod_index {width:100%;}
 .comment-content div {margin:0;padding:0;}
 .comment-content p {padding:0;margin:0 18px 0 0;}
 .comment-delete {float:right;text-align:right;}
-.comment-delete-confirm {background: #FFE390; padding: 2px; width: 5em;text-align:center;}
+.comment-delete-confirm {background: #eee; padding: 2px; width: 5em;text-align:center;}
 .comment-container {float:left;margin: 4px;}
 .comment-report-selectall{display:none}
+.comment-link {display:none}
+.jsenabled .comment-link {display:block}
+.jsenabled .showcommentsnonjs{display:none}
 .jsenabled .comment-report-selectall{display:inline}
 
 /**
@@ -427,29 +429,29 @@ body.tag .managelink {padding: 5px;}
  * first or middle sibling, no children
  */
 /* first or middle sibling, no children */
-.file-picker .ygtvtn {background: url(../pix/y/tn.gif) 0 0 no-repeat;width:17px;height:22px;}
+.file-picker .ygtvtn {background: url([[pix:moodle|y/tn]]) 0 0 no-repeat;width:17px;height:22px;}
 /* first or middle sibling, collapsable */
-.file-picker .ygtvtm {background: url(../pix/y/tm.gif) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
+.file-picker .ygtvtm {background: url([[pix:moodle|y/tm]]) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
 /* first or middle sibling, collapsable, hover */
-.file-picker .ygtvtmh {background: url(../pix/y/tmh.gif) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
+.file-picker .ygtvtmh {background: url([[pix:moodle|y/tmh]]) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
 /* first or middle sibling, expandable */
-.file-picker .ygtvtp {background: url(../pix/y/tp.gif) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
+.file-picker .ygtvtp {background: url([[pix:moodle|y/tp]]) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
 /* first or middle sibling, expandable, hover */
-.file-picker .ygtvtph {background: url(../pix/y/tph.gif) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
+.file-picker .ygtvtph {background: url([[pix:moodle|y/tph]]) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
 /* last sibling, no children */
-.file-picker .ygtvln {background: url(../pix/y/ln.gif) 0 0 no-repeat;width:17px;height:22px;}
+.file-picker .ygtvln {background: url([[pix:moodle|y/ln]]) 0 0 no-repeat;width:17px;height:22px;}
 /* Last sibling, collapsable */
-.file-picker .ygtvlm {background: url(../pix/y/lm.gif) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
+.file-picker .ygtvlm {background: url([[pix:moodle|y/lm]]) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
 /* Last sibling, collapsable, hover */
-.file-picker .ygtvlmh {background: url(../pix/y/lmh.gif) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
+.file-picker .ygtvlmh {background: url([[pix:moodle|y/lmh]]) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
 /* Last sibling, expandable */
-.file-picker .ygtvlp {background: url(../pix/y/lp.gif) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
+.file-picker .ygtvlp {background: url([[pix:moodle|y/lp]]) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
 /* Last sibling, expandable, hover */
-.file-picker .ygtvlph {background: url(../pix/y/lph.gif) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
+.file-picker .ygtvlph {background: url([[pix:moodle|y/lph]]) 0 0 no-repeat;width:34px;height:22px;cursor:pointer;}
 /* Loading icon */
-.file-picker .ygtvloading {background: url(../pix/y/loading.gif) 0 0 no-repeat;width:16px;height:22px;}
+.file-picker .ygtvloading {background: url([[pix:moodle|y/loading]]) 0 0 no-repeat;width:16px;height:22px;}
 /* the style for the empty cells that are used for rendering the depth* of the node */
-.file-picker .ygtvdepthcell {background: url(../pix/y/vline.gif) 0 0 no-repeat;width:17px;height:22px;}
+.file-picker .ygtvdepthcell {background: url([[pix:moodle|y/vline]]) 0 0 no-repeat;width:17px;height:22px;}
 .file-picker .ygtvblankdepthcell {width:17px;height:22px;}
 /* the style of the div around each node */
 .file-picker .ygtvitem  table{margin-bottom:0;}
@@ -489,7 +491,7 @@ body.tag .managelink {padding: 5px;}
 .file-picker .fp-grid .label {height:48px;text-align:center;}
 .file-picker .fp-grid span {color:gray;}
 .file-picker .fp-error {padding: 2em 0;margin: 3em 5px;text-align:center;background: #FFBBBB;}
-.file-picker .fp-emptylist, .file-picker .fp-msg {padding: 2em 0;margin: 1em;text-align:center;background: green;}
+.file-picker .fp-emptylist, .file-picker .fp-msg {text-align:center;}
 .filepicker-filelist {padding: 5px;margin: 6px 0;background: #E9F4FF;border: #AACCEE 1px solid}
 /* file picker search dialog */
 .file-picker div.bd {text-align:left;}
@@ -498,9 +500,8 @@ body.tag .managelink {padding: 5px;}
  * File Manager
  */
 .filemanager-toolbar {margin: 5px 0;}
-.filemanager-toolbar a:link,
-.filemanager-toolbar a:visited {border: 1px solid gray;background: #ccc;color: black;padding: 3px;}
-.filemanager-toolbar a:hover {background: white;text-decoration: none;}
+.filemanager-toolbar a {border: 1px solid #AACCEE;background: #F4FAFF;color: black;padding: 3px;}
+.filemanager-toolbar a:hover {background: #FFFFFF;}
 .fm-breadcrumb {margin:0;}
 .filemanager-container {padding: 5px;margin: 6px 0;background: #E9F4FF;border: #AACCEE 1px solid}
 .filemanager-container ul{margin:0;padding:0;}
@@ -521,8 +522,10 @@ body.tag .managelink {padding: 5px;}
 .path-backup .mform .grouped_settings {clear:both;overflow:hidden;}
 .path-backup .mform .grouped_settings .fitem .fitemtitle {width:40%;padding-right:10px;}
 .path-backup .mform .grouped_settings .fitem .felement {width:50%;}
-.path-backup .mform .grouped_settings.section_level .include_setting {width:50%;margin:0;float:left;clear:left;}
+.path-backup .mform .grouped_settings.section_level .include_setting {width:50%;margin:0;float:left;clear:left;font-weight:bold;}
 .path-backup .mform .grouped_settings.section_level .normal_setting {width:50%;margin:0;margin-left:50%;}
+.path-backup .mform .grouped_settings.activity_level .include_setting label {font-weight:normal;}
+.path-backup .mform .fitem fieldset.felement {margin-left:0;width:auto;padding-left:0;}
 .path-backup .notification.dependencies_enforced {text-align:center;color:#A00;font-weight:bold;}
 .path-backup .backup_progress {text-align:center;}
 .path-backup .backup_progress span.backup_stage {color:#999;}
@@ -538,11 +541,11 @@ body.tag .managelink {padding: 5px;}
 /**
  * Help Content (pop-up)
  */
-#helppopupbox {background-color: #FFE691; border: 1px solid #848484;}
+#helppopupbox {background-color: #eee; border: 1px solid #848484;}
 #helppopupbox .yui3-widget-hd {float:right;margin:3px 3px 0 0;}
-#helppopupbox .yui3-widget-bd {margin:0 1em 1em 1em;border-top:1px solid #FFE691;}
+#helppopupbox .yui3-widget-bd {margin:0 1em 1em 1em;border-top:1px solid #eee;}
 #helppopupbox .helpheading {font-size: 1em;}
-#helppopupbox .spinner {margin:1em;} 
+#helppopupbox .spinner {margin:1em;}
 
 /**
  * Custom menu
@@ -589,11 +592,95 @@ body.tag .managelink {padding: 5px;}
 .smartselect.compactmenu .smartselect_submenu .smartselect_submenu {z-index: 1020;}
 .smartselect.compactmenu .smartselect_submenuitem:hover > .smartselect_menuitem_label {font-weight:bold;}
 
-.image_gallery.oneimageonly a.imagelink {display:none;}
-.image_gallery.oneimageonly a#imagelink1 {display:inline;}
-.mform .image_gallery.oneimageonly a.imagelink {float:left;}
-
 /**
  * Registration
  */
 #page-admin-registration-register .registration_textfield {width: 300px;}
+
+/**
+ * Enrol
+ */
+.userenrolment {width:100%;border-collapse: collapse;}
+.userenrolment td {padding:0;height:41px;}
+.userenrolment .subfield {margin-right:5px;}
+.userenrolment .col_userdetails .subfield_picture {float:left;}
+.userenrolment .col_lastseen {width:150px;}
+.userenrolment .col_role {width:262px;}
+.userenrolment .col_role .roles {margin-right:30px;}
+.userenrolment .col_role .role {float:left;padding:3px;margin:3px;}
+.userenrolment .col_role .role a {margin-left:3px;cursor:pointer;}
+.userenrolment .col_role .addrole {float:right;width:18px;margin:3px;height:18px;text-align:center;}
+.userenrolment .col_role .addrole a img {vertical-align:bottom;}
+.userenrolment .hasAllRoles .col_role .addrole {display:none;}
+.userenrolment .col_group .groups {margin-right:30px;}
+.userenrolment .col_group .group {float:left;padding:3px;margin:3px;white-space:nowrap;}
+.userenrolment .col_group .group a {margin-left:3px;cursor:pointer;}
+.userenrolment .col_group .addgroup {float:right;width:18px;margin:3px;height:18px;text-align:center;}
+.userenrolment .col_group .addgroup a img {vertical-align:bottom;}
+.userenrolment .col_enrol .enrolment {float:left;padding:3px;margin:3px;}
+.userenrolment .col_enrol .enrolment a {float:right;margin-left:3px;}
+
+/**
+* Overide for RTL layout
+**/
+.dir-rtl .headermain {float:right;}
+.dir-rtl .headermenu {float:left;}
+.dir-rtl .breadcrumb {float:right;}
+.dir-rtl .navbutton {float: left;}
+.dir-rtl .breadcrumb ul li { float: right; margin-left: 5px;}
+.dir-rtl .mform .fitem .fitemtitle {float:right;}
+.dir-rtl .loginbox .loginform .form-label {float:right;text-align:left;}
+.dir-rtl .loginbox .loginform .form-input {text-align: right;}
+
+/**
+ * Backup
+ */
+.backup-restore .backup-section {clear:both;border:1px solid #ddd;background-color:#f6f6f6;margin-bottom:1em;}
+.backup-restore .backup-section > h2.header {padding:5px 6px;margin:0;border-bottom:1px solid #ddd;}
+.backup-restore .backup-section .backup-sub-section {margin:0 25px;background-color:#f9f9f9;border:1px solid #f3f3f3;margin-bottom:1em;}
+.backup-restore .backup-section .backup-sub-section h3 {text-align:right;border-bottom:1px solid #DDD;padding:5px 86% 5px 6px;margin:0;background-color:#e9e9e9;}
+.backup-restore .backup-section.settings-section .detail-pair {margin:0;padding:0;width:50%;display:inline-block;}
+.backup-restore .backup-section.settings-section .detail-pair .detail-pair-label {width:65%;}
+.backup-restore .backup-section.settings-section .detail-pair .detail-pair-value {width:25%;}
+.backup-restore .activitytable {width:60%;min-width:500px;}
+.backup-restore .activitytable .modulename {width:100px;}
+.backup-restore .activitytable .moduleincluded {width:50px;}
+.backup-restore .activitytable .userinfoincluded {width:50px;}
+.backup-restore .detail-pair {}
+.backup-restore .detail-pair-label {display:inline-block;width:25%;padding:8px;margin:0;text-align:right;font-weight:bold;color:#444;vertical-align:top;}
+.backup-restore .detail-pair-value {display:inline-block;width:65%;padding:8px;margin:0;}
+.backup-restore .detail-pair-value > .sub-detail {display:block;color:#1580B6;margin-left:2em;font-size:90%;font-style: italic;}
+.backup-restore > .singlebutton {text-align:right;}
+.path-backup .mform .fgroup .proceedbutton {float:right;margin-right:1%;}
+
+.restore-course-search .rcs-results {width:70%;min-width:400px;border:1px solid #ddd;margin:5px 0;}
+.restore-course-search .rcs-results table {width:100%;margin:0;border-width:0;}
+.restore-course-search .rcs-results table .no-overflow {max-width:600px;}
+.restore-course-search .rcs-results .paging {text-align:left;margin:0;background-color:#eee;padding:3px;}
+
+.restore-course-category .rcs-results {width:70%;min-width:400px;border:1px solid #ddd;margin:5px 0;}
+.restore-course-category .rcs-results table {width:100%;margin:0;border-width:0;}
+.restore-course-category .rcs-results table .no-overflow {max-width:600px;}
+.restore-course-category .rcs-results .paging {text-align:left;margin:0;background-color:#eee;padding:3px;}
+
+.corelightbox {background-color:#CCC;position:absolute;top:0;left:0;width:100%;height:100%;text-align:center;}
+.corelightbox img {position:fixed;top:50%;}
+
+/**
+ * IE - Overide for RTL layout
+ */
+.ie.dir-rtl .mform .fitem .felement {margin-right:0;text-align:right;float:right;}
+
+/**
+ * Filters
+ */
+.jsenabled .mediaplugin.mediaplugin_mp3 object {height:15px;width:100px; }
+.jsenabled .mediaplugin.mediaplugin_flv object {height:600px;width:800px;}
+
+.ie .mediaplugin.mediaplugin_mp3 object{height:20px;}
+
+/**
+ * Fix for broken YUI images in the menunav component
+ */
+.yui3-skin-sam .yui3-menu-horizontal .yui3-menu-label,
+.yui3-skin-sam .yui3-menu-horizontal .yui3-menu-content {background-image:none;}

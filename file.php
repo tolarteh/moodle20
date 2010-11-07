@@ -17,16 +17,14 @@
 
 /**
  * This script fetches legacy course files in dataroot directory, it is enabled
- * only if course->legacyfiles == 2.
+ * only if course->legacyfiles == 2. DO not link to this file in new code.
  *
- * You should use the get_file_url() function, available in lib/filelib.php, to link to file.php.
- * This ensures proper formatting and offers useful options.
  * Syntax:      file.php/courseid/dir/dir/dir/filename.ext
  *              file.php/courseid/dir/dir/dir/filename.ext?forcedownload=1 (download instead of inline)
  *              file.php/courseid/dir (returns index.html from dir)
  * Workaround:  file.php?file=/courseid/dir/dir/dir/filename.ext
  *
- * @package    moodlecore
+ * @package    core
  * @subpackage file
  * @copyright  1999 onwards Martin Dougiamas (http://dougiamas.com)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -62,7 +60,7 @@ if (count($args) == 0) { // always at least courseid, may search for index.html 
 }
 
 $courseid = (int)array_shift($args);
-$relativepath = '/'.implode('/', $args);
+$relativepath = implode('/', $args);
 
 // security: limit access to existing course subdirectories
 $course = $DB->get_record('course', array('id'=>$courseid), '*', MUST_EXIST);
@@ -77,8 +75,8 @@ if ($course->id != SITEID) {
 
 } else if ($CFG->forcelogin) {
     if (!empty($CFG->sitepolicy)
-        and ($CFG->sitepolicy == $CFG->wwwroot.'/file.php'.$relativepath
-             or $CFG->sitepolicy == $CFG->wwwroot.'/file.php?file='.$relativepath)) {
+        and ($CFG->sitepolicy == $CFG->wwwroot.'/file.php/'.$relativepath
+             or $CFG->sitepolicy == $CFG->wwwroot.'/file.php?file=/'.$relativepath)) {
         //do not require login for policy file
     } else {
         require_login(0, true, null, false);
@@ -89,7 +87,7 @@ $context = get_context_instance(CONTEXT_COURSE, $course->id);
 
 $fs = get_file_storage();
 
-$fullpath = $context->id.'course_content0'.$relativepath;
+$fullpath = "/$context->id/course/legacy/0/$relativepath";
 
 if (!$file = $fs->get_file_by_hash(sha1($fullpath))) {
     if (strrpos($fullpath, '/') !== strlen($fullpath) -1 ) {

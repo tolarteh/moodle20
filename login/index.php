@@ -16,27 +16,53 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * This file is part of the login section Moodle
+ * Main login page.
  *
- * @copyright 1999 Martin Dougiamas  http://dougiamas.com
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @package login
+ * @package    core
+ * @subpackage auth
+ * @copyright  1999 onwards Martin Dougiamas  http://dougiamas.com
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once("../config.php");
+require('../config.php');
 
 redirect_if_major_upgrade_required();
 
-$loginguest  = optional_param('loginguest', 0, PARAM_BOOL); // determines whether visitors are logged in as guest automatically
-$testcookies = optional_param('testcookies', 0, PARAM_BOOL); // request cookie test
+$testsession = optional_param('testsession', 0, PARAM_INT); // test session works properly
+$cancel      = optional_param('cancel', 0, PARAM_BOOL);      // redirect to frontpage, needed for loginhttps
+
+if ($cancel) {
+    redirect(new moodle_url('/'));
+}
+
+//HTTPS is required in this page when $CFG->loginhttps enabled
+$PAGE->https_required();
 
 $context = get_context_instance(CONTEXT_SYSTEM);
-$PAGE->set_course($SITE);
+$PAGE->set_url("$CFG->httpswwwroot/login/index.php");
+$PAGE->set_context($context);
 $PAGE->set_pagelayout('login');
 
 /// Initialize variables
 $errormsg = '';
 $errorcode = 0;
+
+// login page requested session test
+if ($testsession) {
+    if ($testsession == $USER->id) {
+        if (isset($SESSION->wantsurl)) {
+            $urltogo = $SESSION->wantsurl;
+        } else {
+            $urltogo = $CFG->wwwroot.'/';
+        }
+        unset($SESSION->wantsurl);
+        redirect($urltogo);
+    } else {
+        // TODO: try to find out what is the exact reason why sessions do not work
+        $errormsg = get_string("cookiesnotenabled");
+        $errorcode = 1;
+    }
+}
 
 /// Check for timed out sessions
 if (!empty($SESSION->has_timed_out)) {
@@ -56,11 +82,6 @@ foreach($authsequence as $authname) {
     $authplugin->loginpage_hook();
 }
 
-//HTTPS is potentially required in this page
-httpsrequired();
-
-$PAGE->set_url("$CFG->httpswwwroot/login/index.php");
-
 
 /// Define variables used in page
 $site = get_site();
@@ -68,13 +89,8 @@ $site = get_site();
 $loginsite = get_string("loginsite");
 $PAGE->navbar->add($loginsite);
 
-if ($user !== false or $frm !== false) {
-    // some auth plugin already supplied these
-
-} else if ((!empty($SESSION->wantsurl) and strstr($SESSION->wantsurl,'username=guest')) or $loginguest) {
-    /// Log in as guest automatically (idea from Zbigniew Fiedorowicz)
-    $frm->username = 'guest';
-    $frm->password = 'guest';
+if ($user !== false or $frm !== false or $errormsg !== '') {
+    // some auth plugin already supplied full user, fake form data or prevented user login with error message
 
 } else if (!empty($SESSION->wantsurl) && file_exists($CFG->dirroot.'/login/weblinkauth.php')) {
     // Handles the case of another Moodle site linking into a page on this site
@@ -95,12 +111,7 @@ if ($user !== false or $frm !== false) {
 
 /// Check if the user has actually submitted login data to us
 
-if (empty($CFG->usesid) and $testcookies and (get_moodle_cookie() == '')) {    // Login without cookie when test requested
-
-    $errormsg = get_string("cookiesnotenabled");
-    $errorcode = 1;
-
-} else if ($frm and isset($frm->username)) {                             // Login WITH cookies
+if ($frm and isset($frm->username)) {                             // Login WITH cookies
 
     $frm->username = trim(moodle_strtolower($frm->username));
 
@@ -142,7 +153,7 @@ if (empty($CFG->usesid) and $testcookies and (get_moodle_cookie() == '')) {    /
     if ($user) {
 
         // language setup
-        if ($user->username == 'guest') {
+        if (isguestuser($user)) {
             // no predefined language for guests - use existing session or default site lang
             unset($user->lang);
 
@@ -161,15 +172,10 @@ if (empty($CFG->usesid) and $testcookies and (get_moodle_cookie() == '')) {    /
             die;
         }
 
-        if ($frm->password == 'changeme') {
-            //force the change
-            set_user_preference('auth_forcepasswordchange', true, $user->id);
-        }
-
     /// Let's get them all set up.
         add_to_log(SITEID, 'user', 'login', "view.php?id=$USER->id&course=".SITEID,
                    $user->id, 0, $user->id);
-        complete_user_login($user);
+        complete_user_login($user, true); // sets the username cookie
 
     /// Prepare redirection
         if (user_not_fully_set_up($USER)) {
@@ -200,7 +206,7 @@ if (empty($CFG->usesid) and $testcookies and (get_moodle_cookie() == '')) {    /
         if (!empty($userauth->config->expiration) and $userauth->config->expiration == 1) {
             if ($userauth->can_change_password()) {
                 $passwordchangeurl = $userauth->change_password_url();
-                if(!$passwordchangeurl) {
+                if (!$passwordchangeurl) {
                     $passwordchangeurl = $CFG->httpswwwroot.'/login/change_password.php';
                 }
             } else {
@@ -224,9 +230,9 @@ if (empty($CFG->usesid) and $testcookies and (get_moodle_cookie() == '')) {    /
 
         reset_login_count();
 
-        redirect($urltogo);
-
-        exit;
+        // test the session actually works by redirecting to self
+        $SESSION->wantsurl = $urltogo;
+        redirect(new moodle_url(get_login_url(), array('testsession'=>$USER->id)));
 
     } else {
         if (empty($errormsg)) {
@@ -274,12 +280,10 @@ if (!empty($CFG->alternateloginurl)) {
     redirect($loginurl);
 }
 
+// make sure we really are on the https page when https login required
+$PAGE->verify_https_required();
 
 /// Generate the login page with forms
-
-if (get_moodle_cookie() == '') {
-    set_moodle_cookie('nobody');   // To help search for cookies
-}
 
 if (empty($frm->username) && $authsequence[0] != 'shibboleth') {  // See bug 5184
     if (!empty($_GET["username"])) {
@@ -311,8 +315,18 @@ foreach($authsequence as $authname) {
 
 $PAGE->set_title("$site->fullname: $loginsite");
 $PAGE->set_heading("$site->fullname");
-$PAGE->set_focuscontrol($focus);
 
 echo $OUTPUT->header();
-include("index_form.html");
+
+if (isloggedin() and !isguestuser()) {
+    // prevent logging when already logged in, we do not want them to relogin by accident because sesskey would be changed
+    echo $OUTPUT->box_start();
+    $logout = new single_button(new moodle_url($CFG->httpswwwroot.'/login/logout.php', array('sesskey'=>sesskey(),'loginpage'=>1)), get_string('logout'), 'post');
+    $continue = new single_button(new moodle_url($CFG->httpswwwroot.'/login/index.php', array('cancel'=>1)), get_string('cancel'), 'get');
+    echo $OUTPUT->confirm(get_string('alreadyloggedin', 'error', fullname($USER)), $logout, $continue);
+    echo $OUTPUT->box_end();
+} else {
+    include("index_form.html");
+}
+
 echo $OUTPUT->footer();

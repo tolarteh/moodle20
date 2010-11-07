@@ -26,8 +26,11 @@
 $string['addcompletions'] = 'Add {no} activity conditions to form';
 $string['addgrades'] = 'Add {no} grade conditions to form';
 $string['availabilityconditions'] = 'Restrict availability';
-$string['availablefrom'] = 'Only available from';
-$string['availableuntil'] = 'Only available until end';
+$string['availablefrom'] = 'Accessible from';
+$string['availablefrom_help'] = 'Accessible from/to dates determine when students can access the activity via a link on the course page.
+
+The difference between accessible from/to dates and availability settings for the activity is that outside the set dates the latter allows students to view the activity description, whereas accessible from/to dates prevent access completely.';
+$string['availableuntil'] = 'Accessible until';
 $string['badavailabledates'] = 'Invalid dates. If you set both dates, the \'available from\' date should be before the \'until\' date.';
 $string['completion_complete'] = 'must be marked complete';
 $string['completioncondition'] = 'Activity completion condition';

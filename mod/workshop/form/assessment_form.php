@@ -18,9 +18,10 @@
 /**
  * This file defines a base class for all assessment forms
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -62,8 +63,10 @@ class workshop_assessment_form extends moodleform {
 
         // add the data common for all subplugins
         $mform->addElement('hidden', 'strategy', $this->workshop->strategy);
+        $mform->setType('strategy', PARAM_SAFEDIR);
+
         if (!empty($this->options['editableweight']) and !$mform->isFrozen()) {
-            $mform->addElement('header', 'assessmentsettings', get_string('assessmentsettings', 'workshop'));
+            $mform->addElement('header', 'assessmentsettings', get_string('assessmentweight', 'workshop'));
             $mform->addElement('select', 'weight',
                     get_string('assessmentweight', 'workshop'), workshop::available_assessment_weights_list());
             $mform->setDefault('weight', 1);
@@ -85,7 +88,7 @@ class workshop_assessment_form extends moodleform {
     /**
      * Add any strategy specific form fields.
      *
-     * @param stdclass $mform the form being built.
+     * @param stdClass $mform the form being built.
      */
     protected function definition_inner(&$mform) {
         // By default, do nothing.

@@ -18,10 +18,13 @@
 /**
  * Mandatory public API of imscp module
  *
- * @package   mod-imscp
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage imscp
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * List of features supported in IMS CP module
@@ -101,10 +104,10 @@ function imscp_add_instance($data, $mform) {
     $imscp = $DB->get_record('imscp', array('id'=>$data->id), '*', MUST_EXIST);
 
     if ($filename = $mform->get_new_filename('package')) {
-        if ($package = $mform->save_stored_file('package', $context->id, 'imscp_backup', 1, '/', $filename)) {
+        if ($package = $mform->save_stored_file('package', $context->id, 'mod_imscp', 'backup', 1, '/', $filename)) {
             // extract package content
             $packer = get_file_packer('application/zip');
-            $package->extract_to_storage($packer, $context->id, 'imscp_content', 1, '/');
+            $package->extract_to_storage($packer, $context->id, 'mod_imscp', 'content', 1, '/');
             $structure = imscp_parse_structure($imscp, $context);
             $imscp->structure = is_array($structure) ? serialize($structure) : null;
             $DB->update_record('imscp', $imscp);
@@ -128,7 +131,7 @@ function imscp_update_instance($data, $mform) {
 
     $data->timemodified = time();
     $data->id           = $data->instance;
-    $imscp->structure   = null; // better reparse structure after each update
+    $data->structure   = null; // better reparse structure after each update
 
     $DB->update_record('imscp', $data);
 
@@ -143,26 +146,26 @@ function imscp_update_instance($data, $mform) {
 
         // get a list of existing packages before adding new package
         if ($imscp->keepold > -1) {
-            $packages = $fs->get_area_files($context->id, 'imscp_backup', false, "itemid ASC", false);
+            $packages = $fs->get_area_files($context->id, 'mod_imscp', 'backup', false, "itemid ASC", false);
         } else {
             $packages = array();
         }
 
-        $package = $mform->save_stored_file('package', $context->id, 'imscp_backup', $imscp->revision, '/', $filename);
+        $package = $mform->save_stored_file('package', $context->id, 'mod_imscp', 'backup', $imscp->revision, '/', $filename);
 
         // purge all extracted content
-        $fs->delete_area_files($context->id, 'imscp_content');
+        $fs->delete_area_files($context->id, 'mod_imscp', 'content');
 
         // extract package content
         if ($package) {
             $packer = get_file_packer('application/zip');
-            $package->extract_to_storage($packer, $context->id, 'imscp_content', $imscp->revision, '/');
+            $package->extract_to_storage($packer, $context->id, 'mod_imscp', 'content', $imscp->revision, '/');
         }
 
         // cleanup old package files, keep current + keepold
         while ($packages and (count($packages) > $imscp->keepold)) {
             $package = array_shift($packages);
-            $fs->delete_area_files($context->id, 'imscp_backup', $package->get_itemid());
+            $fs->delete_area_files($context->id, 'mod_imscp', 'backup', $package->get_itemid());
         }
     }
 
@@ -209,7 +212,7 @@ function imscp_user_outline($course, $user, $mod, $imscp) {
         $numviews = count($logs);
         $lastlog = array_pop($logs);
 
-        $result = new object();
+        $result = new stdClass();
         $result->info = get_string('numviews', '', $numviews);
         $result->time = $lastlog->time;
 
@@ -262,10 +265,10 @@ function imscp_get_participants($imscpid) {
  */
 function imscp_get_file_areas($course, $cm, $context) {
     $areas = array();
-    if (has_capability('moodle/course:managefiles', $context)) {
-        $areas['imscp_content'] = get_string('areacontent', 'imscp');
-        $areas['imscp_backup']  = get_string('areabackup', 'imscp');
-    }
+
+    $areas['content'] = get_string('areacontent', 'imscp');
+    $areas['backup']  = get_string('areabackup', 'imscp');
+
     return $areas;
 }
 
@@ -284,18 +287,20 @@ function imscp_get_file_areas($course, $cm, $context) {
  */
 function imscp_get_file_info($browser, $areas, $course, $cm, $context, $filearea, $itemid, $filepath, $filename) {
     global $CFG, $DB;
-    require_once("$CFG->dirroot/mod/imscp/locallib.php");
 
     // note: imscp_intro handled in file_browser automatically
 
     if (!has_capability('moodle/course:managefiles', $context)) {
-        // no peaking here, sorry
+        // no peaking here for students!!
         return null;
     }
 
-    if ($filearea !== 'imscp_content' and $filearea !== 'imscp_backup') {
+    if ($filearea !== 'content' and $filearea !== 'backup') {
         return null;
     }
+
+    require_once("$CFG->dirroot/mod/imscp/locallib.php");
+
     if (is_null($itemid)) {
         return new imscp_file_info($browser, $course, $cm, $context, $areas, $filearea, $itemid);
     }
@@ -303,49 +308,49 @@ function imscp_get_file_info($browser, $areas, $course, $cm, $context, $filearea
     $fs = get_file_storage();
     $filepath = is_null($filepath) ? '/' : $filepath;
     $filename = is_null($filename) ? '.' : $filename;
-    if (!$storedfile = $fs->get_file($context->id, $filearea, $itemid, $filepath, $filename)) {
+    if (!$storedfile = $fs->get_file($context->id, 'mod_imscp', $filearea, $itemid, $filepath, $filename)) {
         return null;
     }
 
     // do not allow manual modification of any files!
     $urlbase = $CFG->wwwroot.'/pluginfile.php';
-    return new file_info_stored($browser, $context, $storedfile, $urlbase, $itemid, true, true, false, false);
+    return new file_info_stored($browser, $context, $storedfile, $urlbase, $itemid, true, true, false, false); //no writing here!
 }
 
 /**
  * Serves the imscp files.
  *
  * @param object $course
- * @param object $cminfo
+ * @param object $cm
  * @param object $context
  * @param string $filearea
  * @param array $args
  * @param bool $forcedownload
  * @return bool false if file not found, does not return if found - justsend the file
  */
-function imscp_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedownload) {
+function imscp_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload) {
     global $CFG, $DB;
 
-    if (!$cminfo->uservisible) {
+    if ($context->contextlevel != CONTEXT_MODULE) {
         return false;
     }
 
-    if (!$cm = get_coursemodule_from_instance('imscp', $cminfo->instance, $course->id)) {
-        return false;
-    }
+    require_login($course, true, $cm);
 
-    if ($filearea === 'imscp_content') {
-        require_course_login($course, true, $cm);
+    if ($filearea === 'content') {
+        if (!has_capability('mod/imscp:view', $context)) {
+            return false;
+        }
         $revision = array_shift($args);
         $fs = get_file_storage();
-        $relativepath = '/'.implode('/', $args);
-        if ($relativepath === '/imsmanifest.xml') {
+        $relativepath = implode('/', $args);
+        if ($relativepath === 'imsmanifest.xml') {
             if (!has_capability('moodle/course:managefiles', $context)) {
                 // no stealing of detailed package info ;-)
                 return false;
             }
         }
-        $fullpath = $context->id.$filearea.$revision.$relativepath;
+        $fullpath = "/$context->id/mod_imscp/$filearea/$revision/$relativepath";
         if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
             return false;
         }
@@ -353,16 +358,15 @@ function imscp_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedo
         // finally send the file
         send_stored_file($file, 86400, 0, $forcedownload);
 
-    } else if ($filearea === 'imscp_backup') {
-        require_login($course, false, $cm);
+    } else if ($filearea === 'backup') {
         if (!has_capability('moodle/course:managefiles', $context)) {
             // no stealing of package backups
             return false;
         }
         $revision = array_shift($args);
         $fs = get_file_storage();
-        $relativepath = '/'.implode('/', $args);
-        $fullpath = $context->id.$filearea.$revision.$relativepath;
+        $relativepath = implode('/', $args);
+        $fullpath = "/$context->id/mod_imscp/$filearea/$revision/$relativepath";
         if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
             return false;
         }
@@ -376,7 +380,7 @@ function imscp_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedo
 }
 
 /**
- * This function extends the global navigaiton for the site.
+ * This function extends the global navigation for the site.
  * It is important to note that you should not rely on PAGE objects within this
  * body of code as there is no guarantee that during an AJAX request they are
  * available
@@ -384,7 +388,7 @@ function imscp_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedo
  * @param navigation_node $navigation The imscp node within the global navigation
  * @param stdClass $course The course object returned from the DB
  * @param stdClass $module The module object returned from the DB
- * @param stdClass $cm The course module isntance returned from the DB
+ * @param stdClass $cm The course module instance returned from the DB
  */
 function imscp_extend_navigation($navigation, $course, $module, $cm) {
     /**

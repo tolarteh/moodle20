@@ -38,7 +38,6 @@ class user_filter_date extends user_filter_type {
         $objs[] = & $mform->createElement('checkbox', $this->_name.'_never', null, get_string('includenever', 'filters'));
 
         $grp =& $mform->addElement('group', $this->_name.'_grp', $this->_label, $objs, '', false);
-        $mform->setHelpButton($this->_name.'_grp', array('date',$this->_label,'filters'));
 
         if ($this->_advanced) {
             $mform->setAdvanced($this->_name.'_grp');
@@ -135,7 +134,7 @@ class user_filter_date extends user_filter_type {
         $never = $data['never'];
         $field  = $this->_field;
 
-        $a = new object();
+        $a = new stdClass();
         $a->label  = $this->_label;
         $a->after  = userdate($after);
         $a->before = userdate($before);

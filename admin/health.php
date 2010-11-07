@@ -5,11 +5,9 @@
 
     // extra whitespace test - intentionally breaks cookieless mode
     $extraws = '';
-    while (true) {
+    while (ob_get_level()) {
         $extraws .= ob_get_contents();
-        if (!@ob_end_clean()) {
-            break;
-        }
+        ob_end_clean();
     }
 
     require_once($CFG->libdir.'/adminlib.php');
@@ -104,6 +102,7 @@ STYLES;
 
 
 function health_find_problems() {
+    global $OUTPUT;
 
     echo $OUTPUT->heading(get_string('healthcenter'));
 
@@ -328,8 +327,10 @@ class problem_000008 extends problem_base {
         return 'PHP: memory_limit cannot be controlled by Moodle';
     }
     function exists() {
+        global $CFG;
+
         $oldmemlimit = @ini_get('memory_limit');
-        if(empty($oldmemlimit)) {
+        if (empty($oldmemlimit)) {
             // PHP not compiled with memory limits, this means that it's
             // probably limited to 8M or in case of Windows not at all.
             // We can ignore it for now - there is not much to test anyway
@@ -337,12 +338,9 @@ class problem_000008 extends problem_base {
             return false;
         }
         $oldmemlimit = get_real_size($oldmemlimit);
-        //now lets change the memory limit to something unique below 128M==134217728
-        if (empty($CFG->extramemorylimit)) {
-            raise_memory_limit('128M');
-        } else {
-            raise_memory_limit($CFG->extramemorylimit);
-        }
+        //now lets change the memory limit to something higher
+        $newmemlimit = ($oldmemlimit + 1024*1024*5);
+        raise_memory_limit($newmemlimit);
         $testmemlimit = get_real_size(@ini_get('memory_limit'));
         //verify the change had any effect at all
         if ($oldmemlimit == $testmemlimit) {

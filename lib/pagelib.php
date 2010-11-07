@@ -17,14 +17,16 @@
 
 /**
  * This file contains the moodle_page class. There is normally a single instance
- * of this class in the $PAGE global variable. This class is a central reporitory
+ * of this class in the $PAGE global variable. This class is a central repository
  * of information about the page we are building up to send back to the user.
  *
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * $PAGE is a central store of information about the current page we are
@@ -163,6 +165,8 @@ class moodle_page {
 
     protected $_blockseditingcap = 'moodle/site:manageblocks';
 
+    protected $_block_actions_done = false;
+
     protected $_othereditingcaps = array();
 
     protected $_cacheable = true;
@@ -218,7 +222,9 @@ class moodle_page {
      * @var bool
      */
     protected $_legacythemeinuse = false;
-    
+
+    protected $_https_login_required = false;
+
 /// Magic getter methods =============================================================
 /// Due to the __get magic below, you normally do not call these as $PAGE->magic_get_x
 /// methods, but instead use the $PAGE->x syntax.
@@ -326,7 +332,13 @@ class moodle_page {
      */
     protected function magic_get_context() {
         if (is_null($this->_context)) {
-            throw new coding_exception('$PAGE->context accessed before it was known.');
+            if (CLI_SCRIPT or NO_MOODLE_COOKIES) {
+                // cli scripts work in system context, do not annoy devs with debug info
+                // very few scripts do not use cookies, we can safely use system as default context there
+            } else {
+                debugging('Coding problem: this page does not set $PAGE->context properly.');
+            }
+            $this->_context = get_context_instance(CONTEXT_SYSTEM);
         }
         return $this->_context;
     }
@@ -336,6 +348,7 @@ class moodle_page {
      * @return string e.g. 'my-index' or 'mod-quiz-attempt'.
      */
     protected function magic_get_pagetype() {
+        global $CFG;
         if (is_null($this->_pagetype) || isset($CFG->pagepath)) {
             $this->initialise_default_pagetype();
         }
@@ -574,15 +587,31 @@ class moodle_page {
      * PHP overloading magic to make the $PAGE->course syntax work by redirecting
      * it to the corresponding $PAGE->magic_get_course() method if there is one, and
      * throwing an exception if not.
-     * @var string field name
+     *
+     * @param $name string property name
      * @return mixed
      */
-    public function __get($field) {
-        $getmethod = 'magic_get_' . $field;
+    public function __get($name) {
+        $getmethod = 'magic_get_' . $name;
         if (method_exists($this, $getmethod)) {
             return $this->$getmethod();
         } else {
-            throw new coding_exception('Unknown field ' . $field . ' of $PAGE.');
+            throw new coding_exception('Unknown property ' . $name . ' of $PAGE.');
+        }
+    }
+
+    /**
+     * PHP overloading magic which prevents the $PAGE->context = $context; syntax
+     *
+     * @param $name string property name
+     * @param $name mixed value
+     * @return void, throws exception if field not defined in page class
+     */
+    public function __set($name, $value) {
+        if (method_exists($this, 'set_' . $name)) {
+            throw new coding_exception('Invalid attempt to modify page object', "Use \$PAGE->set_$name() instead.");
+        } else {
+            throw new coding_exception('Invalid attempt to modify page object', "Unknown property $name");
         }
     }
 
@@ -634,7 +663,7 @@ class moodle_page {
         if ($this->_legacypageobject) {
             return $this->_legacypageobject->user_allowed_editing();
         }
-        return has_any_capability($this->all_editing_caps(), $this->context);
+        return has_any_capability($this->all_editing_caps(), $this->_context);
     }
 
     /**
@@ -645,7 +674,7 @@ class moodle_page {
         $summary = '';
         $summary .= 'General type: ' . $this->pagelayout . '. ';
         if (!during_initial_install()) {
-            $summary .= 'Context ' . print_context_name($this->context) . ' (context id ' . $this->context->id . '). ';
+            $summary .= 'Context ' . print_context_name($this->_context) . ' (context id ' . $this->_context->id . '). ';
         }
         $summary .= 'Page type ' . $this->pagetype .  '. ';
         if ($this->subpage) {
@@ -716,15 +745,42 @@ class moodle_page {
      * @param object $context a context object, normally obtained with get_context_instance.
      */
     public function set_context($context) {
+        if ($context === null) {
+            // extremely ugly hack which sets context to some value in order to prevent warnings,
+            // use only for core error handling!!!!
+            if (!$this->_context) {
+                $this->_context = get_context_instance(CONTEXT_SYSTEM);
+            }
+            return;
+        }
+
+        // ideally we should set context only once
+        if (isset($this->_context)) {
+            if ($context->id == $this->_context->id) {
+                // fine - no change needed
+            } else if ($this->_context->contextlevel == CONTEXT_SYSTEM or $this->_context->contextlevel == CONTEXT_COURSE) {
+                // hmm - not ideal, but it might produce too many warnings due to the design of require_login
+            } else {
+                // we do not want devs to do weird switching of context levels on the fly,
+                // because we might have used the context already such as in text filter in page title
+                debugging('Coding problem: unsupported modification of PAGE->context from '.$this->_context->contextlevel.' to '.$context->contextlevel);
+            }
+        }
+
         $this->_context = $context;
     }
 
     /**
      * The course module that this page belongs to (if it does belong to one).
      *
-     * @param objcet $cm a full cm object obtained from get_coursemodule_from_id or get_coursemodule_from_instance.
+     * @param stdClass $cm a full cm object obtained from get_coursemodule_from_id or get_coursemodule_from_instance.
+     * @param stdClass $course
+     * @param stdClass $module
+     * @return void
      */
     public function set_cm($cm, $course = null, $module = null) {
+        global $DB;
+
         if (!isset($cm->name) || !isset($cm->modname) || !isset($cm->id)) {
             throw new coding_exception('The $cm you set on $PAGE must have been obtained with get_coursemodule_from_id or get_coursemodule_from_instance. That is, the ->name and -> modname fields must be present and correct.');
         }
@@ -735,8 +791,7 @@ class moodle_page {
         }
         if (!$this->_course || $this->_course->id != $cm->course) {
             if (!$course) {
-                global $DB;
-                $course = $DB->get_record('course', array('id' => $cm->course));
+                $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
             }
             if ($course->id != $cm->course) {
                 throw new coding_exception('The course you passed to $PAGE->set_cm does not seem to correspond to the $cm.');
@@ -783,6 +838,13 @@ class moodle_page {
      * in the standard theme.
      */
     public function set_pagelayout($pagelayout) {
+        /**
+         * Uncomment this to debug theme pagelayout issues like missing blocks.
+         *
+         * if (!empty($this->_wherethemewasinitialised) && $pagelayout != $this->_pagelayout) {
+         *     debugging('Page layout has already been set and cannot be changed.', DEBUG_DEVELOPER);
+         * }
+         */
         $this->_pagelayout = $pagelayout;
     }
 
@@ -1033,23 +1095,67 @@ class moodle_page {
     }
 
     /**
-     * This function sets the $HTTPSPAGEREQUIRED global
-     * (used in some parts of moodle to change some links)
-     * and calculate the proper wwwroot to be used
+     * This function indicates that current page requires the https
+     * when $CFG->loginhttps enabled.
      *
      * By using this function properly, we can ensure 100% https-ized pages
      * at our entire discretion (login, forgot_password, change_password)
+     * @return void
      */
     public function https_required() {
-        global $CFG, $HTTPSPAGEREQUIRED;
+        global $CFG;
+
+        if (!is_null($this->_url)) {
+            throw new coding_exception('https_required() must be used before setting page url!');
+        }
 
         $this->ensure_theme_not_set();
 
+        $this->_https_login_required = true;
+
         if (!empty($CFG->loginhttps)) {
-            $HTTPSPAGEREQUIRED = true;
             $CFG->httpswwwroot = str_replace('http:', 'https:', $CFG->wwwroot);
         } else {
             $CFG->httpswwwroot = $CFG->wwwroot;
+        }
+    }
+
+    /**
+     * Makes sure that page previously marked with https_required()
+     * is really using https://, if not it redirects to https://
+     *
+     * @return void (may redirect to https://self)
+     */
+    public function verify_https_required() {
+        global $CFG, $FULLME;
+
+        if (is_null($this->_url)) {
+            throw new coding_exception('verify_https_required() must be called after setting page url!');
+        }
+
+        if (!$this->_https_login_required) {
+            throw new coding_exception('verify_https_required() must be called only after https_required()!');
+        }
+
+        if (empty($CFG->loginhttps)) {
+            // https not required, so stop checking
+            return;
+        }
+
+        if (strpos($this->_url, 'https://')) {
+            // detect if incorrect PAGE->set_url() used, it is recommended to use root-relative paths there
+            throw new coding_exception('Invalid page url specified, it must start with https:// for pages that set https_required()!');
+        }
+
+        if (!empty($CFG->sslproxy)) {
+            // it does not make much sense to use sslproxy and loginhttps at the same time
+            return;
+        }
+
+        // now the real test and redirect!
+        if (strpos($FULLME, 'https:') !== 0) {
+            // this may lead to infinite redirect on misconfigured sites, in that case use $CFG->loginhttps=0; in /config.php
+            redirect($this->_url);
         }
     }
 
@@ -1106,6 +1212,11 @@ class moodle_page {
 
         if (!empty($this->_wherethemewasinitialised)) {
             return;
+        }
+
+        if (!during_initial_install()) {
+            // detect PAGE->context mess
+            $this->magic_get_context();
         }
 
         if (!$this->_course && !during_initial_install()) {
@@ -1205,7 +1316,7 @@ class moodle_page {
      * default to the admin-selected legacy theme
      *
      * @return  true if legacy theme should be used, otherwise false
-     * 
+     *
      */
     protected function browser_is_outdated() {
     	foreach($this->_legacybrowsers as $browser => $version) {
@@ -1217,7 +1328,7 @@ class moodle_page {
     	}
     	return false;
     }
-    
+
     /**
      * Sets ->pagetype from the script name. For example, if the script that was
      * run is mod/quiz/view.php, ->pagetype will be set to 'mod-quiz-view'.
@@ -1283,7 +1394,7 @@ class moodle_page {
 
         if (!during_initial_install()) {
             $this->add_body_class('course-' . $this->_course->id);
-            $this->add_body_class('context-' . $this->context->id);
+            $this->add_body_class('context-' . $this->_context->id);
         }
 
         if (!empty($this->_cm)) {
@@ -1314,6 +1425,9 @@ class moodle_page {
 
         if (!empty($USER->editing)) {
             $this->add_body_class('editing');
+            if (optional_param('bui_moveid', false, PARAM_INT)) {
+               $this->add_body_class('blocks-moving');
+        }
         }
 
         if (!empty($CFG->blocksdrag)) {
@@ -1559,6 +1673,10 @@ class moodle_page {
     public function has_set_url() {
         return ($this->_url!==null);
     }
+
+    public function set_block_actions_done($setting = true) {
+        $this->_block_actions_done = $setting;
+    }
 }
 
 /**
@@ -1662,10 +1780,10 @@ function page_map_class($type, $classname = NULL) {
  * @deprecated since Moodle 2.0
  * Parent class from which all Moodle page classes derive
  *
- * @package   moodlecore
- * @subpackage pages
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class page_base extends moodle_page {
     /**
@@ -1700,10 +1818,10 @@ class page_base extends moodle_page {
  * Although this does nothing, this class declaration should be left for now
  * since there may be legacy class doing class page_... extends page_course
  *
- * @package   moodlecore
- * @subpackage pages
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class page_course extends page_base {
 }
@@ -1712,10 +1830,10 @@ class page_course extends page_base {
  * @deprecated since Moodle 2.0
  * Class that models the common parts of all activity modules
  *
- * @package   moodlecore
- * @subpackage pages
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class page_generic_activity extends page_base {
     // Although this function is deprecated, it should be left here because
@@ -1733,7 +1851,7 @@ class page_generic_activity extends page_base {
         }
 
         $buttons = '<table><tr><td>'.$OUTPUT->update_module_button($this->modulerecord->id, $this->activityname).'</td>';
-        if ($this->user_allowed_editing() && !empty($CFG->showblocksonmodpages)) {
+        if ($this->user_allowed_editing()) {
             $buttons .= '<td><form method="get" action="view.php"><div>'.
                 '<input type="hidden" name="id" value="'.$this->modulerecord->id.'" />'.
                 '<input type="hidden" name="edit" value="'.($this->user_is_editing()?'off':'on').'" />'.

@@ -18,9 +18,10 @@
 /**
  * Provides the interface for grading essay questions
  *
- * @package lesson
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage lesson
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  **/
 
 require_once('../../config.php');
@@ -30,13 +31,11 @@ require_once($CFG->libdir.'/eventslib.php');
 
 $id   = required_param('id', PARAM_INT);             // Course Module ID
 $mode = optional_param('mode', 'display', PARAM_ALPHA);
-try {
-    $cm = get_coursemodule_from_id('lesson', $id, 0, false, MUST_EXIST);;
-    $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
-    $lesson = new lesson($DB->get_record('lesson', array('id' => $cm->instance), '*', MUST_EXIST));
-} catch (Exception $e) {
-    print_error('invalidcoursemodule');
-}
+
+$cm = get_coursemodule_from_id('lesson', $id, 0, false, MUST_EXIST);;
+$course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
+$lesson = new lesson($DB->get_record('lesson', array('id' => $cm->instance), '*', MUST_EXIST));
+
 require_login($course, false, $cm);
 $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 require_capability('mod/lesson:edit', $context);
@@ -106,6 +105,7 @@ switch ($mode) {
             $gradeinfo = lesson_grade($lesson, $attempt->retry, $attempt->userid);
 
             // Set and update
+            $updategrade = new stdClass();
             $updategrade->id = $grade->id;
             $updategrade->grade = $gradeinfo->grade;
             $DB->update_record('lesson_grades', $updategrade);
@@ -191,7 +191,7 @@ switch ($mode) {
 
                 // Set rest of the message values
                 $currentpage = $lesson->load_page($attempt->pageid);
-                $a->question = format_text($currentpage->contents, FORMAT_MOODLE, $options);
+                $a->question = format_text($currentpage->contents, $currentpage->contentsformat, $options);
                 $a->response = s($essayinfo->answer);
                 $a->comment  = s($essayinfo->response);
 
@@ -202,7 +202,7 @@ switch ($mode) {
                 // Subject
                 $subject = get_string('essayemailsubject', 'lesson', format_string($pages[$attempt->pageid]->title,true));
 
-                $eventdata = new object();
+                $eventdata = new stdClass();
                 $eventdata->modulename       = 'lesson';
                 $eventdata->userfrom         = $USER;
                 $eventdata->userto           = $users[$attempt->userid];
@@ -242,9 +242,10 @@ switch ($mode) {
             list($usql, $parameters) = $DB->get_in_or_equal(array_keys($pages));
             if ($essayattempts = $DB->get_records_select('lesson_attempts', 'pageid '.$usql, $parameters)) {
                 // Get all the users who have taken this lesson, order by their last name
+                $ufields = user_picture::fields('u');
                 if (!empty($cm->groupingid)) {
                     $params["groupinid"] = $cm->groupingid;
-                    $sql = "SELECT DISTINCT u.*
+                    $sql = "SELECT DISTINCT $ufields
                             FROM {lesson_attempts} a
                                 INNER JOIN {user} u ON u.id = a.userid
                                 INNER JOIN {groups_members} gm ON gm.userid = u.id
@@ -252,7 +253,7 @@ switch ($mode) {
                             WHERE a.lessonid = :lessonid
                             ORDER BY u.lastname";
                 } else {
-                    $sql = "SELECT DISTINCT u.*
+                    $sql = "SELECT DISTINCT $ufields
                             FROM {user} u,
                                  {lesson_attempts} a
                             WHERE a.lessonid = :lessonid and

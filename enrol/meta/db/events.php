@@ -18,40 +18,48 @@
 /**
  * Meta course enrolment plugin event handler definition.
  *
- * @package   enrol_meta
- * @copyright 2010 Petr Skoda  {@link http://skodak.org}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage meta
+ * @copyright  2010 Petr Skoda {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /* List of handlers */
 $handlers = array (
     'role_assigned' => array (
         'handlerfile'      => '/enrol/meta/locallib.php',
         'handlerfunction'  => array('enrol_meta_handler', 'role_assigned'),
-        'schedule'         => 'instant'
+        'schedule'         => 'instant',
+        'internal'         => 1,
     ),
 
     'role_unassigned' => array (
         'handlerfile'      => '/enrol/meta/locallib.php',
         'handlerfunction'  => array('enrol_meta_handler', 'role_unassigned'),
-        'schedule'         => 'instant'
+        'schedule'         => 'instant',
+        'internal'         => 1,
     ),
 
     'user_enrolled' => array (
         'handlerfile'      => '/enrol/meta/locallib.php',
         'handlerfunction'  => array('enrol_meta_handler', 'user_enrolled'),
-        'schedule'         => 'instant'
+        'schedule'         => 'instant',
+        'internal'         => 1,
     ),
 
     'user_unenrolled' => array (
         'handlerfile'      => '/enrol/meta/locallib.php',
         'handlerfunction'  => array('enrol_meta_handler', 'user_unenrolled'),
-        'schedule'         => 'instant'
+        'schedule'         => 'instant',
+        'internal'         => 1,
     ),
 
     'course_deleted' => array (
         'handlerfile'      => '/enrol/meta/locallib.php',
         'handlerfunction'  => array('enrol_meta_handler', 'course_deleted'),
-        'schedule'         => 'instant'
+        'schedule'         => 'instant',
+        'internal'         => 1,
     ),
 );

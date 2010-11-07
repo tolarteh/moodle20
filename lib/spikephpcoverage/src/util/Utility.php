@@ -1,6 +1,6 @@
 <?php
     /*
-    *  $Id: Utility.php,v 1.1 2009-06-23 09:23:09 stronk7 Exp $
+    *  $Id: Utility.php,v 1.2 2010/07/19 08:47:57 skodak Exp $
     *  
     *  Copyright(c) 2004-2006, SpikeSource Inc. All Rights Reserved.
     *  Licensed under the Open Software License version 2.1
@@ -22,7 +22,7 @@
     * Utility functions 
     * 
     * @author Nimish Pachapurkar <npac@spikesource.com>
-    * @version $Revision: 1.1 $
+    * @version $Revision: 1.2 $
     * @package SpikePHPCoverage_Util
     */
     class Utility {
@@ -211,7 +211,7 @@
         public function getLogger($package=false) {
             global $spc_config;
             if(!isset($this->logger) || $this->logger == NULL) {
-                $this->logger =& new CoverageLogger();
+                $this->logger = new CoverageLogger();
                 $this->logger->setLevel($spc_config["log_level"]);
             }
             return $this->logger;

@@ -144,6 +144,14 @@ class progressive_parser {
         $this->xml_parser = null;
     }
 
+    /**
+     * Provides one cross-platform dirname function for
+     * handling parser paths, see MDL-24381
+     */
+    public static function dirname($path) {
+        return str_replace('\\', '/', dirname($path));
+    }
+
 // Protected API starts here
 
     protected function parse($data, $eof) {
@@ -161,6 +169,20 @@ class progressive_parser {
         $this->processor->receive_chunk($data);
     }
 
+    /**
+     * Inform to the processor that we have started parsing one path
+     */
+    protected function inform_start($path) {
+        $this->processor->before_path($path);
+    }
+
+    /**
+     * Inform to the processor that we have finished parsing one path
+     */
+    protected function inform_end($path) {
+        $this->processor->after_path($path);
+    }
+
     protected function postprocess_cdata($data) {
         return $this->processor->process_cdata($data);
     }
@@ -172,6 +194,9 @@ class progressive_parser {
         $this->path .= '/' . $tag;
         $this->accum = '';
         $this->attrs = !empty($attributes) ? $attributes : array();
+
+        // Inform processor we are about to start one tag
+        $this->inform_start($this->path);
 
         // Entering a new inner level, publish all the information available
         if ($this->level > $this->prevlevel) {
@@ -187,7 +212,7 @@ class progressive_parser {
 
         // If not set, build to push common header
         if (empty($this->topush)) {
-            $this->topush['path']  = dirname($this->path);
+            $this->topush['path']  = progressive_parser::dirname($this->path);
             $this->topush['level'] = $this->level;
             $this->topush['tags']  = array();
         }
@@ -224,9 +249,12 @@ class progressive_parser {
         // For the records
         $this->prevlevel = $this->level;
 
+        // Inform processor we have finished one tag
+        $this->inform_end($this->path);
+
         // Normal update of parser internals
         $this->level--;
-        $this->path = dirname($this->path);
+        $this->path = progressive_parser::dirname($this->path);
     }
 
     protected function char_data($parser, $data) {

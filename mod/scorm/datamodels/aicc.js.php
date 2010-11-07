@@ -201,6 +201,13 @@ function AICCapi() {
         return "false";
     }
 
+
+<?php
+    // pull in the TOC callback
+    include_once($CFG->dirroot.'/mod/scorm/datamodels/callback.js.php');
+ ?>
+
+
     function LMSFinish (param) {
         errorCode = "0";
         if (param == "") {
@@ -209,15 +216,18 @@ function AICCapi() {
                 result = StoreData(cmi,true);
                 if (nav.event != '') {
                     if (nav.event == 'continue') {
-                        setTimeout('top.nextSCO();',500);
+                        setTimeout('scorm_get_next();',500);
                     } else {
-                        setTimeout('top.prevSCO();',500);
+                        setTimeout('scorm_get_prev();',500);
                     }
                 } else {
                     if (<?php echo $scorm->auto ?> == 1) {
-                        setTimeout('top.nextSCO();',500);
+                        setTimeout('scorm_get_next();',500);
                     }
                 }
+                // trigger TOC update
+                var sURL = "<?php echo $CFG->wwwroot; ?>" + "/mod/scorm/prereqs.php?a=<?php echo $scorm->id ?>&scoid=<?php echo $scoid ?>&attempt=<?php echo $attempt ?>&mode=<?php echo $mode ?>&currentorg=<?php echo $currentorg ?>&sesskey=<?php echo sesskey(); ?>";
+                YAHOO.util.Connect.asyncRequest('GET', sURL, this.connectPrereqCallback, null);
                 return "true";
             } else {
                 errorCode = "301";
@@ -505,8 +515,7 @@ function AICCapi() {
         if (storetotaltime) {
             if (cmi.core.lesson_mode == 'normal') {
                 if (cmi.core.credit == 'credit') {
-                    cmi.core.lesson_status = 'completed';
-                    if (cmi.student_data.mastery_score != '') {
+                    if (cmi.student_data.mastery_score != '' && cmi.core.score.raw != '') {
                         if (cmi.core.score.raw >= cmi.student_data.mastery_score) {
                             cmi.core.lesson_status = 'passed';
                         } else {
@@ -516,7 +525,7 @@ function AICCapi() {
                 }
             }
             if (cmi.core.lesson_mode == 'browse') {
-                if (datamodel['cmi.core.lesson_status'].defaultvalue == '') {
+                if (datamodel['cmi.core.lesson_status'].defaultvalue == '' && cmi.core.lesson_status == 'not attempted') {
                     cmi.core.lesson_status = 'browsed';
                 }
             }

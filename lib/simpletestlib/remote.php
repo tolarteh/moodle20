@@ -3,7 +3,7 @@
  *  base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage UnitTester
- *  @version    $Id: remote.php,v 1.3 2008-06-10 20:10:52 nicolasconnault Exp $
+ *  @version    $Id: remote.php,v 1.4 2010/07/19 08:53:16 skodak Exp $
  */
 
 /**#@+
@@ -75,7 +75,7 @@ class RemoteTestCase {
      *    @access protected
      */
     function &_createBrowser() {
-        $browser = &new SimpleBrowser();
+        $browser = new SimpleBrowser();
         return $browser;
     }
     
@@ -86,7 +86,7 @@ class RemoteTestCase {
      *    @access protected
      */
     function &_createParser(&$reporter) {
-        $parser = &new SimpleTestXmlParser($reporter);
+        $parser = new SimpleTestXmlParser($reporter);
         return $parser;
     }
     
@@ -103,7 +103,7 @@ class RemoteTestCase {
                 trigger_error('Cannot read remote test URL [' . $this->_dry_url . ']');
                 return false;
             }
-            $reporter = &new SimpleReporter();
+            $reporter = new SimpleReporter();
             $parser = &$this->_createParser($reporter);
             if (! $parser->parse($xml)) {
                 trigger_error('Cannot parse incoming XML from [' . $this->_dry_url . ']');

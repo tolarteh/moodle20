@@ -44,7 +44,7 @@ if ($id) {
     if (!$course = $DB->get_record('course', array('id'=>$courseid))) {
         print_error('invalidcourseid');
     }
-    $group = new object();
+    $group = new stdClass();
     $group->courseid = $course->id;
 }
 
@@ -58,7 +58,7 @@ require_login($course);
 $context = get_context_instance(CONTEXT_COURSE, $course->id);
 require_capability('moodle/course:managegroups', $context);
 
-$returnurl = $CFG->wwwroot.'/group/index.php?id='.$course->id.'&amp;group='.$id;
+$returnurl = $CFG->wwwroot.'/group/index.php?id='.$course->id.'&group='.$id;
 
 if ($id and $delete) {
     if (!$confirm) {
@@ -85,9 +85,9 @@ if ($id and $delete) {
 // Prepare the description editor: We do support files for group descriptions
 $editoroptions = array('maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$course->maxbytes, 'trust'=>false, 'context'=>$context, 'noclean'=>true);
 if (!empty($group->id)) {
-    $group = file_prepare_standard_editor($group, 'description', $editoroptions, $context, 'course_group_description', $group->id);
+    $group = file_prepare_standard_editor($group, 'description', $editoroptions, $context, 'group', 'description', $group->id);
 } else {
-    $group = file_prepare_standard_editor($group, 'description', $editoroptions, $context, 'course_group_description', null);
+    $group = file_prepare_standard_editor($group, 'description', $editoroptions, $context, 'group', 'description', null);
 }
 
 /// First create the form
@@ -100,10 +100,10 @@ if ($editform->is_cancelled()) {
 } elseif ($data = $editform->get_data()) {
 
     if ($data->id) {
-        groups_update_group($data, $editform);
+        groups_update_group($data, $editform, $editoroptions);
     } else {
-        $id = groups_create_group($data, $editform);
-        $returnurl = $CFG->wwwroot.'/group/index.php?id='.$course->id.'&amp;group='.$id;
+        $id = groups_create_group($data, $editform, $editoroptions);
+        $returnurl = $CFG->wwwroot.'/group/index.php?id='.$course->id.'&group='.$id;
     }
 
     redirect($returnurl);

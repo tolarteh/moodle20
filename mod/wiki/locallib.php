@@ -112,11 +112,11 @@ function wiki_add_subwiki($wikiid, $groupid, $userid = 0) {
 function wiki_get_wiki_from_pageid($pageid) {
     global $DB;
 
-    $sql = 'SELECT w.* ' .
-        'FROM {wiki} w, {wiki_subwikis} s, {wiki_pages} p ' .
-        'WHERE p.id = ? AND ' .
-        'p.subwikiid = s.id AND ' .
-        's.wikiid = w.id';
+    $sql = "SELECT w.*
+            FROM {wiki} w, {wiki_subwikis} s, {wiki_pages} p
+            WHERE p.id = ? AND
+            p.subwikiid = s.id AND
+            s.wikiid = w.id";
 
     return $DB->get_record_sql($sql, array($pageid));
 }
@@ -139,11 +139,12 @@ function wiki_get_page($pageid) {
 function wiki_get_current_version($pageid) {
     global $DB;
 
-    $sql = 'SELECT * ' .
-        'FROM {wiki_versions} ' .
-        'WHERE pageid = ? ' .
-        'ORDER BY version DESC ' .
-        'LIMIT 1';
+    // @TODO: Fix this query
+    $sql = "SELECT *
+            FROM {wiki_versions}
+            WHERE pageid = ?
+            ORDER BY version DESC
+            LIMIT 1";
     return $DB->get_record_sql($sql, array($pageid));
 
 }
@@ -198,13 +199,12 @@ function wiki_get_version($versionid) {
 function wiki_get_first_page($subwikid, $module = null) {
     global $DB, $USER;
 
-    $sql = 'SELECT p.* ' .
-        'FROM {wiki} w, {wiki_subwikis} s, {wiki_pages} p ' .
-        'WHERE s.id = ? AND ' .
-        's.wikiid = w.id AND ' .
-        'w.firstpagetitle = p.title AND ' .
-        'p.subwikiid = s.id';
-
+    $sql = "SELECT p.*
+            FROM {wiki} w, {wiki_subwikis} s, {wiki_pages} p
+            WHERE s.id = ? AND
+            s.wikiid = w.id AND
+            w.firstpagetitle = p.title AND
+            p.subwikiid = s.id";
     return $DB->get_record_sql($sql, array($subwikid));
 }
 
@@ -246,9 +246,7 @@ function wiki_save_page($wikipage, $newcontent, $userid) {
         $version->userid = $userid;
         $version->version++;
         $version->timecreated = time();
-        if (!$versionid = $DB->insert_record('wiki_versions', $version)) {
-            return false;
-        }
+        $versionid = $DB->insert_record('wiki_versions', $version);
 
         $wikipage->timemodified = $version->timecreated;
         $wikipage->userid = $userid;
@@ -334,9 +332,7 @@ function wiki_create_page($swid, $title, $format, $userid) {
     $version->userid = $userid;
 
     $versionid = null;
-    if (!$versionid = $DB->insert_record('wiki_versions', $version)) {
-        return false;
-    }
+    $versionid = $DB->insert_record('wiki_versions', $version);
 
     // Createing a new empty page
     $page = new stdClass();
@@ -364,12 +360,12 @@ function wiki_create_page($swid, $title, $format, $userid) {
 function wiki_make_cache_expire($pagename) {
     global $DB;
 
-    $sql = 'UPDATE {wiki_pages} ' .
-        'SET timerendered = 0 ' .
-        'WHERE id IN ( SELECT l.frompageid ' .
-        '   FROM {wiki_links} l ' .
-        '   WHERE l.tomissingpage = ?' .
-        ')';
+    $sql = "UPDATE {wiki_pages}
+            SET timerendered = 0
+            WHERE id IN ( SELECT l.frompageid
+                FROM {wiki_links} l
+                WHERE l.tomissingpage = ?
+            )";
     $DB->execute ($sql, array($pagename));
 }
 
@@ -429,11 +425,11 @@ function wiki_get_linked_from_pages($pageid) {
 function wiki_get_contributions($swid, $userid) {
     global $DB;
 
-    $sql = 'SELECT v.* ' .
-        'FROM {wiki_versions} v, {wiki_pages} p ' .
-        'WHERE p.subwikiid = ? AND ' .
-        'v.pageid = p.id AND ' .
-        'v.userid = ?';
+    $sql = "SELECT v.*
+            FROM {wiki_versions} v, {wiki_pages} p
+            WHERE p.subwikiid = ? AND
+            v.pageid = p.id AND
+            v.userid = ?";
 
     return $DB->get_records_sql($sql, array($swid, $userid));
 }
@@ -445,20 +441,20 @@ function wiki_get_contributions($swid, $userid) {
 function wiki_get_missing_or_empty_pages($swid) {
     global $DB;
 
-    $sql = 'SELECT DISTINCT p.title, p.id, p.subwikiid ' .
-        'FROM {wiki} w, {wiki_subwikis} s, {wiki_pages} p ' .
-        'WHERE s.wikiid = w.id and ' .
-        's.id = ? and ' .
-        'w.firstpagetitle != p.title and ' .
-        'p.subwikiid = ? and ' .
-        '1 =  (SELECT count(*) ' .
-        '   FROM {wiki_versions} v ' .
-        '   WHERE v.pageid = p.id) ' .
-        'UNION ' .
-        'SELECT DISTINCT l.tomissingpage as title, 0 as id, l.subwikiid ' .
-        'FROM {wiki_links} l ' .
-        'WHERE l.subwikiid = ? and ' .
-        'l.topageid = 0';
+    $sql = "SELECT DISTINCT p.title, p.id, p.subwikiid
+            FROM {wiki} w, {wiki_subwikis} s, {wiki_pages} p
+            WHERE s.wikiid = w.id and
+            s.id = ? and
+            w.firstpagetitle != p.title and
+            p.subwikiid = ? and
+            1 =  (SELECT count(*)
+                FROM {wiki_versions} v
+                WHERE v.pageid = p.id)
+            UNION
+            SELECT DISTINCT l.tomissingpage as title, 0 as id, l.subwikiid
+            FROM {wiki_links} l
+            WHERE l.subwikiid = ? and
+            l.topageid = 0";
 
     return $DB->get_records_sql($sql, array($swid, $swid, $swid));
 }
@@ -481,16 +477,15 @@ function wiki_get_page_list($swid) {
 function wiki_get_orphaned_pages($swid) {
     global $DB;
 
-    // @TODO: FIX this query
-    $sql = 'SELECT p.id, p.title ' .
-        'FROM {wiki_pages} p, {wiki} w , {wiki_subwikis} s ' .
-        'WHERE p.subwikiid = ? ' .
-        'AND s.id = ' . $swid . ' ' .
-        'AND w.id = s.wikiid ' .
-        'AND p.title != w.firstpagetitle ' .
-        'AND p.id NOT IN (SELECT topageid FROM {wiki_links} WHERE subwikiid = ?);';
+    $sql = "SELECT p.id, p.title
+            FROM {wiki_pages} p, {wiki} w , {wiki_subwikis} s
+            WHERE p.subwikiid = ?
+            AND s.id = ?
+            AND w.id = s.wikiid
+            AND p.title != w.firstpagetitle
+            AND p.id NOT IN (SELECT topageid FROM {wiki_links} WHERE subwikiid = ?);";
 
-    return $DB->get_records_sql($sql, array($swid, $swid));
+    return $DB->get_records_sql($sql, array($swid, $swid, $swid));
 }
 
 /**
@@ -500,7 +495,8 @@ function wiki_get_orphaned_pages($swid) {
  */
 function wiki_search_title($swid, $search) {
     global $DB;
-    return $DB->get_records_select('wiki_pages', "subwikiid=$swid AND title LIKE '%$search%'");
+
+    return $DB->get_records_select('wiki_pages', "subwikiid = ? AND title LIKE ?", array($swid, '%'.$search.'%'));
 }
 
 /**
@@ -510,7 +506,8 @@ function wiki_search_title($swid, $search) {
  */
 function wiki_search_content($swid, $search) {
     global $DB;
-    return $DB->get_records_select('wiki_pages', "subwikiid=$swid AND cachedcontent LIKE '%$search%'");
+
+    return $DB->get_records_select('wiki_pages', "subwikiid = ? AND cachedcontent LIKE ?", array($swid, '%'.$search.'%'));
 }
 
 /**
@@ -520,14 +517,16 @@ function wiki_search_content($swid, $search) {
  */
 function wiki_search_all($swid, $search) {
     global $DB;
-    return $DB->get_records_select('wiki_pages', "subwikiid=$swid AND (cachedcontent LIKE '%$search%' OR title LIKE '%$search%')");
+
+    return $DB->get_records_select('wiki_pages', "subwikiid = ? AND (cachedcontent LIKE ? OR title LIKE ?)", array($swid, '%'.$search.'%', '%'.$search.'%'));
 }
 
 /**
- * Get complete set of user data
+ * Get user data
  */
 function wiki_get_user_info($userid) {
-    return get_complete_user_data('id', $userid);
+    global $DB;
+    return $DB->get_record('user', array('id' => $userid));
 }
 
 /**
@@ -548,9 +547,7 @@ function wiki_increment_pageviews($page) {
  * Text format supported by wiki module
  */
 function wiki_get_formats() {
-    // TODO: disable creole and nwiki format until moodle core text format lib added
-    return array('html');
-    //return array('html', 'creole', 'nwiki');
+    return array('html', 'creole', 'nwiki');
 }
 
 /**
@@ -574,7 +571,7 @@ function wiki_parse_content($markup, $pagecontent, $options = array()) {
     $cm = get_coursemodule_from_instance("wiki", $subwiki->wikiid);
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
-    $parser_options = array('link_callback' => '/mod/wiki/locallib.php:wiki_parser_link', 'link_callback_args' => array('swid' => $options['swid']), 'table_callback' => '/mod/wiki/locallib.php:wiki_parser_table', 'real_path_callback' => '/mod/wiki/locallib.php:wiki_parser_real_path', 'real_path_callback_args' => array('context' => $context, 'filearea' => 'wiki_attachments', 'pageid' => $options['pageid']), 'pageid' => $options['pageid'], 'pretty_print' => (isset($options['pretty_print']) && $options['pretty_print']), 'printable' => (isset($options['printable']) && $options['printable']));
+    $parser_options = array('link_callback' => '/mod/wiki/locallib.php:wiki_parser_link', 'link_callback_args' => array('swid' => $options['swid']), 'table_callback' => '/mod/wiki/locallib.php:wiki_parser_table', 'real_path_callback' => '/mod/wiki/locallib.php:wiki_parser_real_path', 'real_path_callback_args' => array('context' => $context, 'component' => 'mod_wiki', 'filearea' => 'attachments', 'pageid' => $options['pageid']), 'pageid' => $options['pageid'], 'pretty_print' => (isset($options['pretty_print']) && $options['pretty_print']), 'printable' => (isset($options['printable']) && $options['printable']));
 
     return wiki_parser_proxy::parse($pagecontent, $markup, $parser_options);
 }
@@ -657,10 +654,10 @@ function wiki_parser_table($table) {
 /**
  * Returns an absolute path link, unless there is no such link.
  *
- * @param url Link's URL
- * @param context filearea params
- * @param filearea
- * @param fileareaid
+ * @param string url Link's URL
+ * @param stdClass context filearea params
+ * @param string filearea
+ * @param int fileareaid
  *
  * @return File full path
  */
@@ -998,8 +995,8 @@ function wiki_delete_old_locks() {
 /**
  * Uploads files to permanent disk space.
  *
- * @param draftitemid Draft space ID
- * @param contextid
+ * @param int draftitemid Draft space ID
+ * @param int contextid
  *
  * @return array of files that have not been inserted.
  */
@@ -1016,7 +1013,7 @@ function wiki_process_attachments($draftitemid, $deleteuploads, $contextid, $fil
     $usercontext = get_context_instance(CONTEXT_USER, $USER->id);
     $fs = get_file_storage();
 
-    $oldfiles = $fs->get_area_files($contextid, $filearea, $itemid, 'id');
+    $oldfiles = $fs->get_area_files($contextid, 'mod_wiki', 'attachments', $itemid, 'id');
 
     foreach ($oldfiles as $file) {
         if (in_array($file->get_pathnamehash(), $deleteuploads)) {
@@ -1024,14 +1021,14 @@ function wiki_process_attachments($draftitemid, $deleteuploads, $contextid, $fil
         }
     }
 
-    $draftfiles = $fs->get_area_files($usercontext->id, 'user_draft', $draftitemid, 'id');
-    $oldfiles = $fs->get_area_files($contextid, $filearea, $itemid, 'id');
+    $draftfiles = $fs->get_area_files($usercontext->id, 'user', 'draft', $draftitemid, 'id');
+    $oldfiles = $fs->get_area_files($contextid, 'mod_wiki', 'attachments', $itemid, 'id');
 
-    $file_record = array('contextid' => $contextid, 'filearea' => $filearea, 'itemid' => $itemid);
+    $file_record = array('contextid' => $contextid, 'component' => 'mod_wiki', 'filearea' => 'attachments', 'itemid' => $itemid);
     //more or less a merge...
     $newhashes = array();
     foreach ($draftfiles as $file) {
-        $newhash = sha1($contextid . $filearea . $itemid . $file->get_filepath() . $file->get_filename());
+        $newhash = sha1("/$contextid/mod_wiki/attachments/$itemid" . $file->get_filepath() . $file->get_filename());
         $newhashes[$newhash] = $file;
     }
 
@@ -1065,9 +1062,14 @@ function wiki_process_attachments($draftitemid, $deleteuploads, $contextid, $fil
     }
 
     //delete all draft files
-    $fs->delete_area_files($usercontext->id, 'user_draft', $draftitemid);
+    $fs->delete_area_files($usercontext->id, 'user', 'draft', $draftitemid);
 
     return $errors;
+}
+
+function wiki_get_comment($commentid){
+    global $DB;
+    return $DB->get_record('comments', array('id' => $commentid));
 }
 
 /**
@@ -1076,38 +1078,10 @@ function wiki_process_attachments($draftitemid, $deleteuploads, $contextid, $fil
  * @param $context. Current context
  * @param $pageid. Current pageid
  **/
-function wiki_get_comments($context, $pageid) {
-    global $CFG;
-    require_once($CFG->dirroot . '/comment/lib.php');
-    list($context, $course, $cm) = get_context_info_array($context->id);
-
-    $cmt = new stdclass();
-    $cmt->context = $context;
-    $cmt->itemid = $pageid;
-    $cmt->pluginname = 'wiki';
-    $cmt->area = 'wiki_comment_section';
-    $cmt->course = $course;
-    $manager = new comment($cmt);
-
-    return ($manager->get_comments());
-
-}
-
-/**
- * Returns all comments from wiki comments section by user
- *
- * @param $userid. User whose we want get the comments
- **/
-function wiki_get_comments_by_user($userid) {
+function wiki_get_comments($contextid, $pageid) {
     global $DB;
 
-    $area = 'wiki_comment_section';
-    $sql = 'SELECT c.* ' .
-        'FROM {comments} c  ' .
-        'WHERE c.userid = ? and c.commentarea= ?';
-
-    return $DB->get_records_sql($sql, array($userid, $area));
-
+    return $DB->get_records('comments', array('contextid' => $contextid, 'itemid' => $pageid, 'commentarea' => 'wiki_page'));
 }
 
 /**
@@ -1126,9 +1100,9 @@ function wiki_add_comment($context, $pageid, $content, $editor) {
     $cmt = new stdclass();
     $cmt->context = $context;
     $cmt->itemid = $pageid;
-    $cmt->area = 'wiki_comment_section';
+    $cmt->area = 'wiki_page';
     $cmt->course = $course;
-    $cmt->pluginname = 'wiki';
+    $cmt->component = 'mod_wiki';
 
     $manager = new comment($cmt);
 
@@ -1154,12 +1128,12 @@ function wiki_delete_comment($idcomment, $context, $pageid) {
     require_once($CFG->dirroot . '/comment/lib.php');
 
     list($context, $course, $cm) = get_context_info_array($context->id);
-    $cmt = new stdclass;
+    $cmt = new stdClass();
     $cmt->context = $context;
     $cmt->itemid = $pageid;
-    $cmt->area = 'wiki_comment_section';
-    $cmt->pluginname = 'wiki';
+    $cmt->area = 'wiki_page';
     $cmt->course = $course;
+    $cmt->component = 'mod_wiki';
 
     $manager = new comment($cmt);
     $manager->delete($idcomment);
@@ -1215,11 +1189,12 @@ function wiki_print_page_content($page, $context, $subwikiid) {
             echo $OUTPUT->box($box);
         }
     }
-    $html = file_rewrite_pluginfile_urls($page->cachedcontent, 'pluginfile.php', $context->id, 'wiki_attachments', $subwikiid);
+    $html = file_rewrite_pluginfile_urls($page->cachedcontent, 'pluginfile.php', $context->id, 'mod_wiki', 'attachments', $subwikiid);
+    $html = format_text($html, FORMAT_MOODLE, array('overflowdiv'=>true));
     echo $OUTPUT->box($html);
 
     if (!empty($CFG->usetags)) {
-        $tags = tag_get_tags_array('wiki', $page->id);
+        $tags = tag_get_tags_array('wiki_pages', $page->id);
         echo '<p class="wiki-tags"><span>Tags: </span>' . join($tags, ", ") . '</p>';
     }
 
@@ -1307,8 +1282,7 @@ function wiki_print_upload_table($context, $filearea, $fileitemid, $deleteupload
     $htmltable->head = array(get_string('deleteupload', 'wiki'), get_string('uploadname', 'wiki'), get_string('uploadactions', 'wiki'));
 
     $fs = get_file_storage();
-    $browser = get_file_browser();
-    $files = $fs->get_area_files($context->id, $filearea, $fileitemid);
+    $files = $fs->get_area_files($context->id, 'mod_wiki', $filearea, $fileitemid); //TODO: this is weird (skodak)
 
     foreach ($files as $file) {
         if (!$file->is_directory()) {
@@ -1366,11 +1340,11 @@ function wiki_build_tree($page, $node, &$keys) {
 function wiki_get_linked_pages($pageid) {
     global $DB;
 
-    $sql = 'SELECT p.id, p.title ' .
-        'FROM mdl_wiki_pages p ' .
-        'JOIN mdl_wiki_links l ON l.topageid = p.id ' .
-        'WHERE l.frompageid = ? ' .
-        'ORDER BY p.title ASC';
+    $sql = "SELECT p.id, p.title
+            FROM {wiki_pages} p
+            JOIN {wiki_links} l ON l.topageid = p.id
+            WHERE l.frompageid = ?
+            ORDER BY p.title ASC";
     return $DB->get_records_sql($sql, array($pageid));
 }
 
@@ -1381,9 +1355,9 @@ function wiki_get_linked_pages($pageid) {
 function wiki_get_updated_pages_by_subwiki($swid) {
     global $DB, $USER;
 
-    $sql = 'SELECT * ' .
-        'FROM {wiki_pages} ' .
-        'WHERE subwikiid = ? AND timemodified > ? ' .
-        'ORDER BY timemodified DESC';
+    $sql = "SELECT *
+            FROM {wiki_pages}
+            WHERE subwikiid = ? AND timemodified > ?
+            ORDER BY timemodified DESC";
     return $DB->get_records_sql($sql, array($swid, $USER->lastlogin));
 }

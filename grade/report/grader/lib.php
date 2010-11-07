@@ -149,7 +149,7 @@ class grade_report_grader extends grade_report {
 
     /**
      * Processes the data sent by the form (grades and feedbacks).
-     * Caller is reposible for all access control checks
+     * Caller is responsible for all access control checks
      * @param array $data form submission (with magic quotes)
      * @return array empty array if success, array of warnings if something fails.
      */
@@ -229,7 +229,7 @@ class grade_report_grader extends grade_report {
                 }
                 if ($errorstr) {
                     $user = $DB->get_record('user', array('id' => $userid), 'id, firstname, lastname');
-                    $gradestr = new object();
+                    $gradestr = new stdClass();
                     $gradestr->username = fullname($user);
                     $gradestr->itemname = $gradeitem->get_name();
                     $warnings[] = get_string($errorstr, 'grades', $gradestr);
@@ -241,7 +241,7 @@ class grade_report_grader extends grade_report {
                 if (empty($trimmed)) {
                      $feedback = NULL;
                 } else {
-                     $feedback = stripslashes($postedvalue);
+                     $feedback = $postedvalue;
                 }
             }
 
@@ -257,7 +257,7 @@ class grade_report_grader extends grade_report {
                     }
                 }
                 if (!$sharinggroup) {
-                    // either group membership changed or somebedy is hacking grades of other group
+                    // either group membership changed or somebody is hacking grades of other group
                     $warnings[] = get_string('errorsavegrade', 'grades');
                     continue;
                 }
@@ -340,7 +340,8 @@ class grade_report_grader extends grade_report {
             // the MAX() magic is required in order to please PG
             $sort = "MAX(g.finalgrade) $this->sortorder";
 
-            $sql = "SELECT u.id, u.firstname, u.lastname, u.imagealt, u.picture, u.idnumber
+            $ufields = user_picture::fields('u', array('idnumber'));
+            $sql = "SELECT $ufields
                       FROM {user} u
                            JOIN {role_assignments} ra ON ra.userid = u.id
                            $this->groupsql
@@ -348,7 +349,7 @@ class grade_report_grader extends grade_report {
                      WHERE ra.roleid $usql AND u.deleted = 0
                            $this->groupwheresql
                            AND ra.contextid ".get_related_contexts_string($this->context)."
-                  GROUP BY u.id, u.firstname, u.lastname, u.imagealt, u.picture, u.idnumber
+                  GROUP BY $ufields
                   ORDER BY $sort";
 
         } else {
@@ -363,7 +364,9 @@ class grade_report_grader extends grade_report {
             }
 
             $params = array_merge($gbrparams, $this->groupwheresql_params);
-            $sql = "SELECT DISTINCT u.id, u.firstname, u.lastname, u.imagealt, u.picture, u.idnumber
+
+            $userfields = user_picture::fields('u', array('idnumber'));
+            $sql = "SELECT DISTINCT $userfields
                       FROM {user} u
                            JOIN {role_assignments} ra ON u.id = ra.userid
                            $this->groupsql
@@ -396,7 +399,7 @@ class grade_report_grader extends grade_report {
     public function load_final_grades() {
         global $CFG, $DB;
 
-        // please note that we must fetch all grade_grades fields if we want to contruct grade_grade object from it!
+        // please note that we must fetch all grade_grades fields if we want to construct grade_grade object from it!
         $params = array_merge(array('courseid'=>$this->courseid), $this->userselect_params);
         $sql = "SELECT g.*
                   FROM {grade_items} gi,
@@ -504,13 +507,12 @@ class grade_report_grader extends grade_report {
         if (array_key_exists($type, $icons)) {
             $imagename = $icons[$type];
         } else {
-            $imagename = "t/$type.gif";
+            $imagename = "t/$type";
         }
 
         $string = ${'str' . $showhide};
 
-        $aurl = clone($this->baseurl);
-        $url->params(array('toggle' => $toggleaction, 'toggle_type' => $type));
+        $url = new moodle_url($this->baseurl, array('toggle' => $toggleaction, 'toggle_type' => $type));
 
         $retval = $OUTPUT->container($OUTPUT->action_icon($url, new pix_icon($imagename, $string))); // TODO: this container looks wrong here
 
@@ -596,7 +598,7 @@ class grade_report_grader extends grade_report {
         foreach ($this->users as $userid => $user) {
             $userrow = new html_table_row();
             $userrow->id = 'fixed_user_'.$userid;
-            $userrow->attributes['class'] = 'r'.$this->rowcount++ . $rowclasses[$this->rowcount % 2];
+            $userrow->attributes['class'] = 'r'.$this->rowcount++.' '.$rowclasses[$this->rowcount % 2];
 
             $usercell = new html_table_cell();
             $usercell->attributes['class'] = 'user';
@@ -615,6 +617,7 @@ class grade_report_grader extends grade_report {
                 $userreportcell = new html_table_cell();
                 $userreportcell->attributes['class'] = 'userreport';
                 $userreportcell->header = true;
+                $a = new stdClass();
                 $a->user = fullname($user);
                 $strgradesforuser = get_string('gradesforuser', 'grades', $a);
                 $url = new moodle_url('/grade/report/'.$CFG->grade_profilereport.'/index.php', array('userid' => $user->id, 'id' => $this->course->id));
@@ -685,8 +688,6 @@ class grade_report_grader extends grade_report {
                 $object = $element['object'];
                 $type   = $element['type'];
                 $categorystate = @$element['categorystate'];
-                $itemmodule = null;
-                $iteminstance = null;
 
                 if (!empty($element['colspan'])) {
                     $colspan = $element['colspan'];
@@ -729,8 +730,8 @@ class grade_report_grader extends grade_report {
                 }
 // Element is a grade_item
                 else {
-                    $itemmodule = $element['object']->itemmodule;
-                    $iteminstance = $element['object']->iteminstance;
+                    //$itemmodule = $element['object']->itemmodule;
+                    //$iteminstance = $element['object']->iteminstance;
 
                     if ($element['object']->id == $this->sortitemid) {
                         if ($this->sortorder == 'ASC') {
@@ -885,7 +886,7 @@ class grade_report_grader extends grade_report {
                     $gradepass = '';
                 }
 
-                // if in editting mode, we need to print either a text box
+                // if in editing mode, we need to print either a text box
                 // or a drop down (for scales)
                 // grades in item of type grade category or course are not directly editable
                 if ($item->needsupdate) {
@@ -1231,7 +1232,7 @@ class grade_report_grader extends grade_report {
 
         if (!$this->canviewhidden) {
             // totals might be affected by hiding, if user can not see hidden grades the aggregations might be altered
-            // better not show them at all if user can not see all hideen grades
+            // better not show them at all if user can not see all hidden grades
             return $rows;
         }
 
@@ -1455,7 +1456,6 @@ class grade_report_grader extends grade_report {
             } else if (in_array($element['object']->id, $this->collapsed['gradesonly'])) {
                 $url->param('action', 'switch_whole');
                 $icon = $OUTPUT->action_icon($url, new pix_icon('t/switch_whole', $strswitchwhole));
-                $contractexpandicon->image->src = $OUTPUT->pix_url('t/switch_whole');
 
             } else {
                 $url->param('action', 'switch_minus');

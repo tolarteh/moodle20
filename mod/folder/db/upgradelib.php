@@ -18,10 +18,13 @@
 /**
  * Folder module upgrade related helper functions
  *
- * @package   mod-folder
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage folder
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Migrate folder module data from 1.9 resource_old table to new older table
@@ -57,11 +60,19 @@ function folder_20_migrate() {
         $directory = '/'.trim($candidate->reference, '/').'/';
         $directory = str_replace('//', '/', $directory);
 
-        $folder = new object();
+        if ($CFG->texteditors !== 'textarea') {
+            $intro       = text_to_html($candidate->intro, false, false, true);
+            $introformat = FORMAT_HTML;
+        } else {
+            $intro       = $candidate->intro;
+            $introformat = FORMAT_MOODLE;
+        }
+
+        $folder = new stdClass();
         $folder->course       = $candidate->course;
         $folder->name         = $candidate->name;
-        $folder->intro        = $candidate->intro;
-        $folder->introformat  = $candidate->introformat;
+        $folder->intro        = $intro;
+        $folder->introformat  = $introformat;
         $folder->revision     = 1;
         $folder->timemodified = time();
 
@@ -72,8 +83,8 @@ function folder_20_migrate() {
         // copy files in given directory, skip moddata and backups!
         $context       = get_context_instance(CONTEXT_MODULE, $candidate->cmid);
         $coursecontext = get_context_instance(CONTEXT_COURSE, $candidate->course);
-        $files = $fs->get_directory_files($coursecontext->id, 'course_content', 0, $directory, true, true);
-        $file_record = array('contextid'=>$context->id, 'filearea'=>'folder_content', 'itemid'=>0);
+        $files = $fs->get_directory_files($coursecontext->id, 'course', 'legacy', 0, $directory, true, true);
+        $file_record = array('contextid'=>$context->id, 'component'=>'mod_folder', 'filearea'=>'content', 'itemid'=>0);
         foreach ($files as $file) {
             $path = $file->get_filepath();
             if (stripos($path, '/backupdata/') === 0 or stripos($path, '/moddata/') === 0) {

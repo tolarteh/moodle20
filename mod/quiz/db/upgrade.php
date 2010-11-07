@@ -9,7 +9,7 @@
 //
 // The upgrade function in this file will attempt
 // to perform all the necessary actions to upgrade
-// your older installtion to the current version.
+// your older installation to the current version.
 //
 // If there's something it cannot do itself, it
 // will tell you what you need to do.
@@ -24,11 +24,10 @@ function xmldb_quiz_upgrade($oldversion) {
     global $CFG, $DB;
 
     $dbman = $DB->get_manager();
-    $result = true;
 
 //===== 1.9.0 upgrade line ======//
 
-    if ($result && $oldversion < 2008062000) {
+    if ($oldversion < 2008062000) {
 
     /// Define table quiz_report to be created
         $table = new xmldb_table('quiz_report');
@@ -46,34 +45,34 @@ function xmldb_quiz_upgrade($oldversion) {
             $dbman->create_table($table);
         }
 
-        upgrade_mod_savepoint($result, 2008062000, 'quiz');
+        upgrade_mod_savepoint(true, 2008062000, 'quiz');
     }
 
-    if ($result && $oldversion < 2008062001) {
-        $reporttoinsert = new object();
+    if ($oldversion < 2008062001) {
+        $reporttoinsert = new stdClass();
         $reporttoinsert->name = 'overview';
         $reporttoinsert->displayorder = 10000;
-        $result = $result && $DB->insert_record('quiz_report', $reporttoinsert);
+        $DB->insert_record('quiz_report', $reporttoinsert);
 
-        $reporttoinsert = new object();
+        $reporttoinsert = new stdClass();
         $reporttoinsert->name = 'responses';
         $reporttoinsert->displayorder = 9000;
-        $result = $result && $DB->insert_record('quiz_report', $reporttoinsert);
+        $DB->insert_record('quiz_report', $reporttoinsert);
 
-        $reporttoinsert = new object();
+        $reporttoinsert = new stdClass();
         $reporttoinsert->name = 'regrade';
         $reporttoinsert->displayorder = 7000;
-        $result = $result && $DB->insert_record('quiz_report', $reporttoinsert);
+        $DB->insert_record('quiz_report', $reporttoinsert);
 
-        $reporttoinsert = new object();
+        $reporttoinsert = new stdClass();
         $reporttoinsert->name = 'grading';
         $reporttoinsert->displayorder = 6000;
-        $result = $result && $DB->insert_record('quiz_report', $reporttoinsert);
+        $DB->insert_record('quiz_report', $reporttoinsert);
 
-        upgrade_mod_savepoint($result, 2008062001, 'quiz');
+        upgrade_mod_savepoint(true, 2008062001, 'quiz');
     }
 
-    if ($result && $oldversion < 2008072402) {
+    if ($oldversion < 2008072402) {
 
     /// Define field lastcron to be added to quiz_report
         $table = new xmldb_table('quiz_report');
@@ -93,18 +92,18 @@ function xmldb_quiz_upgrade($oldversion) {
         }
 
     /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2008072402, 'quiz');
+        upgrade_mod_savepoint(true, 2008072402, 'quiz');
     }
 
-    if ($result && $oldversion < 2008072900) {
+    if ($oldversion < 2008072900) {
     /// Delete the regrade report - it is now part of the overview report.
-        $result = $result && $DB->delete_records('quiz_report', array('name' => 'regrade'));
+        $DB->delete_records('quiz_report', array('name' => 'regrade'));
 
     /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2008072900, 'quiz');
+        upgrade_mod_savepoint(true, 2008072900, 'quiz');
     }
 
-    if ($result && $oldversion < 2008081500) {
+    if ($oldversion < 2008081500) {
     /// Define table quiz_question_versions to be dropped
         $table = new xmldb_table('quiz_question_versions');
 
@@ -112,61 +111,61 @@ function xmldb_quiz_upgrade($oldversion) {
         $dbman->drop_table($table);
 
     /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2008081500, 'quiz');
+        upgrade_mod_savepoint(true, 2008081500, 'quiz');
     }
 
     /// Changing the type of all the columns that store grades to be NUMBER(10, 5) or similar.
-    if ($result && $oldversion < 2008081501) {
+    if ($oldversion < 2008081501) {
         $table = new xmldb_table('quiz');
         $field = new xmldb_field('sumgrades', XMLDB_TYPE_NUMBER, '10, 5', null, null, null, null, 'questions');
         $dbman->change_field_type($table, $field);
-        upgrade_mod_savepoint($result, 2008081501, 'quiz');
+        upgrade_mod_savepoint(true, 2008081501, 'quiz');
     }
 
-    if ($result && $oldversion < 2008081502) {
+    if ($oldversion < 2008081502) {
         $table = new xmldb_table('quiz');
         $field = new xmldb_field('grade', XMLDB_TYPE_NUMBER, '10, 5', null, null, null, null, 'sumgrades');
         $dbman->change_field_type($table, $field);
-        upgrade_mod_savepoint($result, 2008081502, 'quiz');
+        upgrade_mod_savepoint(true, 2008081502, 'quiz');
     }
 
-    if ($result && $oldversion < 2008081503) {
+    if ($oldversion < 2008081503) {
         $table = new xmldb_table('quiz_attempts');
         $field = new xmldb_field('sumgrades', XMLDB_TYPE_NUMBER, '10, 5', null, null, null, null, 'attempt');
         $dbman->change_field_type($table, $field);
-        upgrade_mod_savepoint($result, 2008081503, 'quiz');
+        upgrade_mod_savepoint(true, 2008081503, 'quiz');
     }
 
-    if ($result && $oldversion < 2008081504) {
+    if ($oldversion < 2008081504) {
         $table = new xmldb_table('quiz_feedback');
         $field = new xmldb_field('mingrade', XMLDB_TYPE_NUMBER, '10, 5', null, null, null, null, 'feedbacktext');
         $dbman->change_field_type($table, $field);
-        upgrade_mod_savepoint($result, 2008081504, 'quiz');
+        upgrade_mod_savepoint(true, 2008081504, 'quiz');
     }
 
-    if ($result && $oldversion < 2008081505) {
+    if ($oldversion < 2008081505) {
         $table = new xmldb_table('quiz_feedback');
         $field = new xmldb_field('maxgrade', XMLDB_TYPE_NUMBER, '10, 5', null, null, null, null, 'mingrade');
         $dbman->change_field_type($table, $field);
-        upgrade_mod_savepoint($result, 2008081505, 'quiz');
+        upgrade_mod_savepoint(true, 2008081505, 'quiz');
     }
 
-    if ($result && $oldversion < 2008081506) {
+    if ($oldversion < 2008081506) {
         $table = new xmldb_table('quiz_grades');
         $field = new xmldb_field('grade', XMLDB_TYPE_NUMBER, '10, 5', null, null, null, null, 'userid');
         $dbman->change_field_type($table, $field);
-        upgrade_mod_savepoint($result, 2008081506, 'quiz');
+        upgrade_mod_savepoint(true, 2008081506, 'quiz');
     }
 
-    if ($result && $oldversion < 2008081507) {
+    if ($oldversion < 2008081507) {
         $table = new xmldb_table('quiz_question_instances');
         $field = new xmldb_field('grade', XMLDB_TYPE_NUMBER, '12, 7', null, null, null, null, 'question');
         $dbman->change_field_type($table, $field);
-        upgrade_mod_savepoint($result, 2008081507, 'quiz');
+        upgrade_mod_savepoint(true, 2008081507, 'quiz');
     }
 
     /// Move all of the quiz config settings from $CFG to the config_plugins table.
-    if ($result && $oldversion < 2008082200) {
+    if ($oldversion < 2008082200) {
         foreach (get_object_vars($CFG) as $name => $value) {
             if (strpos($name, 'quiz_') === 0) {
                 $shortname = substr($name, 5);
@@ -174,11 +173,11 @@ function xmldb_quiz_upgrade($oldversion) {
                     // Special case - remove old inconsistency.
                     $shortname == 'fix_optionflags';
                 }
-                $result = $result && set_config($shortname, $value, 'quiz');
-                $result = $result && unset_config($name);
+                set_config($shortname, $value, 'quiz');
+                unset_config($name);
             }
         }
-        upgrade_mod_savepoint($result, 2008082200, 'quiz');
+        upgrade_mod_savepoint(true, 2008082200, 'quiz');
     }
 
     /// Now that the quiz is no longer responsible for creating all the question
@@ -186,13 +185,13 @@ function xmldb_quiz_upgrade($oldversion) {
     /// datasetdependent question type, which did not have a version.php file before,
     /// we need to say that these tables are already installed, otherwise XMLDB
     /// will try to create them again and give an error.
-    if ($result && $oldversion < 2008082600) {
+    if ($oldversion < 2008082600) {
         // Since MDL-16505 was fixed, and we eliminated the datasetdependent
         // question type, this is now a no-op.
-        upgrade_mod_savepoint($result, 2008082600, 'quiz');
+        upgrade_mod_savepoint(true, 2008082600, 'quiz');
     }
 
-    if ($result && $oldversion < 2008112101) {
+    if ($oldversion < 2008112101) {
 
     /// Define field lastcron to be added to quiz_report
         $table = new xmldb_table('quiz_report');
@@ -204,10 +203,10 @@ function xmldb_quiz_upgrade($oldversion) {
         }
 
     /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2008112101, 'quiz');
+        upgrade_mod_savepoint(true, 2008112101, 'quiz');
     }
 
-    if ($result && $oldversion < 2009010700) {
+    if ($oldversion < 2009010700) {
 
     /// Define field showuserpicture to be added to quiz
         $table = new xmldb_table('quiz');
@@ -219,10 +218,10 @@ function xmldb_quiz_upgrade($oldversion) {
         }
 
     /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2009010700, 'quiz');
+        upgrade_mod_savepoint(true, 2009010700, 'quiz');
     }
 
-    if ($result && $oldversion < 2009030900) {
+    if ($oldversion < 2009030900) {
     /// If there are no quiz settings set to advanced yet, the set up the default
     /// advanced fields from Moodle 2.0.
         $quizconfig = get_config('quiz');
@@ -246,10 +245,10 @@ function xmldb_quiz_upgrade($oldversion) {
         }
 
     /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2009030900, 'quiz');
+        upgrade_mod_savepoint(true, 2009030900, 'quiz');
     }
 
-    if ($result && $oldversion < 2009031000) {
+    if ($oldversion < 2009031000) {
     /// Add new questiondecimaldigits setting, separate form the overall decimaldigits one.
         $table = new xmldb_table('quiz');
         $field = new xmldb_field('questiondecimalpoints', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, '2', 'decimalpoints');
@@ -258,40 +257,46 @@ function xmldb_quiz_upgrade($oldversion) {
         }
 
     /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2009031000, 'quiz');
+        upgrade_mod_savepoint(true, 2009031000, 'quiz');
     }
 
-    if ($result && $oldversion < 2009031001) {
+    if ($oldversion < 2009031001) {
     /// Convert quiz.timelimit from minutes to seconds.
         $DB->execute('UPDATE {quiz} SET timelimit = timelimit * 60');
         $default = get_config('quiz', 'timelimit');
         set_config('timelimit', 60 * $default, 'quiz');
 
     /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2009031001, 'quiz');
+        upgrade_mod_savepoint(true, 2009031001, 'quiz');
     }
 
-    if ($result && $oldversion < 2009042000) {
+    if ($oldversion < 2009042000) {
 
     /// Define field introformat to be added to quiz
         $table = new xmldb_table('quiz');
         $field = new xmldb_field('introformat', XMLDB_TYPE_INTEGER, '4', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0', 'intro');
 
-    /// Launch add field introformat
-        $dbman->add_field($table, $field);
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
 
-    /// set format to current
-        $DB->set_field('quiz', 'introformat', FORMAT_MOODLE, array());
+        // conditionally migrate to html format in intro
+        if ($CFG->texteditors !== 'textarea') {
+            $rs = $DB->get_recordset('quiz', array('introformat'=>FORMAT_MOODLE), '', 'id,intro,introformat');
+            foreach ($rs as $q) {
+                $q->intro       = text_to_html($q->intro, false, false, true);
+                $q->introformat = FORMAT_HTML;
+                $DB->update_record('quiz', $q);
+                upgrade_set_timeout();
+            }
+            $rs->close();
+        }
 
     /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2009042000, 'quiz');
+        upgrade_mod_savepoint(true, 2009042000, 'quiz');
     }
 
-    if ($result && $oldversion < 2010030501) {
-    /// fix log actions
-        update_log_display_entry('quiz', 'edit override', 'quiz', 'name');
-        update_log_display_entry('quiz', 'delete override', 'quiz', 'name');
-
+    if ($oldversion < 2010030501) {
     /// Define table quiz_overrides to be created
         $table = new xmldb_table('quiz_overrides');
 
@@ -318,24 +323,55 @@ function xmldb_quiz_upgrade($oldversion) {
         }
 
     /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2010030501, 'quiz');
+        upgrade_mod_savepoint(true, 2010030501, 'quiz');
     }
 
-    if ($result && $oldversion < 2010051800) {
+    if ($oldversion < 2010051800) {
 
-    /// Define field showblocks to be added to quiz
+        // Define field showblocks to be added to quiz
         $table = new xmldb_table('quiz');
         $field = new xmldb_field('showblocks', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, '0', 'showuserpicture');
 
-    /// Conditionally launch add field showblocks
+        // Conditionally launch add field showblocks
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
 
-    /// quiz savepoint reached
-        upgrade_mod_savepoint($result, 2010051800, 'quiz');
+        // quiz savepoint reached
+        upgrade_mod_savepoint(true, 2010051800, 'quiz');
     }
 
-    return $result;
+    if ($oldversion < 2010080600) {
+
+        // Define field feedbacktextformat to be added to quiz_feedback
+        $table = new xmldb_table('quiz_feedback');
+        $field = new xmldb_field('feedbacktextformat', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'feedbacktext');
+
+        // Conditionally launch add field feedbacktextformat
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // quiz savepoint reached
+        upgrade_mod_savepoint(true, 2010080600, 'quiz');
+    }
+
+    if ($oldversion < 2010102000) {
+
+        // Define field showblocks to be added to quiz
+        // Repeat this step, because the column was missing from install.xml for a time.
+        $table = new xmldb_table('quiz');
+        $field = new xmldb_field('showblocks', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, '0', 'showuserpicture');
+
+        // Conditionally launch add field showblocks
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // quiz savepoint reached
+        upgrade_mod_savepoint(true, 2010102000, 'quiz');
+    }
+
+    return true;
 }
 

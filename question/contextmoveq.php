@@ -12,7 +12,10 @@ require_once(dirname(__FILE__) . '/../config.php');
 require_once(dirname(__FILE__) . '/editlib.php');
 require_once($CFG->dirroot.'/question/contextmoveq_form.php');
 
-$ids = required_param('ids',PARAM_SEQUENCE); // question ids
+//TODO: MDL-16094
+throw new coding_exception('contextmoveq.php was not converted to new file api yet, sorry - see MDL-16094');
+
+$ids = required_param('ids', PARAM_SEQUENCE); // question ids
 
 if (!$cmid = optional_param('cmid', 0, PARAM_INT)){
     $courseid = required_param('courseid', PARAM_INT);
@@ -165,6 +168,9 @@ if ($contextmoveform->is_cancelled()){
     if (!question_move_questions_to_category($ids, $tocat->id)) {
         print_error('errormovingquestions', 'question', $returnurl, $ids);
     }
+    if ($returnurl) {
+        $returnurl = new moodle_url('/' . $returnurl);
+    }
     redirect($returnurl);
 }
 
@@ -177,7 +183,7 @@ $PAGE->set_heading($COURSE->fullname);
 echo $OUTPUT->header();
 
 //parameter for get_string
-$questionsstr = new object();
+$questionsstr = new stdClass();
 $questionsstr->tocontext = print_context_name($tocat->context);
 $questionsstr->fromareaname = $fromareaname;
 
@@ -189,7 +195,7 @@ foreach ($questions as $question){
 $tojoincount = count($questionnamestojoin);
 
 if ($tojoincount > 1){
-    $a = new object();
+    $a = new stdClass();
     $a->one = $questionnamestojoin[$tojoincount -2].'"</strong>';
     $a->two = '<strong>"'.$questionnamestojoin[$tojoincount -1];
     $questionnamestojoin[$tojoincount -2] = get_string('and', '', $a);

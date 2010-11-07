@@ -17,7 +17,8 @@
 /**
  * Manual user enrolment UI.
  *
- * @package    enrol_manual
+ * @package    enrol
+ * @subpackage manual
  * @copyright  2010 Petr Skoda {@link http://skodak.org}
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -35,9 +36,10 @@ $course = $DB->get_record('course', array('id'=>$instance->courseid), '*', MUST_
 $context = get_context_instance(CONTEXT_COURSE, $course->id, MUST_EXIST);
 
 require_login($course);
+require_capability('enrol/manual:enrol', $context);
 require_capability('enrol/manual:manage', $context);
+require_capability('enrol/manual:unenrol', $context);
 
-$instance = $DB->get_record('enrol', array('id'=>$enrolid, 'enrol'=>'manual'), '*', MUST_EXIST);
 if ($roleid < 0) {
     $roleid = $instance->roleid;
 }
@@ -50,7 +52,7 @@ if (!isset($roles[$roleid])) {
 }
 
 if (!$enrol_manual = enrol_get_plugin('manual')) {
-    throw coding_error('Can not instantiate enrol_manual');
+    throw new coding_exception('Can not instantiate enrol_manual');
 }
 
 $instancename = $enrol_manual->get_instance_name($instance);
@@ -58,6 +60,8 @@ $instancename = $enrol_manual->get_instance_name($instance);
 $PAGE->set_url('/enrol/manual/manage.php', array('enrolid'=>$instance->id));
 $PAGE->set_pagelayout('admin');
 $PAGE->set_title($enrol_manual->get_instance_name($instance));
+$PAGE->set_heading($course->fullname);
+navigation_node::override_active_url(new moodle_url('/enrol/users.php', array('id'=>$course->id)));
 
 // Create the user selector objects.
 $options = array('enrolid' => $enrolid);
@@ -107,12 +111,11 @@ if (optional_param('add', false, PARAM_BOOL) && confirm_sesskey()) {
             }
 
             if ($extendperiod <= 0) {
-                $timestart = 0;
                 $timeend = 0;
             } else {
                 $timeend = $timestart + $extendperiod;
             }
-            $enrol_manual->enrol_user($instance, $adduser->id, $roleid, $timestart, $timeend, true);
+            $enrol_manual->enrol_user($instance, $adduser->id, $roleid, $timestart, $timeend);
             add_to_log($course->id, 'course', 'enrol', '../enrol/users.php?id='.$course->id, $course->id); //there should be userid somewhere!
         }
 

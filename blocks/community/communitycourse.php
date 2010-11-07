@@ -30,31 +30,42 @@
 require('../../config.php');
 require_once($CFG->dirroot . '/blocks/community/locallib.php');
 require_once($CFG->dirroot . '/blocks/community/forms.php');
+require_once($CFG->dirroot . '/' . $CFG->admin . '/registration/lib.php');
 
 require_login();
 
-$PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
+$courseid = optional_param('courseid', $SITE->id, PARAM_INT); //if no courseid is given
+$parentcourse = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
+
+$context = get_context_instance(CONTEXT_COURSE, $courseid);
+$PAGE->set_course($parentcourse);
 $PAGE->set_url('/blocks/community/communitycourse.php');
 $PAGE->set_heading($SITE->fullname);
 $PAGE->set_pagelayout('course');
 $PAGE->set_title(get_string('searchcourse', 'block_community'));
-$PAGE->navbar->ignore_active(true);
 $PAGE->navbar->add(get_string('searchcourse', 'block_community'));
 
 $search = optional_param('search', null, PARAM_TEXT);
 
 //if no capability to search course, display an error message
-$usercansearch = has_capability('moodle/community:add', get_context_instance(CONTEXT_USER, $USER->id));
-$usercandownload = has_capability('moodle/community:download', get_context_instance(CONTEXT_USER, $USER->id));
+$usercansearch = has_capability('moodle/community:add', $context);
+$usercandownload = has_capability('moodle/community:download', $context);
 if (empty($usercansearch)) {
+    $notificationerror = get_string('cannotsearchcommunity', 'hub');
+} else if (!extension_loaded('xmlrpc')) {
+    $notificationerror = $OUTPUT->doc_link('admin/environment/php_extension/xmlrpc', '');
+    $notificationerror .= get_string('xmlrpcdisabledcommunity', 'hub');
+}
+if (!empty($notificationerror)) {
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('searchcommunitycourse', 'block_community'), 3, 'main');
-    echo $OUTPUT->notification(get_string('cannotsearchcommunity', 'hub'));
+    echo $OUTPUT->notification($notificationerror);
     echo $OUTPUT->footer();
     die();
 }
 
 $communitymanager = new block_community_manager();
+$renderer = $PAGE->get_renderer('block_community');
 
 /// Check if the page has been called with trust argument
 $add = optional_param('add', -1, PARAM_INTEGER);
@@ -66,88 +77,170 @@ if ($add != -1 and $confirm and confirm_sesskey()) {
     $course->url = optional_param('courseurl', '', PARAM_URL);
     $course->imageurl = optional_param('courseimageurl', '', PARAM_URL);
     $communitymanager->block_community_add_course($course, $USER->id);
-    $notificationmessage = $OUTPUT->notification(get_string('addedtoblock', 'hub'),
-                    'notifysuccess');
+    echo $OUTPUT->header();
+    echo $renderer->save_link_success(
+            new moodle_url('/course/view.php', array('id' => $courseid)));
+    echo $OUTPUT->footer();
+    die();
+}
+
+/// Delete temp file when cancel restore
+$cancelrestore = optional_param('cancelrestore', false, PARAM_INT);
+if ($usercandownload and $cancelrestore and confirm_sesskey()) {
+    $filename = optional_param('filename', '', PARAM_ALPHANUMEXT);
+    //delete temp file
+    unlink($CFG->dataroot . '/temp/backup/' . $filename . ".mbz");
 }
 
 /// Download
 $huburl = optional_param('huburl', false, PARAM_URL);
 $download = optional_param('download', -1, PARAM_INTEGER);
-$courseid = optional_param('courseid', '', PARAM_INTEGER);
+$downloadcourseid = optional_param('downloadcourseid', '', PARAM_INTEGER);
 $coursefullname = optional_param('coursefullname', '', PARAM_ALPHANUMEXT);
-if ($usercandownload and $download != -1 and !empty($courseid) and confirm_sesskey()) {
+$backupsize = optional_param('backupsize', 0, PARAM_INT);
+if ($usercandownload and $download != -1 and !empty($downloadcourseid) and confirm_sesskey()) {
     $course = new stdClass();
     $course->fullname = $coursefullname;
-    $course->id = $courseid;
+    $course->id = $downloadcourseid;
     $course->huburl = $huburl;
-    $communitymanager->block_community_download_course_backup($course);
-    $filename = 'backup_' . $course->fullname . "_" . $course->id . ".zip";
-    $notificationmessage = $OUTPUT->notification(get_string('downloadconfirmed', 'hub', $filename),
-                    'notifysuccess');
+
+    //OUTPUT: display restore choice page
+    echo $OUTPUT->header();
+    echo $OUTPUT->heading(get_string('downloadingcourse', 'block_community'), 3, 'main');
+    $sizeinfo = new stdClass();
+    $sizeinfo->total = number_format($backupsize / 1000000, 2);
+    echo html_writer::tag('div', get_string('downloadingsize', 'block_community', $sizeinfo),
+            array('class' => 'textinfo'));
+    flush();
+    $filenames = $communitymanager->block_community_download_course_backup($course);
+    echo html_writer::tag('div', get_string('downloaded', 'block_community'),
+            array('class' => 'textinfo'));
+    echo $OUTPUT->notification(get_string('downloadconfirmed', 'block_community',
+                    '/downloaded_backup/' . $filenames['privatefile']), 'notifysuccess');
+    echo $renderer->restore_confirmation_box($filenames['tmpfile'], $context);
+    echo $OUTPUT->footer();
+    die();
 }
 
 /// Remove community
 $remove = optional_param('remove', '', PARAM_INTEGER);
 $communityid = optional_param('communityid', '', PARAM_INTEGER);
 if ($remove != -1 and !empty($communityid) and confirm_sesskey()) {
-    $communitymanager->block_community_remove_course($communityid, $USER->id);
-    $notificationmessage = $OUTPUT->notification(get_string('communityremoved', 'hub'),
-                    'notifysuccess');
+    $communitymanager->block_community_remove_course($communityid, $USER->id); 
+    echo $OUTPUT->header();
+    echo $renderer->remove_success(new moodle_url(get_referer(false)));
+    echo $OUTPUT->footer();
+    die();
 }
 
+//Get form default/current values
+$fromformdata['coverage'] = optional_param('coverage', 'all', PARAM_TEXT);
+$fromformdata['licence'] = optional_param('licence', 'all', PARAM_ALPHANUMEXT);
+$fromformdata['subject'] = optional_param('subject', 'all', PARAM_ALPHANUMEXT);
+$fromformdata['audience'] = optional_param('audience', 'all', PARAM_ALPHANUMEXT);
+$fromformdata['language'] = optional_param('language', current_language(), PARAM_ALPHANUMEXT);
+$fromformdata['educationallevel'] = optional_param('educationallevel', 'all', PARAM_ALPHANUMEXT);
+$fromformdata['downloadable'] = optional_param('downloadable', 0, PARAM_ALPHANUM);
+$fromformdata['orderby'] = optional_param('orderby', 'newest', PARAM_ALPHA);
+$fromformdata['huburl'] = optional_param('huburl', HUB_MOODLEORGHUBURL, PARAM_URL);
+$fromformdata['search'] = $search;
+$fromformdata['courseid'] = $courseid;
+$hubselectorform = new community_hub_search_form('', $fromformdata);
+$hubselectorform->set_data($fromformdata);
 
-$renderer = $PAGE->get_renderer('block_community');
-
-//forms
-$hubselectorform = new community_hub_search_form('', array('search' => $search));
-$fromform = $hubselectorform->get_data();
-$courses = null;
 //Retrieve courses by web service
-if (!empty($fromform)) {
+$courses = null;
+if (optional_param('executesearch', 0, PARAM_INTEGER) and confirm_sesskey()) {
     $downloadable = optional_param('downloadable', false, PARAM_INTEGER);
 
     $options = new stdClass();
-    if (!empty($fromform->coverage)) {
-        $options->coverage = $fromform->coverage;
+    if (!empty($fromformdata['coverage'])) {
+        $options->coverage = $fromformdata['coverage'];
     }
-    if ($fromform->licence != 'all') {
-        $options->licenceshortname = $fromform->licence;
+    if ($fromformdata['licence'] != 'all') {
+        $options->licenceshortname = $fromformdata['licence'];
     }
-    if ($fromform->subject != 'all') {
-        $options->subject = $fromform->subject;
+    if ($fromformdata['subject'] != 'all') {
+        $options->subject = $fromformdata['subject'];
     }
-    if ($fromform->audience != 'all') {
-        $options->audience = $fromform->audience;
+    if ($fromformdata['audience'] != 'all') {
+        $options->audience = $fromformdata['audience'];
     }
-    if ($fromform->educationallevel != 'all') {
-        $options->educationallevel = $fromform->educationallevel;
+    if ($fromformdata['educationallevel'] != 'all') {
+        $options->educationallevel = $fromformdata['educationallevel'];
     }
-    if ($fromform->language != 'all') {
-        $options->language = $fromform->language;
+    if ($fromformdata['language'] != 'all') {
+        $options->language = $fromformdata['language'];
+    }
+
+    $options->orderby = $fromformdata['orderby'];
+
+    //the range of course requested
+    $options->givememore = optional_param('givememore', 0, PARAM_INTEGER);
+
+    //check if the selected hub is from the registered list (in this case we use the private token)
+    $token = 'publichub';
+    $registrationmanager = new registration_manager();
+    $registeredhubs = $registrationmanager->get_registered_on_hubs();
+    foreach ($registeredhubs as $registeredhub) {
+        if ($huburl == $registeredhub->huburl) {
+            $token = $registeredhub->token;
+        }
     }
 
     $function = 'hub_get_courses';
-    $params = array($search, $downloadable, !$downloadable, $options);
+    $params = array('search' => $search, 'downloadable' => $downloadable,
+        'enrollable' => !$downloadable, 'options' => $options);
     $serverurl = $huburl . "/local/hub/webservice/webservices.php";
     require_once($CFG->dirroot . "/webservice/xmlrpc/lib.php");
-    $xmlrpcclient = new webservice_xmlrpc_client();
+    $xmlrpcclient = new webservice_xmlrpc_client($serverurl, $token);
     try {
-        $courses = $xmlrpcclient->call($serverurl, 'publichub', $function, $params);
+        $result = $xmlrpcclient->call($function, $params);
+        $courses = $result['courses'];
+        $coursetotal = $result['coursetotal'];
     } catch (Exception $e) {
-        $hubs = array();
-        $errormessage = $OUTPUT->notification(get_string('errorcourselisting', 'block_community', $e->getMessage()));
+        $errormessage = $OUTPUT->notification(
+                        get_string('errorcourselisting', 'block_community', $e->getMessage()));
     }
 }
 
 // OUTPUT
 echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('searchcommunitycourse', 'block_community'), 3, 'main');
-if (!empty($notificationmessage)) {
-    echo $notificationmessage;
-}
 $hubselectorform->display();
 if (!empty($errormessage)) {
     echo $errormessage;
 }
-echo $renderer->course_list($courses, $huburl);
+
+//load javascript
+$commentedcourseids = array(); //result courses with comments only
+$courseids = array(); //all result courses
+$courseimagenumbers = array(); //number of screenshots of all courses (must be exact same order than $courseids)
+if (!empty($courses)) {
+    foreach ($courses as $course) {
+        if (!empty($course['comments'])) {
+            $commentedcourseids[] = $course['id'];
+        }
+        $courseids[] = $course['id'];
+        $courseimagenumbers[] = $course['screenshots'];
+    }
+}
+$PAGE->requires->yui_module('moodle-block_community-comments', 'M.blocks_community.init_comments',
+        array(array('commentids' => $commentedcourseids)));
+$PAGE->requires->yui_module('moodle-block_community-imagegallery', 'M.blocks_community.init_imagegallery',
+        array(array('imageids' => $courseids, 'imagenumbers' => $courseimagenumbers,
+                'huburl' => $huburl)));
+
+echo highlight($search, $renderer->course_list($courses, $huburl, $courseid));
+
+//display givememore/Next link if more course can be displayed
+if (!empty($courses)) {
+    if (($options->givememore + count($courses)) < $coursetotal) {
+        $fromformdata['givememore'] = count($courses) + $options->givememore;
+        $fromformdata['executesearch'] = true;
+        $fromformdata['sesskey'] = sesskey();
+        echo $renderer->next_button($fromformdata);
+    }
+}
+
 echo $OUTPUT->footer();

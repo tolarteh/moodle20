@@ -32,6 +32,11 @@ define ('DATA_TIMEADDED', 0);
 define ('DATA_TIMEMODIFIED', -4);
 
 define ('DATA_CAP_EXPORT', 'mod/data:viewalluserpresets');
+
+define('DATA_PRESET_COMPONENT', 'mod_data');
+define('DATA_PRESET_FILEAREA', 'site_presets');
+define('DATA_PRESET_CONTEXT', SYSCONTEXTID);
+
 // Users having assigned the default role "Non-editing teacher" can export database records
 // Using the mod/data capability "viewalluserpresets" existing in Moodle 1.9.x.
 // In Moodle >= 2, new roles may be introduced and used instead.
@@ -123,7 +128,7 @@ class data_field_base {     // Base class for Database Field Types (see field/*/
         if (empty($this->data->id)) {
             echo $OUTPUT->notification('Programmer error: dataid not defined in field class');
         }
-        $this->field = new object;
+        $this->field = new stdClass();
         $this->field->id = 0;
         $this->field->dataid = $this->data->id;
         $this->field->type   = $this->type;
@@ -300,7 +305,7 @@ class data_field_base {     // Base class for Database Field Types (see field/*/
 
         if ($content = $DB->get_record('data_content', array('fieldid'=>$this->field->id, 'recordid'=>$recordid))) {
             if (isset($content->content)) {
-                $options = new object();
+                $options = new stdClass();
                 if ($this->field->param1 == '1') {  // We are autolinking this field, so disable linking within us
                     //$content->content = '<span class="nolink">'.$content->content.'</span>';
                     //$content->content1 = FORMAT_HTML;
@@ -327,7 +332,7 @@ class data_field_base {     // Base class for Database Field Types (see field/*/
     function update_content($recordid, $value, $name=''){
         global $DB;
 
-        $content = new object();
+        $content = new stdClass();
         $content->fieldid = $this->field->id;
         $content->recordid = $recordid;
         $content->content = clean_param($value, PARAM_NOTAGS);
@@ -359,7 +364,7 @@ class data_field_base {     // Base class for Database Field Types (see field/*/
         if ($rs = $DB->get_recordset('data_content', $conditions)) {
             $fs = get_file_storage();
             foreach ($rs as $content) {
-                $fs->delete_area_files($this->context->id, 'data_content', $content->id);
+                $fs->delete_area_files($this->context->id, 'mod_data', 'content', $content->id);
             }
             $rs->close();
         }
@@ -429,8 +434,10 @@ class data_field_base {     // Base class for Database Field Types (see field/*/
     function image() {
         global $OUTPUT;
 
-        $str = '<a href="field.php?d='.$this->data->id.'&amp;fid='.$this->field->id.'&amp;mode=display&amp;sesskey='.sesskey().'">';
-        $str .= '<img src="'.$OUTPUT->pix_url('/field/' . $this->type . '/icon', 'data') . '" ';
+        $params = array('d'=>$this->data->id, 'fid'=>$this->field->id, 'mode'=>'display', 'sesskey'=>sesskey());
+        $link = new moodle_url('/mod/data/field.php', $params);
+        $str = '<a href="'.$link->out().'">';
+        $str .= '<img src="'.$OUTPUT->pix_url('field/'.$this->type, 'data') . '" ';
         $str .= 'height="'.$this->iconheight.'" width="'.$this->iconwidth.'" alt="'.$this->type.'" title="'.$this->type.'" /></a>';
         return $str;
     }
@@ -511,7 +518,7 @@ function data_generate_default_template(&$data, $template, $recordid=0, $form=fa
             //}
             $str .= '</td>';
 
-            $str .='<td>';
+            $str .='<td  align="left">';
             if ($form) {   // Print forms instead of data
                 $fieldobj = data_get_field($field, $data);
                 $str .= $fieldobj->display_add_field($recordid);
@@ -539,7 +546,7 @@ function data_generate_default_template(&$data, $template, $recordid=0, $form=fa
         }
 
         if ($update) {
-            $newdata = new object();
+            $newdata = new stdClass();
             $newdata->id = $data->id;
             $newdata->{$template} = $str;
             $DB->update_record('data', $newdata);
@@ -576,7 +583,7 @@ function data_replace_field_in_templates($data, $searchfieldname, $newfieldname)
         $idpart = '';
     }
 
-    $newdata = new object();
+    $newdata = new stdClass();
     $newdata->id = $data->id;
     $newdata->singletemplate = str_ireplace('[['.$searchfieldname.']]',
             $prestring.$newfieldname.$poststring, $data->singletemplate);
@@ -607,7 +614,7 @@ function data_replace_field_in_templates($data, $searchfieldname, $newfieldname)
 function data_append_new_field_to_templates($data, $newfieldname) {
     global $DB;
 
-    $newdata = new object();
+    $newdata = new stdClass();
     $newdata->id = $data->id;
     $change = false;
 
@@ -781,7 +788,7 @@ function data_add_record($data, $groupid=0){
     $cm = get_coursemodule_from_instance('data', $data->id);
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
-    $record = new object();
+    $record = new stdClass();
     $record->userid = $USER->id;
     $record->dataid = $data->id;
     $record->groupid = $groupid;
@@ -887,7 +894,7 @@ function data_update_instance($data) {
  * @return bool
  */
 function data_delete_instance($id) {    // takes the dataid
-    global $DB;
+    global $DB, $CFG;
 
     if (!$data = $DB->get_record('data', array('id'=>$id))) {
         return false;
@@ -900,7 +907,7 @@ function data_delete_instance($id) {    // takes the dataid
 
     // files
     $fs = get_file_storage();
-    $fs->delete_area_files($context->id, 'data_content');
+    $fs->delete_area_files($context->id, 'mod_data');
 
     // get all the records in this data
     $sql = "SELECT r.id
@@ -945,7 +952,7 @@ function data_user_outline($course, $user, $mod, $data) {
 
 
     if ($countrecords = $DB->count_records('data_records', array('dataid'=>$data->id, 'userid'=>$user->id))) {
-        $result = new object();
+        $result = new stdClass();
         $result->info = get_string('numrecords', 'data', $countrecords);
         $lastrecord   = $DB->get_record_sql('SELECT id,timemodified FROM {data_records}
                                               WHERE dataid = ? AND userid = ?
@@ -956,7 +963,7 @@ function data_user_outline($course, $user, $mod, $data) {
         }
         return $result;
     } else if ($grade) {
-        $result = new object();
+        $result = new stdClass();
         $result->info = get_string('grade') . ': ' . $grade->str_long_grade;
         $result->time = $grade->dategraded;
         return $result;
@@ -1038,7 +1045,7 @@ function data_update_grades($data, $userid=0, $nullifnone=true) {
         data_grade_item_update($data, $grades);
 
     } else if ($userid and $nullifnone) {
-        $grade = new object();
+        $grade = new stdClass();
         $grade->userid   = $userid;
         $grade->rawgrade = NULL;
         data_grade_item_update($data, $grade);
@@ -1286,14 +1293,14 @@ function data_print_template($template, $records, $data, $search='', $page=0, $r
             if (!empty($CFG->usecomments)) {
                 require_once($CFG->dirroot  . '/comment/lib.php');
                 list($context, $course, $cm) = get_context_info_array($context->id);
-                $cmt = new stdclass;
-                $cmt->pluginname = 'data';
+                $cmt = new stdClass();
                 $cmt->context = $context;
                 $cmt->course  = $course;
                 $cmt->cm      = $cm;
                 $cmt->area    = 'database_entry';
                 $cmt->itemid  = $record->id;
                 $cmt->showcount = true;
+                $cmt->component = 'mod_data';
                 $comment = new comment($cmt);
                 $replacement[] = $comment->output(true);
             }
@@ -1325,14 +1332,14 @@ function data_print_template($template, $records, $data, $search='', $page=0, $r
                 if (!empty($CFG->usecomments)) {
                     require_once($CFG->dirroot . '/comment/lib.php');
                     list($context, $course, $cm) = get_context_info_array($context->id);
-                    $cmt = new stdclass;
-                    $cmt->pluginname = 'data';
+                    $cmt = new stdClass();
                     $cmt->context = $context;
                     $cmt->course  = $course;
                     $cmt->cm      = $cm;
                     $cmt->area    = 'database_entry';
                     $cmt->itemid  = $record->id;
                     $cmt->showcount = true;
+                    $cmt->component = 'mod_data';
                     $comment = new comment($cmt);
                     $comment->output(false);
                 }
@@ -1538,7 +1545,7 @@ function data_print_preference_form($data, $perpage, $search, $sort='', $order='
     // actual replacement of the tags
     $newtext = preg_replace($patterns, $replacement, $data->asearchtemplate);
 
-    $options = new object();
+    $options = new stdClass();
     $options->para=false;
     $options->noclean=true;
     echo '<tr><td>';
@@ -1561,43 +1568,6 @@ function data_print_preference_form($data, $perpage, $search, $sort='', $order='
  * @return void Output echo'd
  */
 function data_print_ratings($data, $record) {
-    /*global $USER, $DB, $OUTPUT;
-
-    $cm = get_coursemodule_from_instance('data', $data->id);
-    $context = get_context_instance(CONTEXT_MODULE, $cm->id);
-
-    if ($data->assessed and isloggedin() and (has_capability('mod/data:rate', $context) or has_capability('mod/data:viewrating', $context) or data_isowner($record->id))) {
-        if ($ratingsscale = make_grades_menu($data->scale)) {
-            $ratingsmenuused = false;
-
-            echo '<div class="ratings" style="text-align:center">';
-            echo '<form id="form" method="post" action="rate.php">';
-            echo '<input type="hidden" name="dataid" value="'.$data->id.'" />';
-
-            if (has_capability('mod/data:rate', $context) and !data_isowner($record->id)) {
-                data_print_ratings_mean($record->id, $ratingsscale, has_capability('mod/data:viewrating', $context));
-                echo '&nbsp;';
-                data_print_rating_menu($record->id, $USER->id, $ratingsscale);
-                $ratingsmenuused = true;
-
-            } else {
-                data_print_ratings_mean($record->id, $ratingsscale, true);
-            }
-
-            if ($data->scale < 0) {
-                if ($scale = $DB->get_record('scale', array('id'=>abs($data->scale)))) {
-                    echo $OUTPUT->help_icon_scale($data->course, $scale);
-                }
-            }
-
-            if ($ratingsmenuused) {
-                echo '<input type="hidden" name="sesskey" value="'.sesskey().'" />';
-                echo '<input type="submit" value="'.get_string('sendinratings', 'data').'" />';
-            }
-            echo '</form>';
-            echo '</div>';
-        }
-    }*/
     global $OUTPUT;
     if( !empty($record->rating) ){
         echo $OUTPUT->render($record->rating);
@@ -1621,24 +1591,31 @@ function data_get_post_actions() {
 }
 
 /**
- * @global object
- * @global object
  * @param string $name
  * @param int $dataid
  * @param int $fieldid
  * @return bool
  */
-function data_fieldname_exists($name, $dataid, $fieldid=0) {
-    global $CFG, $DB;
+function data_fieldname_exists($name, $dataid, $fieldid = 0) {
+    global $DB;
 
-    $LIKE = $DB->sql_ilike();
-    if ($fieldid) {
-        return $DB->record_exists_sql("SELECT * FROM {data_fields} df
-                                        WHERE df.name $LIKE ? AND df.dataid = ?
-                                              AND ((df.id < ?) OR (df.id > ?))", array($name, $dataid, $fieldid, $fieldid));
+    if (!is_numeric($name)) {
+        $like = $DB->sql_like('df.name', ':name', false);
     } else {
+        $like = "df.name = :name";
+    }
+    $params = array('name'=>$name);
+    if ($fieldid) {
+        $params['dataid']   = $dataid;
+        $params['fieldid1'] = $fieldid;
+        $params['fieldid2'] = $fieldid;
         return $DB->record_exists_sql("SELECT * FROM {data_fields} df
-                                        WHERE df.name $LIKE ? AND df.dataid = ?", array($name, $dataid));
+                                        WHERE $like AND df.dataid = :dataid
+                                              AND ((df.id < :fieldid1) OR (df.id > :fieldid2))", $params);
+    } else {
+        $params['dataid']   = $dataid;
+        return $DB->record_exists_sql("SELECT * FROM {data_fields} df
+                                        WHERE $like AND df.dataid = :dataid", $params);
     }
 }
 
@@ -1822,10 +1799,8 @@ function data_preset_name($shortname, $path) {
 }
 
 /**
- * Returns an array of all the available presets
+ * Returns an array of all the available presets.
  *
- * @global object
- * @global object
  * @return array
  */
 function data_get_available_presets($context) {
@@ -1833,12 +1808,12 @@ function data_get_available_presets($context) {
 
     $presets = array();
 
+    // First load the ratings sub plugins that exist within the modules preset dir
     if ($dirs = get_list_of_plugins('mod/data/preset')) {
         foreach ($dirs as $dir) {
             $fulldir = $CFG->dirroot.'/mod/data/preset/'.$dir;
-
             if (is_directory_a_preset($fulldir)) {
-                $preset = new object;
+                $preset = new stdClass();
                 $preset->path = $fulldir;
                 $preset->userid = 0;
                 $preset->shortname = $dir;
@@ -1854,48 +1829,72 @@ function data_get_available_presets($context) {
             }
         }
     }
-
-    if ($userids = get_list_of_plugins('data/preset', '', $CFG->dataroot)) {
-        foreach ($userids as $userid) {
-            $fulldir = $CFG->dataroot.'/data/preset/'.$userid;
-
-            if ($userid == 0 || $USER->id == $userid || has_capability('mod/data:viewalluserpresets', $context)) {
-
-                if ($dirs = get_list_of_plugins('data/preset/'.$userid, '', $CFG->dataroot)) {
-                    foreach ($dirs as $dir) {
-                        $fulldir = $CFG->dataroot.'/data/preset/'.$userid.'/'.$dir;
-
-                        if (is_directory_a_preset($fulldir)) {
-                            $preset = new object;
-                            $preset->path = $fulldir;
-                            $preset->userid = $userid;
-                            $preset->shortname = $dir;
-                            $preset->name = data_preset_name($dir, $fulldir);
-                            if (file_exists($fulldir.'/screenshot.jpg')) {
-                                $preset->screenshot = $CFG->wwwroot.'/mod/data/preset/'.$dir.'/screenshot.jpg';
-                            } else if (file_exists($fulldir.'/screenshot.png')) {
-                                $preset->screenshot = $CFG->wwwroot.'/mod/data/preset/'.$dir.'/screenshot.png';
-                            } else if (file_exists($fulldir.'/screenshot.gif')) {
-                                $preset->screenshot = $CFG->wwwroot.'/mod/data/preset/'.$dir.'/screenshot.gif';
-                            }
-                            $presets[] = $preset;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
+    // Now add to that the site presets that people have saved
+    $presets = data_get_available_site_presets($context, $presets);
     return $presets;
 }
 
 /**
- * @global object
- * @global string
- * @global string
- * @param object $course
- * @param object $cm
- * @param object $data
+ * Gets an array of all of the presets that users have saved to the site.
+ *
+ * @param stdClass $context The context that we are looking from.
+ * @param array $presets
+ * @return array An array of presets
+ */
+function data_get_available_site_presets($context, array $presets=array()) {
+    global $USER;
+
+    $fs = get_file_storage();
+    $files = $fs->get_area_files(DATA_PRESET_CONTEXT, DATA_PRESET_COMPONENT, DATA_PRESET_FILEAREA);
+    $canviewall = has_capability('mod/data:viewalluserpresets', $context);
+    if (empty($files)) {
+        return $presets;
+    }
+    foreach ($files as $file) {
+        if (($file->is_directory() && $file->get_filepath()=='/') || !$file->is_directory() || (!$canviewall && $file->get_userid() != $USER->id)) {
+            continue;
+        }
+        $preset = new stdClass;
+        $preset->path = $file->get_filepath();
+        $preset->name = trim($preset->path, '/');
+        $preset->shortname = $preset->name;
+        $preset->userid = $file->get_userid();
+        $preset->id = $file->get_id();
+        $preset->storedfile = $file;
+        $presets[] = $preset;
+    }
+    return $presets;
+}
+
+/**
+ * Deletes a saved preset.
+ *
+ * @param string $name
+ * @return bool
+ */
+function data_delete_site_preset($name) {
+    $fs = get_file_storage();
+
+    $files = $fs->get_directory_files(DATA_PRESET_CONTEXT, DATA_PRESET_COMPONENT, DATA_PRESET_FILEAREA, 0, '/'.$name.'/');
+    if (!empty($files)) {
+        foreach ($files as $file) {
+            $file->delete();
+        }
+    }
+
+    $dir = $fs->get_file(DATA_PRESET_CONTEXT, DATA_PRESET_COMPONENT, DATA_PRESET_FILEAREA, 0, '/'.$name.'/', '.');
+    if (!empty($dir)) {
+        $dir->delete();
+    }
+    return true;
+}
+
+/**
+ * Prints the heads for a page
+ *
+ * @param stdClass $course
+ * @param stdClass $cm
+ * @param stdClass $data
  * @param string $currenttab
  */
 function data_print_header($course, $cm, $data, $currenttab='') {
@@ -1944,6 +1943,12 @@ function data_user_can_add_entry($data, $currentgroup, $groupmode) {
         return false;
     }
 
+    //if in the view only time window
+    $now = time();
+    if ($now>$data->timeviewfrom && $now<$data->timeviewto) {
+        return false;
+    }
+
     if (!$groupmode or has_capability('moodle/site:accessallgroups', $context)) {
         return true;
     }
@@ -1981,86 +1986,130 @@ function is_directory_a_preset($directory) {
 }
 
 /**
- * @return bool
+ * Abstract class used for data preset importers
  */
-function clean_preset($folder) {
-    $status = @unlink($folder.'/singletemplate.html') &&
-              @unlink($folder.'/listtemplate.html') &&
-              @unlink($folder.'/listtemplateheader.html') &&
-              @unlink($folder.'/listtemplatefooter.html') &&
-              @unlink($folder.'/addtemplate.html') &&
-              @unlink($folder.'/rsstemplate.html') &&
-              @unlink($folder.'/rsstitletemplate.html') &&
-              @unlink($folder.'/csstemplate.css') &&
-              @unlink($folder.'/jstemplate.js') &&
-              @unlink($folder.'/preset.xml');
+abstract class data_preset_importer {
 
-    // optional
-    @unlink($folder.'/asearchtemplate.html');
+    protected $course;
+    protected $cm;
+    protected $module;
+    protected $directory;
 
-    return $status;
-}
-
-/**
- * @package   mod-data
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-class PresetImporter {
     /**
-     * @global object
-     * @param object $course
-     * @param object $cm
-     * @param object $data
-     * @param int $userid
-     * @param string $shortname
+     * Constructor
+     *
+     * @param stdClass $course
+     * @param stdClass $cm
+     * @param stdClass $module
+     * @param string $directory
      */
-    function PresetImporter($course, $cm, $data, $userid, $shortname) {
-        global $CFG;
+    public function __construct($course, $cm, $module, $directory) {
         $this->course = $course;
         $this->cm = $cm;
-        $this->data = $data;
-        $this->userid = $userid;
-        $this->shortname = $shortname;
-        $this->folder = data_preset_path($course, $userid, $shortname);
+        $this->module = $module;
+        $this->directory = $directory;
     }
-    /**
-     * @global object
-     * @global object
-     * @return array
-     */
-    function get_settings() {
-        global $CFG, $DB;
 
-        if (!is_directory_a_preset($this->folder)) {
-            print_error('invalidpreset', 'data', '', $this->userid.'/'.$this->shortname);
+    /**
+     * Returns the name of the directory the preset is located in
+     * @return string
+     */
+    public function get_directory() {
+        return basename($this->directory);
+    }
+
+    /**
+     * Retreive the contents of a file. That file may either be in a conventional directory of the Moodle file storage
+     * @param file_storage $filestorage. should be null if using a conventional directory
+     * @param stored_file $fileobj the directory to look in. null if using a conventional directory
+     * @param string $dir the directory to look in. null if using the Moodle file storage
+     * @param string $filename the name of the file we want
+     * @return string the contents of the file
+     */
+    public function data_preset_get_file_contents(&$filestorage, &$fileobj, $dir, $filename) {
+        if(empty($filestorage) || empty($fileobj)) {
+            if (substr($dir, -1)!='/') {
+                $dir .= '/';
+            }
+            return file_get_contents($dir.$filename);
+        } else {
+            $file = $filestorage->get_file(DATA_PRESET_CONTEXT, DATA_PRESET_COMPONENT, DATA_PRESET_FILEAREA, 0, $fileobj->get_filepath(), $filename);
+            return $file->get_content();
         }
 
-        /* Grab XML */
-        $presetxml = file_get_contents($this->folder.'/preset.xml');
-        $parsedxml = xmlize($presetxml, 0);
+    }
+    /**
+     * Gets the preset settings
+     * @global moodle_database $DB
+     * @return stdClass
+     */
+    public function get_preset_settings() {
+        global $DB;
 
-        $allowed_settings = array('intro', 'comments', 'requiredentries', 'requiredentriestoview',
-                                  'maxentries', 'rssarticles', 'approval', 'defaultsortdir', 'defaultsort');
+        $fs = $fileobj = null;
+        if (!is_directory_a_preset($this->directory)) {
+            //maybe the user requested a preset stored in the Moodle file storage
+
+            $fs = get_file_storage();
+            $files = $fs->get_area_files(DATA_PRESET_CONTEXT, DATA_PRESET_COMPONENT, DATA_PRESET_FILEAREA);
+
+            //preset name to find will be the final element of the directory
+            $presettofind = end(explode('/',$this->directory));
+
+            //now go through the available files available and see if we can find it
+            foreach ($files as $file) {
+                if (($file->is_directory() && $file->get_filepath()=='/') || !$file->is_directory()) {
+                    continue;
+                }
+                $presetname = trim($file->get_filepath(), '/');
+                if ($presetname==$presettofind) {
+                    $this->directory = $presetname;
+                    $fileobj = $file;
+                }
+            }
+
+            if (empty($fileobj)) {
+                print_error('invalidpreset', 'data', '', $this->directory);
+            }
+        }
+
+        $allowed_settings = array(
+            'intro',
+            'comments',
+            'requiredentries',
+            'requiredentriestoview',
+            'maxentries',
+            'rssarticles',
+            'approval',
+            'defaultsortdir',
+            'defaultsort');
+
+        $result = new stdClass;
+        $result->settings = new stdClass;
+        $result->importfields = array();
+        $result->currentfields = $DB->get_records('data_fields', array('dataid'=>$this->module->id));
+        if (!$result->currentfields) {
+            $result->currentfields = array();
+        }
+
+
+        /* Grab XML */
+        $presetxml = $this->data_preset_get_file_contents($fs, $fileobj, $this->directory,'preset.xml');
+        $parsedxml = xmlize($presetxml, 0);
 
         /* First, do settings. Put in user friendly array. */
         $settingsarray = $parsedxml['preset']['#']['settings'][0]['#'];
-        $settings = new StdClass();
-
+        $result->settings = new StdClass();
         foreach ($settingsarray as $setting => $value) {
-            if (!is_array($value)) {
-                continue;
-            }
-            if (!in_array($setting, $allowed_settings)) {
+            if (!is_array($value) || !in_array($setting, $allowed_settings)) {
                 // unsupported setting
                 continue;
             }
-            $settings->$setting = $value[0]['#'];
+            $result->settings->$setting = $value[0]['#'];
         }
 
         /* Now work out fields to user friendly array */
         $fieldsarray = $parsedxml['preset']['#']['field'];
-        $fields = array();
         foreach ($fieldsarray as $field) {
             if (!is_array($field)) {
                 continue;
@@ -2072,127 +2121,53 @@ class PresetImporter {
                 }
                 $f->$param = $value[0]['#'];
             }
-            $f->dataid = $this->data->id;
+            $f->dataid = $this->module->id;
             $f->type = clean_param($f->type, PARAM_ALPHA);
-            $fields[] = $f;
+            $result->importfields[] = $f;
         }
         /* Now add the HTML templates to the settings array so we can update d */
-        $settings->singletemplate     = file_get_contents($this->folder."/singletemplate.html");
-        $settings->listtemplate       = file_get_contents($this->folder."/listtemplate.html");
-        $settings->listtemplateheader = file_get_contents($this->folder."/listtemplateheader.html");
-        $settings->listtemplatefooter = file_get_contents($this->folder."/listtemplatefooter.html");
-        $settings->addtemplate        = file_get_contents($this->folder."/addtemplate.html");
-        $settings->rsstemplate        = file_get_contents($this->folder."/rsstemplate.html");
-        $settings->rsstitletemplate   = file_get_contents($this->folder."/rsstitletemplate.html");
-        $settings->csstemplate        = file_get_contents($this->folder."/csstemplate.css");
-        $settings->jstemplate         = file_get_contents($this->folder."/jstemplate.js");
+        $result->settings->singletemplate     = $this->data_preset_get_file_contents($fs, $fileobj,$this->directory,"singletemplate.html");
+        $result->settings->listtemplate       = $this->data_preset_get_file_contents($fs, $fileobj,$this->directory,"listtemplate.html");
+        $result->settings->listtemplateheader = $this->data_preset_get_file_contents($fs, $fileobj,$this->directory,"listtemplateheader.html");
+        $result->settings->listtemplatefooter = $this->data_preset_get_file_contents($fs, $fileobj,$this->directory,"listtemplatefooter.html");
+        $result->settings->addtemplate        = $this->data_preset_get_file_contents($fs, $fileobj,$this->directory,"addtemplate.html");
+        $result->settings->rsstemplate        = $this->data_preset_get_file_contents($fs, $fileobj,$this->directory,"rsstemplate.html");
+        $result->settings->rsstitletemplate   = $this->data_preset_get_file_contents($fs, $fileobj,$this->directory,"rsstitletemplate.html");
+        $result->settings->csstemplate        = $this->data_preset_get_file_contents($fs, $fileobj,$this->directory,"csstemplate.css");
+        $result->settings->jstemplate         = $this->data_preset_get_file_contents($fs, $fileobj,$this->directory,"jstemplate.js");
 
         //optional
-        if (file_exists($this->folder."/asearchtemplate.html")) {
-            $settings->asearchtemplate = file_get_contents($this->folder."/asearchtemplate.html");
+        if (file_exists($this->directory."/asearchtemplate.html")) {
+            $result->settings->asearchtemplate = $this->data_preset_get_file_contents($fs, $fileobj,$this->directory,"asearchtemplate.html");
         } else {
-            $settings->asearchtemplate = NULL;
+            $result->settings->asearchtemplate = NULL;
         }
+        $result->settings->instance = $this->module->id;
 
-        $settings->instance = $this->data->id;
-
-        /* Now we look at the current structure (if any) to work out whether we need to clear db
-           or save the data */
-        if (!$currentfields = $DB->get_records('data_fields', array('dataid'=>$this->data->id))) {
-            $currentfields = array();
-        }
-
-        return array($settings, $fields, $currentfields);
+        return $result;
     }
 
     /**
-     *
-     */
-    function import_options() {
-        global $OUTPUT;
-        if (!confirm_sesskey()) {
-            print_error('invalidsesskey');
-        }
-
-        $strblank = get_string('blank', 'data');
-        $strcontinue = get_string('continue');
-        $strwarning = get_string('mappingwarning', 'data');
-        $strfieldmappings = get_string('fieldmappings', 'data');
-        $strnew = get_string('new');
-
-        $sesskey = sesskey();
-
-        list($settings, $newfields,  $currentfields) = $this->get_settings();
-
-        echo '<div class="presetmapping"><form action="preset.php" method="post">';
-        echo '<div>';
-        echo '<input type="hidden" name="action" value="finishimport" />';
-        echo '<input type="hidden" name="sesskey" value="'.sesskey().'" />';
-        echo '<input type="hidden" name="d" value="'.$this->data->id.'" />';
-        echo '<input type="hidden" name="fullname" value="'.$this->userid.'/'.$this->shortname.'" />';
-
-        if (!empty($currentfields) && !empty($newfields)) {
-            echo "<h3>$strfieldmappings ";
-            echo $OUTPUT->help_icon('fieldmappings', 'data');
-            echo '</h3><table>';
-
-            foreach ($newfields as $nid => $newfield) {
-                echo "<tr><td><label for=\"id_$newfield->name\">$newfield->name</label></td>";
-                echo '<td><select name="field_'.$nid.'" id="id_'.$newfield->name.'">';
-
-                $selected = false;
-                foreach ($currentfields as $cid => $currentfield) {
-                    if ($currentfield->type == $newfield->type) {
-                        if ($currentfield->name == $newfield->name) {
-                            echo '<option value="'.$cid.'" selected="selected">'.$currentfield->name.'</option>';
-                            $selected=true;
-                        }
-                        else {
-                            echo '<option value="'.$cid.'">'.$currentfield->name.'</option>';
-                        }
-                    }
-                }
-
-                if ($selected)
-                    echo '<option value="-1">-</option>';
-                else
-                    echo '<option value="-1" selected="selected">-</option>';
-                echo '</select></td></tr>';
-            }
-            echo '</table>';
-            echo "<p>$strwarning</p>";
-
-        } else if (empty($newfields)) {
-            print_error('nodefinedfields', 'data');
-        }
-
-        echo '<div class="overwritesettings"><label for="overwritesettings">'.get_string('overwritesettings', 'data');
-        echo '<input id="overwritesettings" name="overwritesettings" type="checkbox" /></label></div>';
-
-        echo '<input class="button" type="submit" value="'.$strcontinue.'" /></div></form></div>';
-
-    }
-
-    /**
-     * @global object
-     * @global object
+     * Import the preset into the given database module
      * @return bool
      */
-    function import() {
-        global $CFG, $DB;
+    function import($overwritesettings) {
+        global $DB, $CFG;
 
-        list($settings, $newfields, $currentfields) = $this->get_settings();
+        $params = $this->get_preset_settings();
+        $settings = $params->settings;
+        $newfields = $params->importfields;
+        $currentfields = $params->currentfields;
         $preservedfields = array();
-
-        $overwritesettings = optional_param('overwritesettings', 0, PARAM_BOOL);
 
         /* Maps fields and makes new ones */
         if (!empty($newfields)) {
             /* We require an injective mapping, and need to know what to protect */
             foreach ($newfields as $nid => $newfield) {
                 $cid = optional_param("field_$nid", -1, PARAM_INT);
-                if ($cid == -1) continue;
-
+                if ($cid == -1) {
+                    continue;
+                }
                 if (array_key_exists($cid, $preservedfields)){
                     print_error('notinjectivemap', 'data');
                 }
@@ -2204,7 +2179,7 @@ class PresetImporter {
 
                 /* A mapping. Just need to change field params. Data kept. */
                 if ($cid != -1 and isset($currentfields[$cid])) {
-                    $fieldobject = data_get_field_from_id($currentfields[$cid]->id, $this->data);
+                    $fieldobject = data_get_field_from_id($currentfields[$cid]->id, $this->module);
                     foreach ($newfield as $param => $value) {
                         if ($param != "id") {
                             $fieldobject->field->$param = $value;
@@ -2213,16 +2188,15 @@ class PresetImporter {
                     unset($fieldobject->field->similarfield);
                     $fieldobject->update_field();
                     unset($fieldobject);
-                }
-                /* Make a new field */
-                else {
+                } else {
+                    /* Make a new field */
                     include_once("field/$newfield->type/field.class.php");
 
                     if (!isset($newfield->description)) {
                         $newfield->description = '';
                     }
                     $classname = 'data_field_'.$newfield->type;
-                    $fieldclass = new $classname($newfield, $this->data);
+                    $fieldclass = new $classname($newfield, $this->module);
                     $fieldclass->insert_field();
                     unset($fieldclass);
                 }
@@ -2238,27 +2212,19 @@ class PresetImporter {
 
                     $id = $currentfield->id;
                     //Why delete existing data records and related comments/ratings??
-/*
-                    if ($content = $DB->get_records('data_content', array('fieldid'=>$id))) {
-                        foreach ($content as $item) {
-                            $DB->delete_records('data_ratings', array('recordid'=>$item->recordid));
-                            $DB->delete_records('data_comments', array('recordid'=>$item->recordid));
-                            $DB->delete_records('data_records', array('id'=>$item->recordid));
-                        }
-                    }*/
                     $DB->delete_records('data_content', array('fieldid'=>$id));
                     $DB->delete_records('data_fields', array('id'=>$id));
                 }
             }
         }
 
-    // handle special settings here
+        // handle special settings here
         if (!empty($settings->defaultsort)) {
             if (is_numeric($settings->defaultsort)) {
                 // old broken value
                 $settings->defaultsort = 0;
             } else {
-                $settings->defaultsort = (int)$DB->get_field('data_fields', 'id', array('dataid'=>$this->data->id, 'name'=>$settings->defaultsort));
+                $settings->defaultsort = (int)$DB->get_field('data_fields', 'id', array('dataid'=>$this->module->id, 'name'=>$settings->defaultsort));
             }
         } else {
             $settings->defaultsort = 0;
@@ -2276,20 +2242,65 @@ class PresetImporter {
         }
 
         // now overwrite current data settings
-        foreach ($this->data as $prop=>$unused) {
+        foreach ($this->module as $prop=>$unused) {
             if (in_array($prop, $overwrite)) {
-                $this->data->$prop = $settings->$prop;
+                $this->module->$prop = $settings->$prop;
             }
         }
 
-        data_update_instance($this->data);
+        data_update_instance($this->module);
 
-        if (strstr($this->folder, '/temp/')) {
-        // Removes the temporary files
-            clean_preset($this->folder);
+        return $this->cleanup();
+    }
+
+    /**
+     * Any clean up routines should go here
+     * @return bool
+     */
+    public function cleanup() {
+        return true;
+    }
+}
+
+/**
+ * Data preset importer for uploaded presets
+ */
+class data_preset_upload_importer extends data_preset_importer {
+    public function __construct($course, $cm, $module, $filepath) {
+        global $USER;
+        if (is_file($filepath)) {
+            $fp = get_file_packer();
+            if ($fp->extract_to_pathname($filepath, $filepath.'_extracted')) {
+                fulldelete($filepath);
+            }
+            $filepath .= '_extracted';
+        }
+        parent::__construct($course, $cm, $module, $filepath);
+    }
+    public function cleanup() {
+        return fulldelete($this->directory);
+    }
+}
+
+/**
+ * Data preset importer for existing presets
+ */
+class data_preset_existing_importer extends data_preset_importer {
+    protected $userid;
+    public function __construct($course, $cm, $module, $fullname) {
+        global $USER;
+        list($userid, $shortname) = explode('/', $fullname, 2);
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        if ($userid && ($userid != $USER->id) && !has_capability('mod/data:manageuserpresets', $context) && !has_capability('mod/data:viewalluserpresets', $context)) {
+           throw new coding_exception('Invalid preset provided');
         }
 
-        return true;
+        $this->userid = $userid;
+        $filepath = data_preset_path($course, $userid, $shortname);
+        parent::__construct($course, $cm, $module, $filepath);
+    }
+    public function get_userid() {
+        return $this->userid;
     }
 }
 
@@ -2308,15 +2319,16 @@ function data_preset_path($course, $userid, $shortname) {
 
     $userid = (int)$userid;
 
+    $path = null;
     if ($userid > 0 && ($userid == $USER->id || has_capability('mod/data:viewalluserpresets', $context))) {
-        return $CFG->dataroot.'/data/preset/'.$userid.'/'.$shortname;
+        $path = $CFG->dataroot.'/data/preset/'.$userid.'/'.$shortname;
     } else if ($userid == 0) {
-        return $CFG->dirroot.'/mod/data/preset/'.$shortname;
+        $path = $CFG->dirroot.'/mod/data/preset/'.$shortname;
     } else if ($userid < 0) {
-        return $CFG->dataroot.'/temp/data/'.-$userid.'/'.$shortname;
+        $path = $CFG->dataroot.'/temp/data/'.-$userid.'/'.$shortname;
     }
 
-    return 'Does it disturb you that this code will never run?';
+    return $path;
 }
 
 /**
@@ -2370,7 +2382,7 @@ function data_reset_gradebook($courseid, $type='') {
 }
 
 /**
- * Actual implementation of the rest coures functionality, delete all the
+ * Actual implementation of the reset course functionality, delete all the
  * data responses for course $data->courseid.
  *
  * @global object
@@ -2517,7 +2529,7 @@ function data_reset_userdata($data) {
  * @return array
  */
 function data_get_extra_capabilities() {
-    return array('moodle/site:accessallgroups', 'moodle/site:viewfullnames');
+    return array('moodle/site:accessallgroups', 'moodle/site:viewfullnames', 'moodle/rating:view', 'moodle/rating:viewany', 'moodle/rating:viewall', 'moodle/rating:rate', 'moodle/comment:view', 'moodle/comment:post', 'moodle/comment:delete');
 }
 
 /**
@@ -2534,6 +2546,7 @@ function data_supports($feature) {
         case FEATURE_GRADE_HAS_GRADE:         return true;
         case FEATURE_GRADE_OUTCOMES:          return true;
         case FEATURE_RATE:                    return true;
+        case FEATURE_BACKUP_MOODLE2:          return true;
 
         default: return null;
     }
@@ -2551,12 +2564,12 @@ function data_export_csv($export, $delimiter_name, $dataname, $count, $return=fa
     global $CFG;
     require_once($CFG->libdir . '/csvlib.class.php');
     $delimiter = csv_import_reader::get_delimiter($delimiter_name);
-    $filename = clean_filename("${dataname}-${count}_record");
+    $filename = clean_filename("{$dataname}-{$count}_record");
     if ($count > 1) {
         $filename .= 's';
     }
     $filename .= clean_filename('-' . gmdate("Ymd_Hi"));
-    $filename .= clean_filename("-${delimiter_name}_separated");
+    $filename .= clean_filename("-{$delimiter_name}_separated");
     $filename .= '.csv';
     if (empty($return)) {
         header("Content-Type: application/download\n");
@@ -2590,7 +2603,7 @@ function data_export_csv($export, $delimiter_name, $dataname, $count, $return=fa
 function data_export_xls($export, $dataname, $count) {
     global $CFG;
     require_once("$CFG->libdir/excellib.class.php");
-    $filename = clean_filename("${dataname}-${count}_record");
+    $filename = clean_filename("{$dataname}-{$count}_record");
     if ($count > 1) {
         $filename .= 's';
     }
@@ -2625,7 +2638,7 @@ function data_export_xls($export, $dataname, $count) {
 function data_export_ods($export, $dataname, $count) {
     global $CFG;
     require_once("$CFG->libdir/odslib.class.php");
-    $filename = clean_filename("${dataname}-${count}_record");
+    $filename = clean_filename("{$dataname}-{$count}_record");
     if ($count > 1) {
         $filename .= 's';
     }
@@ -2708,28 +2721,24 @@ function data_get_file_areas($course, $cm, $context) {
  * Serves the data attachments. Implements needed access control ;-)
  *
  * @param object $course
- * @param object $cminfo
+ * @param object $cm
  * @param object $context
  * @param string $filearea
  * @param array $args
  * @param bool $forcedownload
  * @return bool false if file not found, does not return if found - justsend the file
  */
-function data_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedownload) {
+function data_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload) {
     global $CFG, $DB;
 
-    if (!$cminfo->uservisible) {
+    if ($context->contextlevel != CONTEXT_MODULE) {
         return false;
     }
 
-    if ($filearea === 'data_content') {
+    require_course_login($course, true, $cm);
+
+    if ($filearea === 'content') {
         $contentid = (int)array_shift($args);
-
-        if (!$cm = get_coursemodule_from_instance('data', $cminfo->instance, $course->id)) {
-            return false;
-        }
-
-        require_course_login($course, true, $cm);
 
         if (!$content = $DB->get_record('data_content', array('id'=>$contentid))) {
             return false;
@@ -2747,8 +2756,13 @@ function data_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedow
             return false;
         }
 
+        if ($data->id != $cm->instance) {
+            // hacker attempt - context does not match the contentid
+            return false;
+        }
+
         //check if approved
-        if (!$record->approved and !data_isowner($record) and !has_capability('mod/data:approve', $context)) {
+        if ($data->approval and !$record->approved and !data_isowner($record) and !has_capability('mod/data:approve', $context)) {
             return false;
         }
 
@@ -2764,8 +2778,8 @@ function data_pluginfile($course, $cminfo, $context, $filearea, $args, $forcedow
 
         $fieldobj = data_get_field($field, $data, $cm);
 
-        $relativepath = '/'.implode('/', $args);
-        $fullpath = $context->id.'data_content'.$content->id.$relativepath;
+        $relativepath = implode('/', $args);
+        $fullpath = "/$context->id/mod_data/content/$content->id/$relativepath";
 
         if (!$fieldobj->file_ok($relativepath)) {
             return false;
@@ -2825,7 +2839,7 @@ function data_extend_settings_navigation(settings_navigation $settings, navigati
     $groupmode = groups_get_activity_groupmode($PAGE->cm);
 
     if (data_user_can_add_entry($data, $currentgroup, $groupmode)) { // took out participation list here!
-        if (empty($editentry)) {
+        if (empty($editentry)) { //TODO: undefined
             $addstring = get_string('add', 'data');
         } else {
             $addstring = get_string('editentry', 'data');
@@ -2870,7 +2884,215 @@ function data_extend_settings_navigation(settings_navigation $settings, navigati
 
         $string = get_string('rsstype','forum');
 
-        $url = new moodle_url(rss_get_url($PAGE->cm->context->id, $USER->id, 'data', $data->id));
+        $url = new moodle_url(rss_get_url($PAGE->cm->context->id, $USER->id, 'mod_data', $data->id));
         $datanode->add($string, $url, settings_navigation::TYPE_SETTING, null, null, new pix_icon('i/rss', ''));
     }
+}
+
+/**
+ * Save the database configuration as a preset.
+ *
+ * @param stdClass $course The course the database module belongs to.
+ * @param stdClass $cm The course module record
+ * @param stdClass $data The database record
+ * @param string $path
+ * @return bool
+ */
+function data_presets_save($course, $cm, $data, $path) {
+    $fs = get_file_storage();
+    $filerecord = new stdClass;
+    $filerecord->contextid = DATA_PRESET_CONTEXT;
+    $filerecord->component = DATA_PRESET_COMPONENT;
+    $filerecord->filearea = DATA_PRESET_FILEAREA;
+    $filerecord->itemid = 0;
+    $filerecord->filepath = '/'.$path.'/';
+
+    $filerecord->filename = 'preset.xml';
+    $fs->create_file_from_string($filerecord, data_presets_generate_xml($course, $cm, $data));
+
+    $filerecord->filename = 'singletemplate.html';
+    $fs->create_file_from_string($filerecord, $data->singletemplate);
+
+    $filerecord->filename = 'listtemplateheader.html';
+    $fs->create_file_from_string($filerecord, $data->listtemplateheader);
+
+    $filerecord->filename = 'listtemplate.html';
+    $fs->create_file_from_string($filerecord, $data->listtemplate);
+
+    $filerecord->filename = 'listtemplatefooter.html';
+    $fs->create_file_from_string($filerecord, $data->listtemplatefooter);
+
+    $filerecord->filename = 'addtemplate.html';
+    $fs->create_file_from_string($filerecord, $data->addtemplate);
+
+    $filerecord->filename = 'rsstemplate.html';
+    $fs->create_file_from_string($filerecord, $data->rsstemplate);
+
+    $filerecord->filename = 'rsstitletemplate.html';
+    $fs->create_file_from_string($filerecord, $data->rsstitletemplate);
+
+    $filerecord->filename = 'csstemplate.css';
+    $fs->create_file_from_string($filerecord, $data->csstemplate);
+
+    $filerecord->filename = 'jstemplate.js';
+    $fs->create_file_from_string($filerecord, $data->jstemplate);
+
+    $filerecord->filename = 'asearchtemplate.html';
+    $fs->create_file_from_string($filerecord, $data->asearchtemplate);
+
+    return true;
+}
+
+/**
+ * Generates the XML for the database module provided
+ *
+ * @global moodle_database $DB
+ * @param stdClass $course The course the database module belongs to.
+ * @param stdClass $cm The course module record
+ * @param stdClass $data The database record
+ * @return string The XML for the preset
+ */
+function data_presets_generate_xml($course, $cm, $data) {
+    global $DB;
+
+    // Assemble "preset.xml":
+    $presetxmldata = "<preset>\n\n";
+
+    // Raw settings are not preprocessed during saving of presets
+    $raw_settings = array(
+        'intro',
+        'comments',
+        'requiredentries',
+        'requiredentriestoview',
+        'maxentries',
+        'rssarticles',
+        'approval',
+        'defaultsortdir'
+    );
+
+    $presetxmldata .= "<settings>\n";
+    // First, settings that do not require any conversion
+    foreach ($raw_settings as $setting) {
+        $presetxmldata .= "<$setting>" . htmlspecialchars($data->$setting) . "</$setting>\n";
+    }
+
+    // Now specific settings
+    if ($data->defaultsort > 0 && $sortfield = data_get_field_from_id($data->defaultsort, $data)) {
+        $presetxmldata .= '<defaultsort>' . htmlspecialchars($sortfield->field->name) . "</defaultsort>\n";
+    } else {
+        $presetxmldata .= "<defaultsort>0</defaultsort>\n";
+    }
+    $presetxmldata .= "</settings>\n\n";
+    // Now for the fields. Grab all that are non-empty
+    $fields = $DB->get_records('data_fields', array('dataid'=>$data->id));
+    ksort($fields);
+    if (!empty($fields)) {
+        foreach ($fields as $field) {
+            $presetxmldata .= "<field>\n";
+            foreach ($field as $key => $value) {
+                if ($value != '' && $key != 'id' && $key != 'dataid') {
+                    $presetxmldata .= "<$key>" . htmlspecialchars($value) . "</$key>\n";
+                }
+            }
+            $presetxmldata .= "</field>\n\n";
+        }
+    }
+    $presetxmldata .= '</preset>';
+    return $presetxmldata;
+}
+
+function data_presets_export($course, $cm, $data, $tostorage=false) {
+    global $CFG, $DB;
+
+    $presetname = clean_filename($data->name) . '-preset-' . gmdate("Ymd_Hi");
+    $exportsubdir = "temp/mod_data/presetexport/$presetname";
+    make_upload_directory($exportsubdir);
+    $exportdir = "$CFG->dataroot/$exportsubdir";
+
+    // Assemble "preset.xml":
+    $presetxmldata = data_presets_generate_xml($course, $cm, $data);
+
+    // After opening a file in write mode, close it asap
+    $presetxmlfile = fopen($exportdir . '/preset.xml', 'w');
+    fwrite($presetxmlfile, $presetxmldata);
+    fclose($presetxmlfile);
+
+    // Now write the template files
+    $singletemplate = fopen($exportdir . '/singletemplate.html', 'w');
+    fwrite($singletemplate, $data->singletemplate);
+    fclose($singletemplate);
+
+    $listtemplateheader = fopen($exportdir . '/listtemplateheader.html', 'w');
+    fwrite($listtemplateheader, $data->listtemplateheader);
+    fclose($listtemplateheader);
+
+    $listtemplate = fopen($exportdir . '/listtemplate.html', 'w');
+    fwrite($listtemplate, $data->listtemplate);
+    fclose($listtemplate);
+
+    $listtemplatefooter = fopen($exportdir . '/listtemplatefooter.html', 'w');
+    fwrite($listtemplatefooter, $data->listtemplatefooter);
+    fclose($listtemplatefooter);
+
+    $addtemplate = fopen($exportdir . '/addtemplate.html', 'w');
+    fwrite($addtemplate, $data->addtemplate);
+    fclose($addtemplate);
+
+    $rsstemplate = fopen($exportdir . '/rsstemplate.html', 'w');
+    fwrite($rsstemplate, $data->rsstemplate);
+    fclose($rsstemplate);
+
+    $rsstitletemplate = fopen($exportdir . '/rsstitletemplate.html', 'w');
+    fwrite($rsstitletemplate, $data->rsstitletemplate);
+    fclose($rsstitletemplate);
+
+    $csstemplate = fopen($exportdir . '/csstemplate.css', 'w');
+    fwrite($csstemplate, $data->csstemplate);
+    fclose($csstemplate);
+
+    $jstemplate = fopen($exportdir . '/jstemplate.js', 'w');
+    fwrite($jstemplate, $data->jstemplate);
+    fclose($jstemplate);
+
+    $asearchtemplate = fopen($exportdir . '/asearchtemplate.html', 'w');
+    fwrite($asearchtemplate, $data->asearchtemplate);
+    fclose($asearchtemplate);
+
+    // Check if all files have been generated
+    if (! is_directory_a_preset($exportdir)) {
+        print_error('generateerror', 'data');
+    }
+
+    $filenames = array(
+        'preset.xml',
+        'singletemplate.html',
+        'listtemplateheader.html',
+        'listtemplate.html',
+        'listtemplatefooter.html',
+        'addtemplate.html',
+        'rsstemplate.html',
+        'rsstitletemplate.html',
+        'csstemplate.css',
+        'jstemplate.js',
+        'asearchtemplate.html'
+    );
+
+    $filelist = array();
+    foreach ($filenames as $filename) {
+        $filelist[$filename] = $exportdir . '/' . $filename;
+    }
+
+    $exportfile = $exportdir.'.zip';
+    file_exists($exportfile) && unlink($exportfile);
+
+    $fp = get_file_packer('application/zip');
+    $fp->archive_to_pathname($filelist, $exportfile);
+
+    foreach ($filelist as $file) {
+        unlink($file);
+    }
+    rmdir($exportdir);
+
+    // Return the full path to the exported preset file:
+    return $exportfile;
 }

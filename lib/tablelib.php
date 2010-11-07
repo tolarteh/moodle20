@@ -16,10 +16,13 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package   moodlecore
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /** TABLE_VAR_SORT = 1 */
 define('TABLE_VAR_SORT',   1);
@@ -465,13 +468,13 @@ class flexible_table {
         }
 
         if(isset($_GET[$this->request[TABLE_VAR_ILAST]])) {
-            if(empty($_GET[$this->request[TABLE_VAR_ILAST]]) || is_numeric(strpos(get_string('alphabet'), $_GET[$this->request[TABLE_VAR_ILAST]]))) {
+            if(empty($_GET[$this->request[TABLE_VAR_ILAST]]) || is_numeric(strpos(get_string('alphabet', 'langconfig'), $_GET[$this->request[TABLE_VAR_ILAST]]))) {
                 $this->sess->i_last = $_GET[$this->request[TABLE_VAR_ILAST]];
             }
         }
 
         if(isset($_GET[$this->request[TABLE_VAR_IFIRST]])) {
-            if(empty($_GET[$this->request[TABLE_VAR_IFIRST]]) || is_numeric(strpos(get_string('alphabet'), $_GET[$this->request[TABLE_VAR_IFIRST]]))) {
+            if(empty($_GET[$this->request[TABLE_VAR_IFIRST]]) || is_numeric(strpos(get_string('alphabet', 'langconfig'), $_GET[$this->request[TABLE_VAR_IFIRST]]))) {
                 $this->sess->i_first = $_GET[$this->request[TABLE_VAR_IFIRST]];
             }
         }
@@ -614,26 +617,29 @@ class flexible_table {
     }
 
     /**
-     * @return string sql to add to where statement.
+     * @return array - sql where, params array
      */
     function get_sql_where() {
         global $DB;
-        if(!isset($this->columns['fullname'])) {
-            return '';
+
+        $conditions = array();
+        $params = array();
+
+        if (isset($this->columns['fullname'])) {
+            static $i = 0;
+            $i++;
+
+            if (!empty($this->sess->i_first)) {
+                $conditions[] = $DB->sql_like('firstname', ':ifirstc'.$i, false, false);
+                $params['ifirstc'.$i] = $this->sess->i_first.'%';
+            }
+            if (!empty($this->sess->i_last)) {
+                $conditions[] = $DB->sql_like('lastname', ':ilastc'.$i, false, false);
+                $params['ilastc'.$i] = $this->sess->i_last.'%';
+            }
         }
 
-        $LIKE = $DB->sql_ilike();
-        if(!empty($this->sess->i_first) && !empty($this->sess->i_last)) {
-            return 'firstname '.$LIKE.' \''.$this->sess->i_first.'%\' AND lastname '.$LIKE.' \''.$this->sess->i_last.'%\'';
-        }
-        else if(!empty($this->sess->i_first)) {
-            return 'firstname '.$LIKE.' \''.$this->sess->i_first.'%\'';
-        }
-        else if(!empty($this->sess->i_last)) {
-            return 'lastname '.$LIKE.' \''.$this->sess->i_last.'%\'';
-        }
-
-        return '';
+        return array(implode(" AND ", $conditions), $params);
     }
 
     /**
@@ -947,7 +953,6 @@ class flexible_table {
             $html .= '<div class="mdl-align">';
             $html .= '<input type="submit" value="'.get_string('downloadas', 'table').'"/>';
             $html .= html_writer::select($downloadoptions, 'download', $this->defaultdownloadformat, false);
-            $html .= $OUTPUT->old_help_icon('tableexportformats', get_string('tableexportformats', 'table'));
             $html .= '</div></form>';
 
             return $html;
@@ -1026,6 +1031,7 @@ class flexible_table {
             $this->print_nothing_to_display();
         } else {
             echo '</table>';
+            echo html_writer::end_tag('div');
             $this->wrap_html_finish();
             // Paging bar
             if(in_array(TABLE_P_BOTTOM, $this->showdownloadbuttonsat)) {
@@ -1097,8 +1103,8 @@ class flexible_table {
                         $fsortorder = get_string('asc');
                         $lsortorder = get_string('asc');
                     }
-                     
-                    $override = new object();
+
+                    $override = new stdClass();
                     $override->firstname = 'firstname';
                     $override->lastname = 'lastname';
                     $fullnamelanguage = get_string('fullnamedisplay', '', $override);
@@ -1111,7 +1117,7 @@ class flexible_table {
                     } else {
                         $this->headers[$index] = '<a href="'.$this->baseurl.$this->request[TABLE_VAR_SORT].'=lastname">'.get_string('lastname').get_accesshide(get_string('sortby').' '.get_string('lastname').' '.$lsortorder).'</a> '.$icon_sort_last.' / '.
                                                  '<a href="'.$this->baseurl.$this->request[TABLE_VAR_SORT].'=firstname">'.get_string('firstname').get_accesshide(get_string('sortby').' '.get_string('firstname').' '.$fsortorder).'</a> '.$icon_sort_first;
-                    } 
+                    }
                 }
                 break;
 
@@ -1181,6 +1187,7 @@ class flexible_table {
         $this->wrap_html_start();
         // Start of main data table
 
+        echo html_writer::start_tag('div', array('class'=>'no-overflow'));
         echo '<table'.$this->make_attributes_string($this->attributes).'>';
 
     }
@@ -1286,7 +1293,7 @@ class table_sql extends flexible_table{
      * We need to count rows returned by the db seperately to the query itself
      * as we need to know how many pages of data we have to display.
      */
-    function set_count_sql($sql, $params=array()){
+    function set_count_sql($sql, array $params = NULL){
         $this->countsql = $sql;
         $this->countparams = $params;
     }
@@ -1297,8 +1304,8 @@ class table_sql extends flexible_table{
      * Of course you can use sub-queries, JOINS etc. by putting them in the
      * appropriate clause of the query.
      */
-    function set_sql($fields, $from, $where, $params=array()){
-        $this->sql = new object();
+    function set_sql($fields, $from, $where, array $params = NULL){
+        $this->sql = new stdClass();
         $this->sql->fields = $fields;
         $this->sql->from = $from;
         $this->sql->where = $where;
@@ -1323,14 +1330,18 @@ class table_sql extends flexible_table{
                 $this->initialbars($totalinitials>$pagesize);
             }
 
-            if ($this->get_sql_where()) {
-                $this->countsql .= ' AND '.$this->get_sql_where();
-                $this->sql->where .= ' AND '.$this->get_sql_where();
+            list($wsql, $wparams) = $this->get_sql_where();
+            if ($wsql) {
+                $this->countsql .= ' AND '.$wsql;
+                $this->countparams = array_merge($this->countparams, $wparams);
+
+                $this->sql->where .= ' AND '.$wsql;
+                $this->sql->params = array_merge($this->sql->params, $wparams);
+
                 $total  = $DB->count_records_sql($this->countsql, $this->countparams);
             } else {
                 $total = $totalinitials;
             }
-
 
             $this->pagesize($pagesize, $total);
         }
@@ -1525,32 +1536,52 @@ class table_ods_export_format extends table_spreadsheet_export_format_parent{
  * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class table_text_export_format_parent extends table_default_export_format_parent{
-    var $seperator = "\t";
-    function start_document($filename){
-        $this->filename = $filename.".txt";
-        header("Content-Type: application/download\n");
-        header("Content-Disposition: attachment; filename=\"{$filename}.txt\"");
-        header("Expires: 0");
-        header("Cache-Control: must-revalidate,post-check=0,pre-check=0");
-        header("Pragma: public");
+class table_text_export_format_parent extends table_default_export_format_parent {
+    protected $seperator = "\t";
+    protected $mimetype = 'text/tab-separated-values';
+    protected $ext = '.txt';
+
+    public function start_document($filename) {
+        $this->filename = $filename . $this->ext;
+        header('Content-Type: ' . $this->mimetype . '; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $this->filename . '"');
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate,post-check=0,pre-check=0');
+        header('Pragma: public');
         $this->documentstarted = true;
     }
-    function start_table($sheettitle){
+
+    public function start_table($sheettitle) {
         //nothing to do here
     }
-    function output_headers($headers){
-        echo implode($this->seperator, $headers)."\n";
+
+    public function output_headers($headers) {
+        echo $this->format_row($headers);
     }
-    function add_data($row){
-        echo implode($this->seperator, $row)."\n";
+
+    public function add_data($row) {
+        echo $this->format_row($row);
         return true;
     }
-    function finish_table(){
+
+    public function finish_table() {
         echo "\n\n";
     }
-    function finish_document(){
+
+    public function finish_document() {
         exit;
+    }
+
+    /**
+     * Format a row of data.
+     * @param array $data
+     */
+    protected function format_row($data) {
+        $escapeddata = array();
+        foreach ($data as $value) {
+            $escapeddata[] = '"' . str_replace('"', '""', $value) . '"';
+        }
+        return implode($this->seperator, $escapeddata) . "\n";
     }
 }
 
@@ -1560,8 +1591,9 @@ class table_text_export_format_parent extends table_default_export_format_parent
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class table_tsv_export_format extends table_text_export_format_parent{
-    var $seperator = "\t";
-
+    protected $seperator = "\t";
+    protected $mimetype = 'text/tab-separated-values';
+    protected $ext = '.txt';
 }
 
 /**
@@ -1570,8 +1602,9 @@ class table_tsv_export_format extends table_text_export_format_parent{
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class table_csv_export_format extends table_text_export_format_parent{
-    var $seperator = ",";
-
+    protected $seperator = ",";
+    protected $mimetype = 'text/csv';
+    protected $ext = '.csv';
 }
 
 /**

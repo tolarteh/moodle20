@@ -24,6 +24,8 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+require_once($CFG->libdir.'/completionlib.php');
+
 /**
  * This function extends the navigation with the report items
  *
@@ -35,9 +37,10 @@ function completion_report_extend_navigation($navigation, $course, $context) {
     global $CFG, $OUTPUT;
 
     if (has_capability('coursereport/completion:view', $context)) {
-        require_once($CFG->libdir.'/completionlib.php');
-
-        $url = new moodle_url('/course/report/completion/index.php', array('course'=>$course->id));
-        $navigation->add(get_string('pluginname','coursereport_completion'), $url, navigation_node::TYPE_SETTING, null, null, new pix_icon('i/report', ''));
+        $completion = new completion_info($course);
+        if ($completion->is_enabled() && $completion->has_criteria()) {
+            $url = new moodle_url('/course/report/completion/index.php', array('course'=>$course->id));
+            $navigation->add(get_string('pluginname','coursereport_completion'), $url, navigation_node::TYPE_SETTING, null, null, new pix_icon('i/report', ''));
+        }
     }
 }

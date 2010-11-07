@@ -51,7 +51,7 @@ $page_params = array('reply'=>$reply, 'forum'=>$forum, 'edit'=>$edit);
 $sitecontext = get_context_instance(CONTEXT_SYSTEM);
 
 if (!isloggedin() or isguestuser()) {
-    
+
     if (!isloggedin() and !get_referer()) {
         // No referer+not logged in - probably coming in via email  See MDL-9052
         require_login();
@@ -82,6 +82,8 @@ if (!isloggedin() or isguestuser()) {
         $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
     }
 
+    $PAGE->set_cm($cm, $course, $forum);
+    $PAGE->set_context($modcontext);
     $PAGE->set_title($course->shortname);
     $PAGE->set_heading($course->fullname);
 
@@ -130,7 +132,7 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum
 
     // Load up the $post variable.
 
-    $post = new object();
+    $post = new stdClass();
     $post->course        = $course->id;
     $post->forum         = $forum->id;
     $post->discussion    = 0;           // ie discussion # not defined yet
@@ -138,7 +140,7 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum
     $post->subject       = '';
     $post->userid        = $USER->id;
     $post->message       = '';
-    $post->messageformat = FORMAT_HTML; // TODO: better default
+    $post->messageformat = editors_get_preferred_format();
     $post->messagetrust  = 0;
 
     if (isset($groupid)) {
@@ -168,7 +170,7 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum
     }
 
     // Ensure lang, theme, etc. is set up properly. MDL-6926
-    $PAGE->set_course($course);
+    $PAGE->set_cm($cm, $course, $forum);
 
     $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
     $modcontext    = get_context_instance(CONTEXT_MODULE, $cm->id);
@@ -206,7 +208,7 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum
 
     // Load up the $post variable.
 
-    $post = new object();
+    $post = new stdClass();
     $post->course      = $course->id;
     $post->forum       = $forum->id;
     $post->discussion  = $parent->discussion;
@@ -249,6 +251,9 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum
     } else {
         $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
     }
+
+    $PAGE->set_cm($cm, $course, $forum);
+    
     if (!($forum->type == 'news' && !$post->parent && $discussion->timestart > time())) {
         if (((time() - $post->created) > $CFG->maxeditingtime) and
                     !has_capability('mod/forum:editanypost', $modcontext)) {
@@ -270,7 +275,7 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum
     $post = trusttext_pre_edit($post, 'message', $modcontext);
 
     unset($SESSION->fromdiscussion);
-    
+
 
 }else if (!empty($delete)) {  // User is deleting a post
 
@@ -297,14 +302,20 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum
                 || has_capability('mod/forum:deleteanypost', $modcontext)) ) {
         print_error('cannotdeletepost', 'forum');
     }
-    
-    
+
+
     $replycount = forum_count_replies($post);
 
     if (!empty($confirm) && confirm_sesskey()) {    // User has confirmed the delete
+        //check user capability to delete post.
+        $timepassed = time() - $post->created;
+        if (($timepassed > $CFG->maxeditingtime) && !has_capability('mod/forum:deleteanypost', $modcontext)) {
+            print_error("cannotdeletepost", "forum",
+                      forum_go_back_to("discuss.php?d=$post->discussion"));
+        }
 
         if ($post->totalscore) {
-            notice(get_string("couldnotdeleteratings", "forum"),
+            notice(get_string('couldnotdeleteratings', 'rating'),
                     forum_go_back_to("discuss.php?d=$post->discussion"));
 
         } else if ($replycount && !has_capability('mod/forum:deleteanypost', $modcontext)) {
@@ -351,6 +362,7 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum
         $PAGE->navbar->add(get_string('delete', 'forum'));
         $PAGE->set_title($course->shortname);
         $PAGE->set_heading($course->fullname);
+
         if ($replycount) {
             if (!has_capability('mod/forum:deleteanypost', $modcontext)) {
                 print_error("couldnotdeletereplies", "forum",
@@ -409,7 +421,7 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum
 
     if (!empty($name) && confirm_sesskey()) {    // User has confirmed the prune
 
-        $newdiscussion = new object();
+        $newdiscussion = new stdClass();
         $newdiscussion->course       = $discussion->course;
         $newdiscussion->forum        = $discussion->forum;
         $newdiscussion->name         = $name;
@@ -423,7 +435,7 @@ if (!empty($forum)) {      // User is starting a new discussion in a forum
 
         $newid = $DB->insert_record('forum_discussions', $newdiscussion);
 
-        $newpost = new object();
+        $newpost = new stdClass();
         $newpost->id      = $post->id;
         $newpost->parent  = 0;
         $newpost->subject = $name;
@@ -493,7 +505,7 @@ require_once('post_form.php');
 $mform_post = new mod_forum_post_form('post.php', array('course'=>$course, 'cm'=>$cm, 'coursecontext'=>$coursecontext, 'modcontext'=>$modcontext, 'forum'=>$forum, 'post'=>$post));
 
 $draftitemid = file_get_submitted_draft_itemid('attachments');
-file_prepare_draft_area($draftitemid, $modcontext->id, 'forum_attachment', empty($post->id)?null:$post->id);
+file_prepare_draft_area($draftitemid, $modcontext->id, 'mod_forum', 'attachment', empty($post->id)?null:$post->id);
 
 //load data into form NOW!
 
@@ -531,13 +543,13 @@ if (forum_is_subscribed($USER->id, $forum->id)) {
 }
 
 $draftid_editor = file_get_submitted_draft_itemid('message');
-$currenttext = file_prepare_draft_area($draftid_editor, $modcontext->id, 'forum_post', empty($post->id) ? null : $post->id, array('subdirs'=>true), $post->message);
+$currenttext = file_prepare_draft_area($draftid_editor, $modcontext->id, 'mod_forum', 'post', empty($post->id) ? null : $post->id, array('subdirs'=>true), $post->message);
 $mform_post->set_data(array(        'attachments'=>$draftitemid,
                                     'general'=>$heading,
                                     'subject'=>$post->subject,
                                     'message'=>array(
                                         'text'=>$currenttext,
-                                        'format'=>empty($post->messageformat) ? FORMAT_HTML : $post->messageformat, //TODO: add some better default
+                                        'format'=>empty($post->messageformat) ? editors_get_preferred_format() : $post->messageformat,
                                         'itemid'=>$draftid_editor
                                     ),
                                     'subscribe'=>$subscribe?1:0,
@@ -589,7 +601,7 @@ if ($fromform = $mform_post->get_data()) {
 
         //fix for bug #4314
         if (!$realpost = $DB->get_record('forum_posts', array('id' => $fromform->id))) {
-            $realpost = new object;
+            $realpost = new stdClass();
             $realpost->userid = -1;
         }
 
@@ -774,7 +786,7 @@ if (empty($post->edit)) {
 
 if (empty($discussion->name)) {
     if (empty($discussion)) {
-        $discussion = new object;
+        $discussion = new stdClass();
     }
     $discussion->name = $forum->name;
 }
@@ -804,7 +816,6 @@ if ($edit) {
 
 $PAGE->set_title("$course->shortname: $strdiscussionname ".format_string($toppost->subject));
 $PAGE->set_heading($course->fullname);
-$PAGE->set_focuscontrol($mform_post->focus($forcefocus));
 
 echo $OUTPUT->header();
 

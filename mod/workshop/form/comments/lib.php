@@ -18,15 +18,51 @@
 /**
  * This file defines a class with comments grading strategy logic
  *
- * @package   mod-workshopform-comments
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    workshopform
+ * @subpackage comments
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 require_once(dirname(dirname(__FILE__)) . '/lib.php');  // interface definition
 require_once($CFG->libdir . '/gradelib.php');           // to handle float vs decimal issues
+
+function workshopform_comments_pluginfile($course, $cm, $context, $filearea, array $args, $forcedownload) {
+    global $DB;
+
+    if ($context->contextlevel != CONTEXT_MODULE) {
+        return false;
+    }
+
+    require_login($course, true, $cm);
+
+    if ($filearea !== 'description') {
+        return false;
+    }
+
+    $itemid = (int)array_shift($args); // the id of the assessment form dimension
+    if (!$workshop = $DB->get_record('workshop', array('id' => $cm->instance))) {
+        send_file_not_found();
+    }
+
+    if (!$dimension = $DB->get_record('workshopform_comments', array('id' => $itemid ,'workshopid' => $workshop->id))) {
+        send_file_not_found();
+    }
+
+    // TODO now make sure the user is allowed to see the file
+    // (media embedded into the dimension description)
+    $fs = get_file_storage();
+    $relativepath = implode('/', $args);
+    $fullpath = "/$context->id/workshopform_comments/$filearea/$itemid/$relativepath";
+    if (!$file = $fs->get_file_by_hash(sha1($fullpath)) or $file->is_directory()) {
+        return false;
+    }
+
+    // finally send the file
+    send_stored_file($file);
+}
 
 /**
  * Accumulative grading strategy logic.
@@ -80,11 +116,11 @@ class workshop_comments_strategy implements workshop_strategy {
             $norepeats += self::ADDDIMS;
         }
 
-        // prepare the embeded files
+        // prepare the embedded files
         for ($i = 0; $i < $nodimensions; $i++) {
             // prepare all editor elements
             $fields = file_prepare_standard_editor($fields, 'description__idx_'.$i, $this->descriptionopts,
-                $PAGE->context, 'workshopform_comments_description', $fields->{'dimensionid__idx_'.$i});
+                $PAGE->context, 'workshopform_comments', 'description', $fields->{'dimensionid__idx_'.$i});
         }
 
         $customdata = array();
@@ -107,7 +143,7 @@ class workshop_comments_strategy implements workshop_strategy {
      * The passed data object are the raw data returned by the get_data().
      *
      * @uses $DB
-     * @param stdclass $data Raw data returned by the dimension editor form
+     * @param stdClass $data Raw data returned by the dimension editor form
      * @return void
      */
     public function save_edit_strategy_form(stdclass $data) {
@@ -136,9 +172,9 @@ class workshop_comments_strategy implements workshop_strategy {
                 // exiting field
                 $DB->update_record('workshopform_comments', $record);
             }
-            // re-save with correct path to embeded media files
+            // re-save with correct path to embedded media files
             $record = file_postupdate_standard_editor($record, 'description', $this->descriptionopts,
-                                                      $PAGE->context, 'workshopform_comments_description', $record->id);
+                                                      $PAGE->context, 'workshopform_comments', 'description', $record->id);
             $DB->update_record('workshopform_comments', $record);
         }
         $this->delete_dimensions($todelete);
@@ -149,7 +185,7 @@ class workshop_comments_strategy implements workshop_strategy {
      *
      * @param moodle_url $actionurl URL of form handler, defaults to auto detect the current url
      * @param string $mode          Mode to open the form in: preview/assessment
-     * @param stdclass $assessment  The current assessment
+     * @param stdClass $assessment  The current assessment
      * @param bool $editable
      * @param array $options
      */
@@ -162,10 +198,10 @@ class workshop_comments_strategy implements workshop_strategy {
         $fields         = $this->prepare_form_fields($this->dimensions);
         $nodimensions   = count($this->dimensions);
 
-        // rewrite URLs to the embeded files
+        // rewrite URLs to the embedded files
         for ($i = 0; $i < $nodimensions; $i++) {
             $fields->{'description__idx_'.$i} = file_rewrite_pluginfile_urls($fields->{'description__idx_'.$i},
-                'pluginfile.php', $PAGE->context->id, 'workshopform_comments_description', $fields->{'dimensionid__idx_'.$i});
+                'pluginfile.php', $PAGE->context->id, 'workshopform_comments', 'description', $fields->{'dimensionid__idx_'.$i});
         }
 
         if ('assessment' === $mode and !empty($assessment)) {
@@ -201,15 +237,15 @@ class workshop_comments_strategy implements workshop_strategy {
      *
      * This method processes data submitted using the form returned by {@link get_assessment_form()}
      *
-     * @param stdclass $assessment Assessment being filled
-     * @param stdclass $data       Raw data as returned by the assessment form
+     * @param stdClass $assessment Assessment being filled
+     * @param stdClass $data       Raw data as returned by the assessment form
      * @return float|null          Constant raw grade 100.00000 for submission as suggested by the peer
      */
     public function save_assessment(stdclass $assessment, stdclass $data) {
         global $DB;
 
         if (!isset($data->nodims)) {
-            throw coding_expection('You did not send me the number of assessment dimensions to process');
+            throw new coding_exception('You did not send me the number of assessment dimensions to process');
         }
         for ($i = 0; $i < $data->nodims; $i++) {
             $grade = new stdclass();
@@ -306,6 +342,19 @@ class workshop_comments_strategy implements workshop_strategy {
         return false;
     }
 
+    /**
+     * Delete all data related to a given workshop module instance
+     *
+     * @see workshop_delete_instance()
+     * @param int $workshopid id of the workshop module instance being deleted
+     * @return void
+     */
+    public static function delete_instance($workshopid) {
+        global $DB;
+
+        $DB->delete_records('workshopform_comments', array('workshopid' => $workshopid));
+    }
+
     ////////////////////////////////////////////////////////////////////////////////
     // Internal methods                                                           //
     ////////////////////////////////////////////////////////////////////////////////
@@ -353,7 +402,7 @@ class workshop_comments_strategy implements workshop_strategy {
         $fs = get_file_storage();
         foreach ($ids as $id) {
             if (!empty($id)) {   // to prevent accidental removal of all files in the area
-                $fs->delete_area_files($PAGE->context->id, 'workshopform_comments_description', $id);
+                $fs->delete_area_files($PAGE->context->id, 'workshopform_comments', 'description', $id);
             }
         }
         $DB->delete_records_list('workshopform_comments', 'id', $ids);
@@ -367,7 +416,7 @@ class workshop_comments_strategy implements workshop_strategy {
      * Called internally from {@link save_edit_strategy_form()} only. Could be private but
      * keeping protected for unit testing purposes.
      *
-     * @param stdclass $raw Raw data returned by mform
+     * @param stdClass $raw Raw data returned by mform
      * @return array Array of objects to be inserted/updated in DB
      */
     protected function prepare_database_fields(stdclass $raw) {
@@ -389,7 +438,7 @@ class workshop_comments_strategy implements workshop_strategy {
     /**
      * Returns the list of current grades filled by the reviewer indexed by dimensionid
      *
-     * @param stdclass $assessment Assessment record
+     * @param stdClass $assessment Assessment record
      * @return array [int dimensionid] => stdclass workshop_grades record
      */
     protected function get_current_assessment_data(stdclass $assessment) {

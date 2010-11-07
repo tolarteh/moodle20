@@ -18,9 +18,10 @@
 /**
  * Strings for component 'lesson', language 'en', branch 'MOODLE_20_STABLE'
  *
- * @package   lesson
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage lesson
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 $string['accesscontrol'] = 'Access control';
@@ -136,8 +137,8 @@ $string['displayleftif_help'] = 'This setting determines whether a student must 
 $string['displayleftmenu'] = 'Display left menu';
 $string['displayleftmenu_help'] = 'If enabled, a list of pages (branch tables) is displayed.';
 $string['displayofgrade'] = 'Display of grade (for students only)';
-$string['displayreview'] = 'Display review button';
-$string['displayreview_help'] = 'If enabled, a review button is shown after an incorrectly answered question, allowing a student to re-attempt it.';
+$string['displayreview'] = 'Provide option to try a question again';
+$string['displayreview_help'] = 'If enabled, when a question is answered incorrectly, the student is given the option to try it again for no point credit, or continue with the lesson.';
 $string['displayscorewithessays'] = 'You earned {$a->score} out of {$a->tempmaxgrade} for the automatically graded questions.<br />Your {$a->essayquestions} essay question(s) will be graded and added<br />into your final score at a later date.<br /><br />Your current grade without the essay question(s) is {$a->score} out of {$a->grade}';
 $string['displayscorewithoutessays'] = 'Your score is {$a->score} (out of {$a->grade}).';
 $string['edit'] = 'Edit';
@@ -203,7 +204,6 @@ $string['jumps_help'] = 'Each answer (for questions) or description (for branch 
 $string['jumpsto'] = 'Jumps to <em>{$a}</em>';
 $string['leftduringtimed'] = 'You have left during a timed lesson.<br />Please click on Continue to restart the lesson.';
 $string['leftduringtimednoretake'] = 'You have left during a timed lesson and you are<br />not allowed to retake or continue the lesson.';
-$string['lessonadministration'] = 'Lesson administration';
 $string['lessonattempted'] = 'Lesson attempted';
 $string['lessonclosed'] = 'This lesson closed on {$a}.';
 $string['lessoncloses'] = 'Lesson closes';
@@ -232,7 +232,7 @@ $string['maxhighscores'] = 'Number of high scores displayed';
 $string['maximumnumberofanswersbranches'] = 'Maximum number of answers/branches';
 $string['maximumnumberofanswersbranches_help'] = 'This setting specifies the maximum number of answers/branches that may be used in the lesson. If only true/false questions are used, it can be set to 2. The setting may be changed at any time, since it only effects what the teacher sees, not the data.';
 $string['maximumnumberofattempts'] = 'Maximum number of attempts';
-$string['maximumnumberofattempts_help'] = 'This setting specifies the maximum number of attempts allowed for each question. It applies to all questions in the lesson regardless of their type.';
+$string['maximumnumberofattempts_help'] = 'This setting specifies the maximum number of attempts allowed for each question. If answered incorrectly repeatedly, when the maximum is reached, the next page of the lesson is displayed.';
 $string['maximumnumberofattemptsreached'] = 'Maximum number of attempts reached - Moving to next page';
 $string['maxtime'] = 'Time limit (minutes)';
 $string['maxtimewarning'] = 'You have {$a} minute(s) to finish the lesson.';
@@ -315,6 +315,8 @@ $string['pleaseenteryouranswerinthebox'] = 'Please enter your answer in the box'
 $string['pleasecheckoneanswer'] = 'Please check one answer';
 $string['pleasecheckoneormoreanswers'] = 'Please check one or more answers';
 $string['pleasematchtheabovepairs'] = 'Please match the above pairs';
+$string['pluginadministration'] = 'Lesson administration';
+$string['pluginname'] = 'Lesson';
 $string['pointsearned'] = 'Points earned';
 $string['postprocesserror'] = 'Error occurred during post-processing!';
 $string['postsuccess'] = 'Post successful';

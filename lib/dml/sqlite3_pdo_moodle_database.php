@@ -19,11 +19,13 @@
 /**
  * Experimental pdo database class.
  *
- * @package    moodlecore
- * @subpackage DML
+ * @package    core
+ * @subpackage dml
  * @copyright  2008 Andrei Bautu
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir.'/dml/pdo_moodle_database.php');
 
@@ -56,7 +58,7 @@ class sqlite3_pdo_moodle_database extends pdo_moodle_database {
     /**
      * Returns more specific database driver type
      * Note: can be used before connect()
-     * @return string db type mysql, mysqli, postgres7
+     * @return string db type mysqli, pgsql, oci, mssql, sqlsrv
      */
     protected function get_dbtype() {
         return 'sqlite3';

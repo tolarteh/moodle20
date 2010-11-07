@@ -47,12 +47,11 @@ class moodle_user_external extends external_api {
                             'email'       => new external_value(PARAM_EMAIL, 'A valid and unique email address'),
                             'auth'        => new external_value(PARAM_SAFEDIR, 'Auth plugins include manual, ldap, imap, etc', VALUE_DEFAULT, 'manual', NULL_NOT_ALLOWED),
                             'idnumber'    => new external_value(PARAM_RAW, 'An arbitrary ID code number perhaps from the institution', VALUE_DEFAULT, ''),
-                            'emailstop'   => new external_value(PARAM_NUMBER, 'Email is blocked: 1 is blocked and 0 otherwise', VALUE_DEFAULT, 0),
                             'lang'        => new external_value(PARAM_SAFEDIR, 'Language code such as "en", must exist on server', VALUE_DEFAULT, $CFG->lang, NULL_NOT_ALLOWED),
                             'theme'       => new external_value(PARAM_SAFEDIR, 'Theme name such as "standard", must exist on server', VALUE_OPTIONAL),
                             'timezone'    => new external_value(PARAM_ALPHANUMEXT, 'Timezone code such as Australia/Perth, or 99 for default', VALUE_OPTIONAL),
                             'mailformat'  => new external_value(PARAM_INTEGER, 'Mail format code is 0 for plain text, 1 for HTML etc', VALUE_OPTIONAL),
-                            'description' => new external_value(PARAM_TEXT, 'User profile description, as HTML', VALUE_OPTIONAL),
+                            'description' => new external_value(PARAM_TEXT, 'User profile description, no HTML', VALUE_OPTIONAL),
                             'city'        => new external_value(PARAM_NOTAGS, 'Home city of the user', VALUE_OPTIONAL),
                             'country'     => new external_value(PARAM_ALPHA, 'Home country code of the user, such as AU or CZ', VALUE_OPTIONAL),
                             'preferences' => new external_multiple_structure(
@@ -68,7 +67,7 @@ class moodle_user_external extends external_api {
                                         'type'  => new external_value(PARAM_ALPHANUMEXT, 'The name of the custom field'),
                                         'value' => new external_value(PARAM_RAW, 'The value of the custom field')
                                     )
-                                ), 'User custom fields', VALUE_OPTIONAL)
+                                ), 'User custom fields (also known as user profil fields)', VALUE_OPTIONAL)
                         )
                     )
                 )
@@ -93,7 +92,7 @@ class moodle_user_external extends external_api {
         $context = get_context_instance(CONTEXT_SYSTEM);
         self::validate_context($context);
         require_capability('moodle/user:create', $context);
-        
+
         // Do basic automatic PARAM checks on incoming data, using params description
         // If any problems are found then exceptions are thrown with helpful error messages
         $params = self::validate_parameters(self::create_users_parameters(), array('users'=>$users));
@@ -141,6 +140,7 @@ class moodle_user_external extends external_api {
             }
 
             $user['confirmed'] = true;
+            $user['mnethostid'] = $CFG->mnet_localhost_id;
             $user['id'] = user_create_user($user);
 
             // custom fields
@@ -153,7 +153,12 @@ class moodle_user_external extends external_api {
                 profile_save_data((object) $user);
             }
 
-            //TODO: preferences
+            //preferences
+            if (!empty($user['preferences'])) {
+                foreach($user['preferences'] as $preference) {
+                    set_user_preference($preference['type'], $preference['value'],$user['id']);
+                }
+            }
 
             $userids[] = array('id'=>$user['id'], 'username'=>$user['username']);
         }
@@ -192,7 +197,7 @@ class moodle_user_external extends external_api {
     }
 
     public static function delete_users($userids) {
-        global $CFG, $DB;
+        global $CFG, $DB, $USER;
         require_once($CFG->dirroot."/user/lib.php");
 
         // Ensure the current user is allowed to run this function
@@ -203,10 +208,16 @@ class moodle_user_external extends external_api {
         $params = self::validate_parameters(self::delete_users_parameters(), array('userids'=>$userids));
 
         $transaction = $DB->start_delegated_transaction();
-        // TODO: this is problematic because the DB rollback does not handle rollbacking of deleted user images!
 
         foreach ($params['userids'] as $userid) {
             $user = $DB->get_record('user', array('id'=>$userid, 'deleted'=>0), '*', MUST_EXIST);
+            // must not allow deleting of admins or self!!!
+            if (is_siteadmin($user)) {
+                throw new moodle_exception('useradminodelete', 'error');
+            }
+            if ($USER->id == $user->id) {
+                throw new moodle_exception('usernotdeletederror', 'error');
+            }
             user_delete_user($user);
         }
 
@@ -243,12 +254,11 @@ class moodle_user_external extends external_api {
                             'email'       => new external_value(PARAM_EMAIL, 'A valid and unique email address', VALUE_OPTIONAL, '',NULL_NOT_ALLOWED),
                             'auth'        => new external_value(PARAM_SAFEDIR, 'Auth plugins include manual, ldap, imap, etc', VALUE_OPTIONAL, '', NULL_NOT_ALLOWED),
                             'idnumber'    => new external_value(PARAM_RAW, 'An arbitrary ID code number perhaps from the institution', VALUE_OPTIONAL),
-                            'emailstop'   => new external_value(PARAM_NUMBER, 'Email is blocked: 1 is blocked and 0 otherwise', VALUE_OPTIONAL),
                             'lang'        => new external_value(PARAM_SAFEDIR, 'Language code such as "en", must exist on server', VALUE_OPTIONAL, '', NULL_NOT_ALLOWED),
                             'theme'       => new external_value(PARAM_SAFEDIR, 'Theme name such as "standard", must exist on server', VALUE_OPTIONAL),
                             'timezone'    => new external_value(PARAM_ALPHANUMEXT, 'Timezone code such as Australia/Perth, or 99 for default', VALUE_OPTIONAL),
                             'mailformat'  => new external_value(PARAM_INTEGER, 'Mail format code is 0 for plain text, 1 for HTML etc', VALUE_OPTIONAL),
-                            'description' => new external_value(PARAM_TEXT, 'User profile description, as HTML', VALUE_OPTIONAL),
+                            'description' => new external_value(PARAM_TEXT, 'User profile description, no HTML', VALUE_OPTIONAL),
                             'city'        => new external_value(PARAM_NOTAGS, 'Home city of the user', VALUE_OPTIONAL),
                             'country'     => new external_value(PARAM_ALPHA, 'Home country code of the user, such as AU or CZ', VALUE_OPTIONAL),
                             'customfields' => new external_multiple_structure(
@@ -257,7 +267,14 @@ class moodle_user_external extends external_api {
                                         'type'  => new external_value(PARAM_ALPHANUMEXT, 'The name of the custom field'),
                                         'value' => new external_value(PARAM_RAW, 'The value of the custom field')
                                     )
-                                ), 'User custom fields', VALUE_OPTIONAL)
+                                ), 'User custom fields (also known as user profil fields)', VALUE_OPTIONAL),
+                            'preferences' => new external_multiple_structure(
+                                new external_single_structure(
+                                    array(
+                                        'type'  => new external_value(PARAM_ALPHANUMEXT, 'The name of the preference'),
+                                        'value' => new external_value(PARAM_RAW, 'The value of the preference')
+                                    )
+                                ), 'User preferences', VALUE_OPTIONAL),
                         )
                     )
                 )
@@ -293,10 +310,14 @@ class moodle_user_external extends external_api {
                 }
                 profile_save_data((object) $user);
             }
+
+            //preferences
+            if (!empty($user['preferences'])) {
+                foreach($user['preferences'] as $preference) {
+                    set_user_preference($preference['type'], $preference['value'],$user['id']);
+                }
+            }
         }
-
-
-
 
         $transaction->allow_commit();
 
@@ -317,12 +338,11 @@ class moodle_user_external extends external_api {
      */
     public static function get_users_by_id_parameters() {
         return new external_function_parameters(
-            array(
-                'userids' => new external_multiple_structure(new external_value(PARAM_INT, 'user ID')),
-                 )
+                array(
+                    'userids' => new external_multiple_structure(new external_value(PARAM_INT, 'user ID')),
+                )
         );
     }
-
 
     /**
      * Get user information
@@ -332,28 +352,49 @@ class moodle_user_external extends external_api {
      */
     public static function get_users_by_id($userids) {
         global $CFG;
-        require_once($CFG->dirroot."/user/lib.php");
-        require_once($CFG->dirroot."/user/profile/lib.php"); //required for customfields related function
-                                                             //TODO: move the functions somewhere else as
-                                                             //they are "user" related
+        require_once($CFG->dirroot . "/user/lib.php");
+        //required for customfields related function
+        //TODO: move the functions somewhere else as
+        //they are "user" related
+        require_once($CFG->dirroot . "/user/profile/lib.php");
 
-        $context = get_context_instance(CONTEXT_SYSTEM);
-        require_capability('moodle/user:viewdetails', $context);
-        self::validate_context($context);
+        $params = self::validate_parameters(self::get_users_by_id_parameters(),
+                array('userids'=>$userids));
 
-        $params = self::validate_parameters(self::get_users_by_id_parameters(), array('userids'=>$userids));
-
-        //TODO: check if there is any performance issue: we do one DB request to retrieve  all user,
-        // then for each user the profile_load_data does at least two DB requests
+        //TODO: check if there is any performance issue: we do one DB request to retrieve
+        //  all user, then for each user the profile_load_data does at least two DB requests
 
         $users = user_get_users_by_id($params['userids']);
-        $result =array();
+        $result = array();
         foreach ($users as $user) {
+
+            $context = get_context_instance(CONTEXT_USER, $user->id);
+            require_capability('moodle/user:viewalldetails', $context);
+            self::validate_context($context);
+
             if (empty($user->deleted)) {
 
-                $userarray = (array) $user; //we want to return an array not an object
-                /// now we transfert all profile_field_xxx into the customfields external_multiple_structure required by description
-                $userarray['customfields'] = null;
+                $userarray = array();
+               //we want to return an array not an object
+                /// now we transfert all profile_field_xxx into the customfields
+                // external_multiple_structure required by description
+                $userarray['id'] = $user->id;
+                $userarray['username'] = $user->username;
+                $userarray['firstname'] = $user->firstname;
+                $userarray['lastname'] = $user->lastname;
+                $userarray['email'] = $user->email;
+                $userarray['auth'] = $user->auth;
+                $userarray['confirmed'] = $user->confirmed;
+                $userarray['idnumber'] = $user->idnumber;
+                $userarray['lang'] = $user->lang;
+                $userarray['theme'] = $user->theme;
+                $userarray['timezone'] = $user->timezone;
+                $userarray['mailformat'] = $user->mailformat;
+                $userarray['description'] = $user->description;
+                $userarray['descriptionformat'] = $user->descriptionformat;
+                $userarray['city'] = $user->city;
+                $userarray['country'] = $user->country;
+                $userarray['customfields'] = array();
                 $customfields = profile_user_record($user->id);
                 $customfields = (array) $customfields;
                 foreach ($customfields as $key => $value) {
@@ -362,45 +403,44 @@ class moodle_user_external extends external_api {
 
                 $result[] = $userarray;
             }
-
         }
 
         return $result;
     }
 
-   /**
+    /**
      * Returns description of method result value
      * @return external_description
      */
     public static function get_users_by_id_returns() {
         return new external_multiple_structure(
-            new external_single_structure(
-                array(
+                new external_single_structure(
+                        array(
                     'id'    => new external_value(PARAM_NUMBER, 'ID of the user'),
                     'username'    => new external_value(PARAM_RAW, 'Username policy is defined in Moodle security config'),
                     'firstname'   => new external_value(PARAM_NOTAGS, 'The first name(s) of the user'),
                     'lastname'    => new external_value(PARAM_NOTAGS, 'The family name of the user'),
-                    'email'       => new external_value(PARAM_EMAIL, 'A valid and unique email address'),
+                    'email'       => new external_value(PARAM_TEXT, 'An email address - allow email as root@localhost'),
                     'auth'        => new external_value(PARAM_SAFEDIR, 'Auth plugins include manual, ldap, imap, etc'),
                     'confirmed'   => new external_value(PARAM_NUMBER, 'Active user: 1 if confirmed, 0 otherwise'),
                     'idnumber'    => new external_value(PARAM_RAW, 'An arbitrary ID code number perhaps from the institution'),
-                    'emailstop'   => new external_value(PARAM_NUMBER, 'Email is blocked: 1 is blocked and 0 otherwise'),
                     'lang'        => new external_value(PARAM_SAFEDIR, 'Language code such as "en", must exist on server'),
                     'theme'       => new external_value(PARAM_SAFEDIR, 'Theme name such as "standard", must exist on server'),
                     'timezone'    => new external_value(PARAM_ALPHANUMEXT, 'Timezone code such as Australia/Perth, or 99 for default'),
                     'mailformat'  => new external_value(PARAM_INTEGER, 'Mail format code is 0 for plain text, 1 for HTML etc'),
-                    'description' => new external_value(PARAM_TEXT, 'User profile description, as HTML'),
+                    'description' => new external_value(PARAM_RAW, 'User profile description'),
+                    'descriptionformat' => new external_value(PARAM_INT, 'User profile description format'),
                     'city'        => new external_value(PARAM_NOTAGS, 'Home city of the user'),
                     'country'     => new external_value(PARAM_ALPHA, 'Home country code of the user, such as AU or CZ'),
                     'customfields' => new external_multiple_structure(
-                        new external_single_structure(
-                            array(
-                                'type'  => new external_value(PARAM_ALPHANUMEXT, 'The name of the custom field'),
-                                'value' => new external_value(PARAM_RAW, 'The value of the custom field')
-                            )
-                        ), 'User custom fields')
+                                    new external_single_structure(
+                                            array(
+                                                'type'  => new external_value(PARAM_ALPHANUMEXT, 'The name of the custom field'),
+                                                'value' => new external_value(PARAM_RAW, 'The value of the custom field')
+                                            )
+                                    ), 'User custom fields (also known as user profil fields)', VALUE_OPTIONAL)
+                        )
                 )
-            )
         );
     }
 }

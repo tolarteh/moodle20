@@ -1,6 +1,7 @@
 <?php
 
-require_once('lib.php');
+require_once($CFG->dirroot.'/tag/lib.php');
+require_once($CFG->libdir.'/filelib.php');
 
 /**
  * locallib.php - moodle tag local library - output functions
@@ -93,7 +94,7 @@ function tag_cloud_sort($a, $b) {
 /**
  * Prints a box with the description of a tag and its related tags
  *
- * @param unknown_type $tag_object
+ * @param stdClass $tag_object
  * @param $return if true return html string
  */
 function tag_print_description_box($tag_object, $return=false) {
@@ -113,9 +114,10 @@ function tag_print_description_box($tag_object, $return=false) {
     }
 
     if (!empty($tag_object->description)) {
-        $options = new object();
+        $options = new stdClass();
         $options->para = false;
-        $tag_object->description = file_rewrite_pluginfile_urls($tag_object->description, 'pluginfile.php', get_context_instance(CONTEXT_SYSTEM)->id, 'tag_description', $tag_object->id);
+        $options->overflowdiv = true;
+        $tag_object->description = file_rewrite_pluginfile_urls($tag_object->description, 'pluginfile.php', get_context_instance(CONTEXT_SYSTEM)->id, 'tag', 'description', $tag_object->id);
         $output .= format_text($tag_object->description, $tag_object->descriptionformat, $options);
     }
 
@@ -335,13 +337,7 @@ function tag_print_user_box($user, $return=false) {
         $alt = $fullname;
     }
 
-    //print user image - if image is only content of link it needs ALT text!
-    if ($user->picture) {
-        $output .= '<img alt="'. $alt .'" class="user-image" src="'. $CFG->wwwroot .'/user/pix.php/'. $user->id .'/f1.jpg" />';
-    } else {
-        $output .= '<img alt="'. $alt .'" class="user-image" src="'. $CFG->wwwroot .'/pix/u/f1.png" />';
-    }
-
+    $output .= $OUTPUT->user_picture($user, array('size'=>100));
     $output .= '<br />';
 
     if (!empty($profilelink)) {

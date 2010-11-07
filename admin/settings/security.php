@@ -23,12 +23,12 @@ if ($hassiteconfig) { // speedup for non-admins, add all caps used on this page
         array('student', 'teacher', 'editingteacher')));
 
     $max_upload_choices = get_max_upload_sizes();
-    // maxbytes set to 0 will allow the maxium server lmit for uploads
+    // maxbytes set to 0 will allow the maximum server limit for uploads
     $max_upload_choices[0] = get_string('serverlimit', 'admin');
     $temp->add(new admin_setting_configselect('maxbytes', get_string('maxbytes', 'admin'), get_string('configmaxbytes', 'admin'), 0, $max_upload_choices));
     // 100MB
     $defaultuserquota = 104857600;
-    $params = new stdclass;
+    $params = new stdClass();
     $params->bytes = $defaultuserquota;
     $params->displaysize = display_size($defaultuserquota);
     $temp->add(new admin_setting_configtext('userquota', get_string('userquota', 'admin'), get_string('configuserquota', 'admin', $params), $defaultuserquota));
@@ -51,8 +51,9 @@ if ($hassiteconfig) { // speedup for non-admins, add all caps used on this page
                                               'lastname firstname' => get_string('lastname').' + '.get_string('firstname'),
                                               'firstname' => get_string('firstname'))));
     $temp->add(new admin_setting_configcheckbox('extendedusernamechars', get_string('extendedusernamechars', 'admin'), get_string('configextendedusernamechars', 'admin'), 0));
-    $temp->add(new admin_setting_configtext('sitepolicy', get_string('sitepolicy', 'admin'), get_string('configsitepolicy', 'admin'), '', PARAM_RAW));
-    $temp->add(new admin_setting_configcheckbox('usetags', get_string('usetags','admin'),get_string('configusetags', 'admin'),'1'));
+    $temp->add(new admin_setting_configtext('sitepolicy', get_string('sitepolicy', 'admin'), get_string('sitepolicy_help', 'admin'), '', PARAM_RAW));
+    $temp->add(new admin_setting_configtext('sitepolicyguest', get_string('sitepolicyguest', 'admin'), get_string('sitepolicyguest_help', 'admin'), (isset($CFG->sitepolicy) ? $CFG->sitepolicy : ''), PARAM_RAW));
+    $temp->add(new admin_setting_configcheckbox('extendedusernamechars', get_string('extendedusernamechars', 'admin'), get_string('configextendedusernamechars', 'admin'), 0));
     $temp->add(new admin_setting_configcheckbox('keeptagnamecase', get_string('keeptagnamecase','admin'),get_string('configkeeptagnamecase', 'admin'),'1'));
 
     $temp->add(new admin_setting_configcheckbox('profilesforenrolledusersonly', get_string('profilesforenrolledusersonly','admin'),get_string('configprofilesforenrolledusersonly', 'admin'),'1'));

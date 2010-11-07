@@ -18,6 +18,7 @@
 // this file contains all the functions that aren't needed by core moodle
 // but start becoming required once we're actually inside the assignment module.
 
+require_once($CFG->dirroot . '/mod/assignment/lib.php');
 require_once($CFG->libdir . '/portfolio/caller.php');
 
 /**
@@ -73,7 +74,10 @@ class assignment_portfolio_caller extends portfolio_module_caller_base {
         if (is_callable(array($this->assignment, 'portfolio_load_data'))) {
             return $this->assignment->portfolio_load_data($this);
         }
-        $this->set_file_and_format_data($this->fileid, $this->assignment->context->id, 'assignment_submission', $this->user->id, 'timemodified', false);
+
+        $submission = $DB->get_record('assignment_submissions', array('assignment'=>$assignment->id, 'userid'=>$this->user->id));
+
+        $this->set_file_and_format_data($this->fileid, $this->assignment->context->id, 'mod_assignment', 'submission', $submission->id, 'timemodified', false);
     }
 
     public function prepare_package() {
@@ -94,15 +98,11 @@ class assignment_portfolio_caller extends portfolio_module_caller_base {
             $baseid = 'assignment' . $this->assignment->assignment->assignmenttype . $this->assignment->assignment->id . 'submission';
             $entryids = array();
             foreach ($files as $file) {
-                $id = $baseid . $file->get_id();
-                $entry = new portfolio_format_leap2a_entry($id, $file->get_filename(), 'resource',  $file);
-                $entry->add_category('offline', 'resource_type');
-                $entry->published = $file->get_timecreated();
-                $entry->updated = $file->get_timemodified();
+                $entry = new portfolio_format_leap2a_file($file->get_filename(), $file);
                 $entry->author = $this->user;
                 $leapwriter->add_entry($entry);
                 $this->exporter->copy_existing_file($file);
-                $entryids[] = $id;
+                $entryids[] = $entry->id;
             }
             if (count($files) > 1) {
                 // if we have multiple files, they should be grouped together into a folder

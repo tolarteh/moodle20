@@ -43,6 +43,8 @@ class mod_wiki_edit_form extends moodleform {
 
         $version = $this->_customdata['version'];
         $format = $this->_customdata['format'];
+        $tags = !isset($this->_customdata['tags'])?"":$this->_customdata['tags'];
+
 
         if ($format != 'html') {
             $contextid = $this->_customdata['contextid'];
@@ -55,8 +57,11 @@ class mod_wiki_edit_form extends moodleform {
 
         if ($format != 'html') {
             $mform->addElement('wikieditor', 'newcontent', get_string('content'), array('cols' => 50, 'rows' => 20, 'wiki_format' => $format));
+            $mform->addHelpButton('newcontent', 'format'.$format, 'wiki');
         } else {
             $mform->addElement('editor', 'newcontent_editor', get_string('content'), null, page_wiki_edit::$attachmentoptions);
+            $mform->addHelpButton('newcontent_editor', 'formathtml', 'wiki');
+
         }
 
         //hiddens
@@ -68,23 +73,25 @@ class mod_wiki_edit_form extends moodleform {
         $mform->addElement('hidden', 'contentformat');
         $mform->setDefault('contentformat', $format);
 
-        if ($format != 'html') {
-            //uploads
-            $mform->addElement('header', 'attachments_tags', get_string('attachments', 'wiki'));
-            $mform->addElement('filemanager', 'attachments', get_string('attachments', 'wiki'), null, page_wiki_edit::$attachmentoptions);
-            $fileinfo = array(
-                'contextid'=>$contextid,
-                'filearea'=>$filearea,
-                'itemid'=>$fileitemid,
-                );
-
-            $mform->addElement('wikifiletable', 'deleteuploads', get_string('wikifiletable', 'wiki'), null, $fileinfo, $format);
-            $mform->addElement('submit', 'editoption', get_string('upload', 'wiki'), array('id' => 'tags'));
-        }
+//        if ($format != 'html') {
+//            //uploads
+//            $mform->addElement('header', 'attachments_tags', get_string('attachments', 'wiki'));
+//            $mform->addElement('filemanager', 'attachments', get_string('attachments', 'wiki'), null, page_wiki_edit::$attachmentoptions);
+//            $fileinfo = array(
+//                'contextid'=>$contextid,
+//                'component'=>'mod_wiki',
+//                'filearea'=>$filearea,
+//                'itemid'=>$fileitemid,
+//                );
+//
+//            $mform->addElement('wikifiletable', 'deleteuploads', get_string('wikifiletable', 'wiki'), null, $fileinfo, $format);
+//            $mform->addElement('submit', 'editoption', get_string('upload', 'wiki'), array('id' => 'tags'));
+//        }
 
         if (!empty($CFG->usetags)) {
             $mform->addElement('header', 'tagshdr', get_string('tags', 'tag'));
             $mform->addElement('tags', 'tags', get_string('tags'));
+            $mform->setDefault('tags', $tags);
         }
 
         $buttongroup = array();

@@ -21,12 +21,164 @@
  * Old functions retained only for backward compatibility.  New code should not
  * use any of these functions.
  *
- * @package moodlecore
+ * @package    core
  * @subpackage deprecated
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @deprecated
  */
+
+defined('MOODLE_INTERNAL') || die();
+
+
+/**
+ * Insert or update log display entry. Entry may already exist.
+ * $module, $action must be unique
+ * @deprecated
+ *
+ * @param string $module
+ * @param string $action
+ * @param string $mtable
+ * @param string $field
+ * @return void
+ *
+ */
+function update_log_display_entry($module, $action, $mtable, $field) {
+    global $DB;
+
+    debugging('The update_log_display_entry() is deprecated, please use db/log.php description file instead.');
+}
+
+/**
+ * Given some text in HTML format, this function will pass it
+ * through any filters that have been configured for this context.
+ *
+ * @deprecated use the text formatting in a standard way instead,
+ *             this was abused mostly for embedding of attachments
+ *
+ * @param string $text The text to be passed through format filters
+ * @param int $courseid The current course.
+ * @return string the filtered string.
+ */
+function filter_text($text, $courseid = NULL) {
+    global $CFG, $COURSE;
+
+    if (!$courseid) {
+        $courseid = $COURSE->id;
+    }
+
+    if (!$context = get_context_instance(CONTEXT_COURSE, $courseid)) {
+        return $text;
+    }
+
+    return filter_manager::instance()->filter_text($text, $context);
+}
+
+/**
+ * This function indicates that current page requires the https
+ * when $CFG->loginhttps enabled.
+ *
+ * By using this function properly, we can ensure 100% https-ized pages
+ * at our entire discretion (login, forgot_password, change_password)
+ * @deprecated use $PAGE->https_required() instead
+ */
+function httpsrequired() {
+    global $PAGE;
+    $PAGE->https_required();
+}
+
+/**
+ * Given a physical path to a file, returns the URL through which it can be reached in Moodle.
+ *
+ * @deprecated use moodle_url factory methods instead
+ *
+ * @param string $path Physical path to a file
+ * @param array $options associative array of GET variables to append to the URL
+ * @param string $type (questionfile|rssfile|httpscoursefile|coursefile)
+ * @return string URL to file
+ */
+function get_file_url($path, $options=null, $type='coursefile') {
+    global $CFG;
+
+    $path = str_replace('//', '/', $path);
+    $path = trim($path, '/'); // no leading and trailing slashes
+
+    // type of file
+    switch ($type) {
+       case 'questionfile':
+            $url = $CFG->wwwroot."/question/exportfile.php";
+            break;
+       case 'rssfile':
+            $url = $CFG->wwwroot."/rss/file.php";
+            break;
+        case 'httpscoursefile':
+            $url = $CFG->httpswwwroot."/file.php";
+            break;
+         case 'coursefile':
+        default:
+            $url = $CFG->wwwroot."/file.php";
+    }
+
+    if ($CFG->slasharguments) {
+        $parts = explode('/', $path);
+        foreach ($parts as $key => $part) {
+        /// anchor dash character should not be encoded
+            $subparts = explode('#', $part);
+            $subparts = array_map('rawurlencode', $subparts);
+            $parts[$key] = implode('#', $subparts);
+        }
+        $path  = implode('/', $parts);
+        $ffurl = $url.'/'.$path;
+        $separator = '?';
+    } else {
+        $path = rawurlencode('/'.$path);
+        $ffurl = $url.'?file='.$path;
+        $separator = '&amp;';
+    }
+
+    if ($options) {
+        foreach ($options as $name=>$value) {
+            $ffurl = $ffurl.$separator.$name.'='.$value;
+            $separator = '&amp;';
+        }
+    }
+
+    return $ffurl;
+}
+
+/**
+ * If there has been an error uploading a file, print the appropriate error message
+ * Numerical constants used as constant definitions not added until PHP version 4.2.0
+ * @deprecated removed - use new file api
+ */
+function print_file_upload_error($filearray = '', $returnerror = false) {
+    throw new coding_exception('print_file_upload_error() can not be used any more, please use new file API');
+}
+
+/**
+ * Handy function for resolving file conflicts
+ * @deprecated removed - use new file api
+ */
+
+function resolve_filename_collisions($destination,$files,$format='%s_%d.%s') {
+    throw new coding_exception('resolve_filename_collisions() can not be used any more, please use new file API');
+}
+
+/**
+ * Checks a file name for any conflicts
+ * @deprecated removed - use new file api
+ */
+function check_potential_filename($destination,$filename,$files) {
+    throw new coding_exception('check_potential_filename() can not be used any more, please use new file API');
+}
+
+/**
+ * This function prints out a number of upload form elements.
+ * @deprecated removed - use new file api
+ */
+function upload_print_form_fragment($numfiles=1, $names=null, $descriptions=null, $uselabels=false, $labelnames=null, $coursebytes=0, $modbytes=0, $return=false) {
+    throw new coding_exception('upload_print_form_fragment() can not be used any more, please use new file API');
+}
 
 /**
  * Return the authentication plugin title
@@ -38,6 +190,7 @@ function auth_get_plugin_title($authtype) {
     debugging('Function auth_get_plugin_title() is deprecated, please use standard get_string("pluginname", "auth_'.$authtype.'")!');
     return get_string('pluginname', "auth_{$authtype}");
 }
+
 
 
 /**
@@ -182,7 +335,7 @@ function get_recent_enrolments($courseid, $timestart) {
 
     $context = get_context_instance(CONTEXT_COURSE, $courseid);
 
-    $sql = "SELECT DISTINCT u.id, u.firstname, u.lastname, l.time
+    $sql = "SELECT u.id, u.firstname, u.lastname, MAX(l.time)
               FROM {user} u, {role_assignments} ra, {log} l
              WHERE l.time > ?
                    AND l.course = ?
@@ -191,7 +344,8 @@ function get_recent_enrolments($courseid, $timestart) {
                    AND ".$DB->sql_cast_char2int('l.info')." = u.id
                    AND u.id = ra.userid
                    AND ra.contextid ".get_related_contexts_string($context)."
-          ORDER BY l.time ASC";
+          GROUP BY u.id, u.firstname, u.lastname
+          ORDER BY MAX(l.time) ASC";
     $params = array($timestart, $courseid);
     return $DB->get_records_sql($sql, $params);
 }
@@ -367,6 +521,37 @@ function print_simple_box_end($return=false) {
     } else {
         echo $output;
     }
+}
+
+/**
+ * Given some text this function converted any URLs it found into HTML links
+ *
+ * This core function has been replaced with filter_urltolink since Moodle 2.0
+ *
+ * @param string $text Passed in by reference. The string to be searched for urls.
+ */
+function convert_urls_into_links($text) {
+    debugging('convert_urls_into_links() has been deprecated and replaced by a new filter');
+}
+
+/**
+ * Used to be called from help.php to inject a list of smilies into the
+ * emoticons help file.
+ *
+ * @return string HTML
+ */
+function get_emoticons_list_for_help_file() {
+    debugging('get_emoticons_list_for_help_file() has been deprecated, see the new emoticon_manager API');
+    return '';
+}
+
+/**
+ * Was used to replace all known smileys in the text with image equivalents
+ *
+ * This core function has been replaced with filter_emoticon since Moodle 2.0
+ */
+function replace_smilies(&$text) {
+    debugging('replace_smilies() has been deprecated and replaced with the new filter_emoticon');
 }
 
 /**
@@ -1778,9 +1963,7 @@ function require_js($lib) {
  * @return string|false Returns full path to directory if successful, false if not
  */
 function make_mod_upload_directory($courseid) {
-    global $CFG;
-    debugging('make_mod_upload_directory has been deprecated by the file API changes in Moodle 2.0.', DEBUG_DEVELOPER);
-    return make_upload_directory($courseid .'/'. $CFG->moddata);
+    throw new coding_exception('make_mod_upload_directory has been deprecated by the file API changes in Moodle 2.0.');
 }
 
 /**
@@ -2132,7 +2315,6 @@ function print_header($title='', $heading='', $navigation='', $focus='',
     $PAGE->set_title($title);
     $PAGE->set_heading($heading);
     $PAGE->set_cacheable($cache);
-    $PAGE->set_focuscontrol($focus);
     if ($button == '') {
         $button = '&nbsp;';
     }
@@ -2198,7 +2380,6 @@ function print_header_simple($title='', $heading='', $navigation='', $focus='', 
 
     $PAGE->set_title($title);
     $PAGE->set_heading($heading);
-    $PAGE->set_focuscontrol($focus);
     $PAGE->set_cacheable(true);
     $PAGE->set_button($button);
 
@@ -2543,7 +2724,7 @@ function button_to_popup_window ($url, $name=null, $linkname=null,
     }
 
     // Create a single_button object
-    $form = new single_button($url, $text, 'post');
+    $form = new single_button($url, $linkname, 'post');
     $form->button->title = $title;
     $form->button->id = $id;
 
@@ -2573,7 +2754,7 @@ function button_to_popup_window ($url, $name=null, $linkname=null,
     }
 
     $form->button->add_action(new popup_action('click', $url, $name, $popupparams));
-    $output = $OUTPUT->single_button($form);
+    $output = $OUTPUT->render($form);
 
     if ($return) {
         return $output;
@@ -2608,13 +2789,13 @@ function print_single_button($link, $options, $label='OK', $method='get', $notus
     // Cast $options to array
     $options = (array) $options;
 
-    $button = new single_button(new moodle_url($link, $options), $label, $method, array('disabled'=>$disabled, 'title'=>$tooltip, 'id'=>$id));
+    $button = new single_button(new moodle_url($link, $options), $label, $method, array('disabled'=>$disabled, 'title'=>$tooltip, 'id'=>$formid));
 
     if ($jsconfirmmessage) {
         $button->button->add_confirm_action($jsconfirmmessage);
     }
 
-    $output = $OUTPUT->single_button($button);
+    $output = $OUTPUT->render($button);
 
     if ($return) {
         return $output;
@@ -2664,7 +2845,7 @@ function print_file_picture($path, $courseid=0, $height='', $width='', $link='',
  *
  * @global object
  * @global object
- * @param mixed $user Should be a $user object with at least fields id, picture, imagealt, firstname, lastname
+ * @param mixed $user Should be a $user object with at least fields id, picture, imagealt, firstname, lastname, email
  *      If any of these are missing, or if a userid is passed, the the database is queried. Avoid this
  *      if at all possible, particularly for reports. It is very bad for performance.
  * @param int $courseid The course id. Used when constructing the link to the user's profile.
@@ -2684,7 +2865,7 @@ function print_user_picture($user, $courseid, $picture=NULL, $size=0, $return=fa
 
     if (!is_object($user)) {
         $userid = $user;
-        $user = new object();
+        $user = new stdClass();
         $user->id = $userid;
     }
 
@@ -2762,7 +2943,7 @@ function print_textarea($usehtmleditor, $rows, $cols, $width, $height, $name, $v
 
     if ($usehtmleditor) {
         editors_head_setup();
-        $editor = get_preferred_texteditor(FORMAT_HTML);
+        $editor = editors_get_preferred_editor(FORMAT_HTML);
         $editor->use_editor($id, array('legacy'=>true));
     } else {
         $editorclass = '';
@@ -2801,7 +2982,7 @@ function print_textarea($usehtmleditor, $rows, $cols, $width, $height, $name, $v
  * @return string|void Depending on value of $return
  */
 function helpbutton($page, $title, $module='moodle', $image=true, $linktext=false, $text='', $return=false, $imagetext='') {
-    debugging('helpbutton() has been deprecated. Please change your code to use $OUTPUT->old_help_icon().');
+    debugging('helpbutton() has been deprecated. Please change your code to use $OUTPUT->help_icon().');
 
     global $OUTPUT;
 
@@ -2850,62 +3031,6 @@ function editorhelpbutton(){
     return '';
 
     /// TODO: MDL-21215
-
-    global $CFG, $SESSION, $OUTPUT;
-    $items = func_get_args();
-    $i = 1;
-    $urlparams = array();
-    $titles = array();
-    foreach ($items as $item){
-        if (is_array($item)){
-            $urlparams[] = "keyword$i=".urlencode($item[0]);
-            $urlparams[] = "title$i=".urlencode($item[1]);
-            if (isset($item[2])){
-                $urlparams[] = "module$i=".urlencode($item[2]);
-            }
-            $titles[] = trim($item[1], ". \t");
-        } else if (is_string($item)) {
-            $urlparams[] = "button$i=".urlencode($item);
-            switch ($item) {
-                case 'reading' :
-                    $titles[] = get_string("helpreading");
-                    break;
-                case 'writing' :
-                    $titles[] = get_string("helpwriting");
-                    break;
-                case 'questions' :
-                    $titles[] = get_string("helpquestions");
-                    break;
-                case 'emoticons2' :
-                    $titles[] = get_string("helpemoticons");
-                    break;
-                case 'richtext2' :
-                    $titles[] = get_string('helprichtext');
-                    break;
-                case 'text2' :
-                    $titles[] = get_string('helptext');
-                    break;
-                default :
-                    print_error('unknownhelp', '', '', $item);
-            }
-        }
-        $i++;
-    }
-    if (count($titles)>1){
-        //join last two items with an 'and'
-        $a = new object();
-        $a->one = $titles[count($titles) - 2];
-        $a->two = $titles[count($titles) - 1];
-        $titles[count($titles) - 2] = get_string('and', '', $a);
-        unset($titles[count($titles) - 1]);
-    }
-    $alttag = join (', ', $titles);
-
-    $paramstring = join('&', $urlparams);
-    $linkobject = '<img alt="'.$alttag.'" class="iconhelp" src="'.$OUTPUT->pix_url('help') . '" />';
-    $link = moodle_url('/lib/form/editorhelp.php?'.$paramstring);
-    $action = new popup_action('click', $link->url, 'popup', array('height' => 400, 'width' => 500));
-    return $OUTPUT->action_link($link, $linkobject, $action, array('title'=>$alttag));
 }
 
 /**
@@ -3466,7 +3591,7 @@ function print_checkbox($name, $value, $checked = true, $label = '', $alt = '', 
 function print_textfield($name, $value, $alt = '', $size=50, $maxlength=0, $return=false) {
     debugging('print_textfield() has been deprecated. Please use mforms or html_writer.');
 
-    if ($al === '') {
+    if ($alt === '') {
         $alt = null;
     }
 
@@ -3508,7 +3633,7 @@ function print_heading_with_help($text, $helppage, $module='moodle', $icon=false
     // Extract the src from $icon if it exists
     if (preg_match('/src="([^"]*)"/', $icon, $matches)) {
         $icon = $matches[1];
-        $icon = moodle_url($icon);
+        $icon = new moodle_url($icon);
     } else {
         $icon = '';
     }
@@ -3538,6 +3663,7 @@ function update_mymoodle_icon() {
  * @return string
  */
 function update_tag_button($tagid) {
+    global $OUTPUT;
     debugging('update_tag_button() has been deprecated. Please change your code to use $OUTPUT->edit_button(moodle_url).');
     return $OUTPUT->edit_button(new moodle_url('/tag/index.php', array('id' => $tagid)));
 }
@@ -3724,6 +3850,17 @@ function navmenu($course, $cm=NULL, $targetwindow='self') {
     return '';
 }
 
+/**
+ * Returns a little popup menu for switching roles
+ *
+ * @deprecated in Moodle 2.0
+ * @param int $courseid The course  to update by id as found in 'course' table
+ * @return string
+ */
+function switchroles_form($courseid) {
+    debugging('switchroles_form() has been deprecated and replaced by an item in the global settings block');
+    return '';
+}
 
 /**
  * Print header for admin page

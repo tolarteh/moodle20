@@ -46,6 +46,7 @@ abstract class base_setting {
     const IS_INTEGER = 'int';
     const IS_FILENAME= 'file';
     const IS_PATH    = 'path';
+    const IS_TEXT    = 'text';
 
     // Visible/hidden
     const VISIBLE = 1;
@@ -88,7 +89,8 @@ abstract class base_setting {
     public function __construct($name, $vtype, $value = null, $visibility = self::VISIBLE, $status = self::NOT_LOCKED) {
         // Check vtype
         if ($vtype !== self::IS_BOOLEAN && $vtype !== self::IS_INTEGER &&
-            $vtype !== self::IS_FILENAME && $vtype !== self::IS_PATH) {
+            $vtype !== self::IS_FILENAME && $vtype !== self::IS_PATH &&
+            $vtype !== self::IS_TEXT) {
             throw new base_setting_exception('setting_invalid_type');
         }
 
@@ -402,6 +404,12 @@ abstract class base_setting {
                     throw new base_setting_exception('setting_invalid_path', $oldvalue);
                 }
                 break;
+            case self::IS_TEXT:
+                $value = clean_param($oldvalue, PARAM_TEXT);
+                if ($value != $oldvalue) {
+                    throw new base_setting_exception('setting_invalid_text', $oldvalue);
+                }
+                break;
         }
         return $value;
     }
@@ -425,21 +433,6 @@ abstract class base_setting {
             throw new base_setting_exception('setting_invalid_status', $status);
         }
         return $status;
-    }
-
-    protected function validate_ui_type($type) {
-        if ($type !== self::UI_HTML_CHECKBOX && $type !== self::UI_HTML_RADIOBUTTON &&
-            $type !== self::UI_HTML_DROPDOWN && $type !== self::UI_HTML_TEXTFIELD) {
-            throw new base_setting_exception('setting_invalid_ui_type');
-        }
-        return $type;
-    }
-
-    protected function validate_ui_label($label) {
-        if (empty($label) || $label !== clean_param($label, PARAM_ALPHAEXT)) {
-            throw new base_setting_exception('setting_invalid_ui_label');
-        }
-        return $label;
     }
 
     protected function inform_dependencies($ctype, $oldv) {

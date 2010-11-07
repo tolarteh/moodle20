@@ -7,7 +7,7 @@ require_once($CFG->dirroot.'/calendar/lib.php');
 require_once($CFG->dirroot.'/calendar/preferences_form.php');
 
 $course = $site = get_site();
-if (isset($SESSION->cal_course_referer)) {
+if (!empty($SESSION->cal_course_referer)) {
     $course = $DB->get_record('course', array('id'=>$SESSION->cal_course_referer), '*', MUST_EXIST);
 }
 
@@ -17,6 +17,7 @@ if ($course->id != SITEID) {
     require_login($course);
 } else {
     require_login();
+    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM)); //TODO: wrong
 }
 // Initialize the session variables
 calendar_session_vars();

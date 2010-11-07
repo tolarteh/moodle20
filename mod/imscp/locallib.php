@@ -18,13 +18,15 @@
 /**
  * Private imscp module utility functions
  *
- * @package   mod-imscp
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage imscp
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
+
 require_once("$CFG->dirroot/mod/imscp/lib.php");
-require_once("$CFG->libdir/file/file_browser.php");
 require_once("$CFG->libdir/filelib.php");
 require_once("$CFG->libdir/resourcelib.php");
 
@@ -35,7 +37,7 @@ function imscp_print_content($imscp, $cm, $course) {
     $first = reset($items);
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     $urlbase = "$CFG->wwwroot/pluginfile.php";
-    $path = '/'.$context->id.'/imscp_content/'.$imscp->revision.'/'.$first['href'];
+    $path = '/'.$context->id.'/mod_imscp/content/'.$imscp->revision.'/'.$first['href'];
     $firsturl = file_encode_url($urlbase, $path, false);
 
     echo '<div id="imscp_layout">';
@@ -44,9 +46,10 @@ function imscp_print_content($imscp, $cm, $course) {
     foreach ($items as $item) {
         echo imscp_htmllize_item($item, $imscp, $cm);
     }
-    echo '</ul></div></div>';
+    echo '</ul></div>';
+    echo '<div id="imscp_nav" style="display:none"><button id="nav_skipprev">&lt;&lt;</button><button id="nav_prev">&lt;</button><button id="nav_up">^</button><button id="nav_next">&gt;</button><button id="nav_skipnext">&gt;&gt;</button></div>';
     echo '</div>';
-    echo '<div id="imscp_navpanel"></div>';
+    echo '</div>';
 
     $PAGE->requires->js_init_call('M.mod_imscp.init');
     return;
@@ -60,7 +63,7 @@ function imscp_htmllize_item($item, $imscp, $cm) {
 
     $context = get_context_instance(CONTEXT_MODULE, $cm->id);
     $urlbase = "$CFG->wwwroot/pluginfile.php";
-    $path = '/'.$context->id.'/imscp_content/'.$imscp->revision.'/'.$item['href'];
+    $path = '/'.$context->id.'/mod_imscp/content/'.$imscp->revision.'/'.$item['href'];
     $url = file_encode_url($urlbase, $path, false);
     $result = "<li><a href=\"$url\">".$item['title'].'</a>';
     if ($item['subitems']) {
@@ -78,7 +81,7 @@ function imscp_htmllize_item($item, $imscp, $cm) {
 function imscp_parse_structure($imscp, $context) {
     $fs = get_file_storage();
 
-    if (!$manifestfile = $fs->get_file($context->id, 'imscp_content', $imscp->revision, '/', 'imsmanifest.xml')) {
+    if (!$manifestfile = $fs->get_file($context->id, 'mod_imscp', 'content', $imscp->revision, '/', 'imsmanifest.xml')) {
         return null;
     }
 
@@ -212,6 +215,7 @@ class imscp_file_info extends file_info {
      */
     public function get_params() {
         return array('contextid'=>$this->context->id,
+                     'component'=>'mod_imscp',
                      'filearea' =>$this->filearea,
                      'itemid'   =>null,
                      'filepath' =>null,
@@ -250,9 +254,9 @@ class imscp_file_info extends file_info {
         global $DB;
 
         $children = array();
-        $itemids = $DB->get_records('files', array('contextid'=>$this->context->id, 'filearea'=>$this->filearea), 'itemid', "DISTINCT itemid");
+        $itemids = $DB->get_records('files', array('contextid'=>$this->context->id, 'component'=>'mod_imscp', 'filearea'=>$this->filearea), 'itemid', "DISTINCT itemid");
         foreach ($itemids as $itemid=>$unused) {
-            if ($child = $this->browser->get_file_info($this->context, $this->filearea, $itemid)) {
+            if ($child = $this->browser->get_file_info($this->context, 'mod_imscp', $this->filearea, $itemid)) {
                 $children[] = $child;
             }
         }

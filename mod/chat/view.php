@@ -56,6 +56,7 @@ if ($id) {
 require_course_login($course, true, $cm);
 
 $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+$PAGE->set_context($context);
 
 // show some info for guests
 if (isguestuser()) {
@@ -90,9 +91,12 @@ $groupmode = groups_get_activity_groupmode($cm);
 $currentgroup = groups_get_activity_group($cm, true);
 groups_print_activity_menu($cm, $CFG->wwwroot . "/mod/chat/view.php?id=$cm->id");
 
+// url parameters
+$params = array();
 if ($currentgroup) {
     $groupselect = " AND groupid = '$currentgroup'";
     $groupparam = "&amp;groupid=$currentgroup";
+    $params['groupid'] = $currentgroup;
 } else {
     $groupselect = "";
     $groupparam = "";
@@ -113,7 +117,8 @@ if (has_capability('mod/chat:chat',$context)) {
     }
 
     if (empty($USER->screenreader)) {
-        $chattarget = "/mod/chat/gui_$CFG->chat_method/index.php?id=$chat->id$groupparam";
+        $params['id'] = $chat->id;
+        $chattarget = new moodle_url("/mod/chat/gui_$CFG->chat_method/index.php", $params);
         echo '<p>';
         echo $OUTPUT->action_link($chattarget, $strenterchat, new popup_action('click', $chattarget, "chat$course->id$chat->id$groupparam", array('height' => 500, 'width' => 700)));
         echo '</p>';
@@ -123,8 +128,9 @@ if (has_capability('mod/chat:chat',$context)) {
     // users with screenreader set, will only see 1 link, to the manual refresh page
     // for better accessibility
     // show frame/js-less alternative
-    $link = new moodle_url("/mod/chat/gui_basic/index.php?id=$chat->id$groupparam");
-    $action = new popup_action('click', $link, "chat$course->id$chat->id$groupparam", array('height' => 500, 'width' => 700));
+    $params['id'] = $chat->id;
+    $link = new moodle_url('/mod/chat/gui_basic/index.php', $params);
+    $action = new popup_action('click', $link, "chat{$course->id}{$chat->id}{$groupparam}", array('height' => 500, 'width' => 700));
     echo '<p>';
     echo $OUTPUT->action_link($link, get_string('noframesjs', 'message'), $action, array('title'=>get_string('modulename', 'chat')));
     echo '</p>';
@@ -166,5 +172,8 @@ if ($chatusers = chat_get_users($chat->id, $currentgroup, $cm->groupingid)) {
     echo '</table>';
     echo $OUTPUT->box_end();
 }
+
+$completion = new completion_info($course);
+$completion->set_module_viewed($cm);
 
 echo $OUTPUT->footer();

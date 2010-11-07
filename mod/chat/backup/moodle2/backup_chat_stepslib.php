@@ -35,7 +35,8 @@ class backup_chat_activity_structure_step extends backup_activity_structure_step
             'chattime', 'schedule', 'timemodified'));
         $messages = new backup_nested_element('messages');
 
-        $message = new backup_nested_element('message', array('id'), array('userid', 'groupid', 'system', 'message_text', 'timestamp'));
+        $message = new backup_nested_element('message', array('id'), array(
+            'userid', 'groupid', 'system', 'message_text', 'timestamp'));
 
         // it is not cool to have two tags with same name, so we need to rename message field to message_text
         $message->set_source_alias('message', 'message_text');
@@ -57,7 +58,7 @@ class backup_chat_activity_structure_step extends backup_activity_structure_step
         $message->annotate_ids('group', 'groupid');
 
         // Annotate the file areas in chat module
-        $chat->annotate_files(array('chat_intro'), null); // chat_intro area don't use itemid
+        $chat->annotate_files('mod_chat', 'intro', null); // chat_intro area don't use itemid
 
         // Return the root element (chat), wrapped into standard activity structure
         return $this->prepare_activity_structure($chat);

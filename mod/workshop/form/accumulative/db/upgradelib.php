@@ -18,9 +18,10 @@
 /**
  * Functions used by some stages of accumulative grading upgrade
  *
- * @package   mod-workshopform-accumulative
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    workshopform
+ * @subpackage accumulative
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /**
@@ -89,7 +90,7 @@ function workshopform_accumulative_upgrade_legacy() {
 /**
  * Transforms a given record from workshop_elements_old into an object to be saved into workshopform_accumulative
  *
- * @param stdclass $old legacy record from workshop_elements_old
+ * @param stdClass $old legacy record from workshop_elements_old
  * @param array $newscaleids mapping from old scale types into new standard ones
  * @param int $newworkshopid id of the new workshop instance that replaced the previous one
  * @return stdclass to be saved in workshopform_accumulative
@@ -132,9 +133,9 @@ function workshopform_accumulative_upgrade_element(stdclass $old, array $newscal
 /**
  * Transforms given grade record
  *
- * @param stdclass $old
+ * @param stdClass $old
  * @param int $newassessmentid
- * @param stdclass $newdimensioninfo
+ * @param stdClass $newdimensioninfo
  * @return stdclass
  */
 function workshopform_accumulative_upgrade_grade(stdclass $old, $newassessmentid, stdclass $newdimensioninfo) {

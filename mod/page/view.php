@@ -18,9 +18,10 @@
 /**
  * Page module version information
  *
- * @package   mod-page
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage page
+ * @copyright  2009 Petr Skoda (http://skodak.org)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require('../../config.php');
@@ -32,14 +33,12 @@ $inpopup = optional_param('inpopup', 0, PARAM_BOOL);
 
 if ($p) {
     if (!$page = $DB->get_record('page', array('id'=>$p))) {
-        page_redirect_if_migrated($r, 0);
         print_error('invalidaccessparameter');
     }
     $cm = get_coursemodule_from_instance('page', $page->id, $page->course, false, MUST_EXIST);
 
 } else {
     if (!$cm = get_coursemodule_from_id('page', $id)) {
-        page_redirect_if_migrated(0, $id);
         print_error('invalidcoursemodule');
     }
     $page = $DB->get_record('page', array('id'=>$cm->instance), '*', MUST_EXIST);
@@ -49,10 +48,12 @@ $course = $DB->get_record('course', array('id'=>$cm->course), '*', MUST_EXIST);
 
 require_course_login($course, true, $cm);
 $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+require_capability('mod/page:view', $context);
 
 add_to_log($course->id, 'page', 'view', 'view.php?id='.$cm->id, $page->id, $cm->id);
 
 // Update 'viewed' state if required by completion system
+require_once($CFG->libdir . '/completionlib.php');
 $completion = new completion_info($course);
 $completion->set_module_viewed($cm);
 
@@ -89,8 +90,8 @@ if (!empty($options['printintro'])) {
     }
 }
 
-$content = file_rewrite_pluginfile_urls($page->content, 'pluginfile.php', $context->id, 'page_content', $page->revision);
-$formatoptions = (object)array('noclean'=>true);
+$content = file_rewrite_pluginfile_urls($page->content, 'pluginfile.php', $context->id, 'mod_page', 'content', $page->revision);
+$formatoptions = array('noclean'=>true, 'overflowdiv'=>true);
 $content = format_text($content, $page->contentformat, $formatoptions, $course->id);
 echo $OUTPUT->box($content, "generalbox center clearfix");
 

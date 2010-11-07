@@ -9,7 +9,7 @@
 //
 // The upgrade function in this file will attempt
 // to perform all the necessary actions to upgrade
-// your older installtion to the current version.
+// your older installation to the current version.
 //
 // If there's something it cannot do itself, it
 // will tell you what you need to do.
@@ -24,10 +24,9 @@ function xmldb_qtype_numerical_upgrade($oldversion) {
     global $CFG, $DB;
 
     $dbman = $DB->get_manager();
-    $result = true;
 
 //===== 1.9.0 upgrade line ======//
-    if ($result && $oldversion < 2009100100 ) { //New version in version.php
+    if ($oldversion < 2009100100 ) { //New version in version.php
 
     /// Define table question_numerical_options to be created
         $table = new xmldb_table('question_numerical_options');
@@ -49,10 +48,39 @@ function xmldb_qtype_numerical_upgrade($oldversion) {
             // $dbman->create_table doesnt return a result, we just have to trust it
             $dbman->create_table($table);
         }//else
-        upgrade_plugin_savepoint($result, 2009100100, 'qtype', 'numerical');
+        upgrade_plugin_savepoint(true, 2009100100, 'qtype', 'numerical');
     }
 
-    return $result;
+    if ($oldversion < 2009100101) {
+
+        // Define field instructionsformat to be added to question_numerical_options
+        $table = new xmldb_table('question_numerical_options');
+        $field = new xmldb_field('instructionsformat', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'instructions');
+
+        // Conditionally launch add field instructionsformat
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $rs = $DB->get_recordset('question_numerical_options');
+        foreach ($rs as $record) {
+            if ($CFG->texteditors !== 'textarea') {
+                if (!empty($record->instructions)) {
+                    $record->instructions = text_to_html($record->instructions);
+                }
+                $record->instructionsformat = FORMAT_HTML;
+            } else {
+                $record->instructionsformat = FORMAT_MOODLE;
+            }
+            $DB->update_record('question_numerical_options', $record);
+        }
+        $rs->close();
+
+        // numerical savepoint reached
+        upgrade_plugin_savepoint(true, 2009100101, 'qtype', 'numerical');
+    }
+
+    return true;
 }
 
 

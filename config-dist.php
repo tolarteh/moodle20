@@ -28,6 +28,7 @@
 //                                                                       //
 ///////////////////////////////////////////////////////////////////////////
 unset($CFG);  // Ignore this line
+global $CFG;  // This is necessary here for PHPUnit execution
 $CFG = new stdClass();
 
 //=========================================================================
@@ -248,7 +249,8 @@ $CFG->admin = 'admin';
 //      $CFG->mailprefix = 'mdl-'; // - is the separator for qmail
 //      $CFG->maildomain = 'youremaildomain.com';
 //
-// Enable when setting up advanced reverse proxy load balancing configurations.
+// Enable when setting up advanced reverse proxy load balancing configurations,
+// it may be also necessary to enable this when using port forwarding.
 //      $CFG->reverseproxy = true;
 //
 // Enable when using external SSL appliance for performance reasons.
@@ -344,6 +346,12 @@ $CFG->admin = 'admin';
 // This local directory does not have to be accessible from internet.
 //
 //     $CFG->themedir = '/location/of/extra/themes';
+//
+// Site default language can be set via standard administration interface. If you
+// want to have initial error messages for eventual database connection problems
+// localized too, you have to set your language code here.
+//
+//     $CFG->lang = 'yourlangcode'; // for example 'cs'
 //
 //=========================================================================
 // 8. SETTINGS FOR DEVELOPMENT SERVERS - not intended for production use!!!

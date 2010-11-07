@@ -131,7 +131,6 @@
     echo html_writer::select($roleoptions,'roleid',$roleid,false);
     echo '<label for="menuaction">'.get_string('showactions').'</label>'."\n";
     echo html_writer::select($actionoptions,'action',$action,false);
-    echo $OUTPUT->old_help_icon('participationreport', get_string('participationreport'));
     echo '<input type="submit" value="'.get_string('go').'" />'."\n</div></form>\n";
 
     $baseurl =  $CFG->wwwroot.'/course/report/participation/index.php?id='.$course->id.'&amp;roleid='
@@ -190,24 +189,25 @@
         }
 
         list($actionsql, $params) = $DB->get_in_or_equal($actions, SQL_PARAMS_NAMED, 'action0');
-        $actionsql = "l.action $actionsql";
+        $actionsql = "action $actionsql";
 
         $relatedcontexts = get_related_contexts_string($context);
 
-        $sql = "SELECT ra.userid, u.firstname, u.lastname, u.idnumber, COUNT(l.action) AS count
-                  FROM {role_assignments} ra
-                       JOIN {user} u           ON u.id = ra.userid
-                       LEFT JOIN {log} l ON (l.userid = ra.userid AND l.cmid = :instanceid AND l.time > :timefrom AND $actionsql)
-                 WHERE ra.contextid $relatedcontexts AND ra.roleid = :roleid";
+        $sql = "SELECT ra.userid, u.firstname, u.lastname, u.idnumber, l.actioncount AS count
+                FROM (SELECT * FROM {role_assignments} WHERE contextid $relatedcontexts AND roleid = :roleid ) ra
+                JOIN {user} u ON u.id = ra.userid
+                LEFT JOIN (
+                    SELECT userid, COUNT(action) AS actioncount FROM {log} WHERE cmid = :instanceid AND time > :timefrom AND $actionsql GROUP BY userid
+                ) l ON (l.userid = ra.userid)";
         $params['roleid'] = $roleid;
         $params['instanceid'] = $instanceid;
         $params['timefrom'] = $timefrom;
 
-        if ($table->get_sql_where()) {
-            $sql .= ' AND '.$table->get_sql_where(); //initial bar
+        list($twhere, $tparams) = $table->get_sql_where();
+        if ($twhere) {
+            $sql .= ' WHERE '.$twhere; //initial bar
+            $params = array_merge($params, $tparams);
         }
-
-        $sql .= " GROUP BY ra.userid, u.firstname, u.lastname, u.idnumber";
 
         if ($table->get_sql_sort()) {
             $sql .= ' ORDER BY '.$table->get_sql_sort();
@@ -215,14 +215,12 @@
 
         $countsql = "SELECT COUNT(DISTINCT(ra.userid))
                        FROM {role_assignments} ra
-                            JOIN {user} u           ON u.id = ra.userid
-                            LEFT OUTER JOIN {log} l ON (l.userid = ra.userid AND l.cmid = :instanceid AND l.time > :timefrom AND $actionsql)
                       WHERE ra.contextid $relatedcontexts AND ra.roleid = :roleid";
 
         $totalcount = $DB->count_records_sql($countsql, $params);
 
-        if ($table->get_sql_where()) {
-            $matchcount = $DB->count_records_sql($countsql.' AND '.$table->get_sql_where(), $params);
+        if ($twhere) {
+            $matchcount = $DB->count_records_sql($countsql.' AND '.$twhere, $params);
         } else {
             $matchcount = $totalcount;
         }
@@ -280,10 +278,10 @@
         }
         echo '</div>';
         echo '<div>';
-        echo '<label for="formaction">'.get_string("withselectedusers").'</label>';
+        echo '<label for="formaction">'.get_string('withselectedusers').'</label>';
         $displaylist['messageselect.php'] = get_string('messageselectadd');
         echo html_writer::select($displaylist, 'formaction', '', array(''=>'choosedots'), array('id'=>'formactionselect'));
-        echo $OUTPUT->old_help_icon("participantswithselectedusers", get_string("withselectedusers"));
+        echo $OUTPUT->help_icon('withselectedusers');
         echo '<input type="submit" value="' . get_string('ok') . '" />'."\n";
         echo '</div>';
         echo '</div>'."\n";

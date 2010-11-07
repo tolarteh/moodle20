@@ -8,11 +8,8 @@
     $delete = optional_param('delete', '', PARAM_ALPHANUM); // delete confirmation hash
 
     $PAGE->set_url('/course/delete.php', array('id' => $id));
+    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
     require_login();
-
-    if (!can_delete_course($id)) {
-        print_error('cannotdeletecourse');
-    }
 
     $site = get_site();
 
@@ -21,7 +18,15 @@
     $strcategories = get_string("categories");
 
     if (! $course = $DB->get_record("course", array("id"=>$id))) {
-        print_error("invalidcourseid");
+        print_error("invalidcourseid", 'error', '', $id);
+    }
+    if ($site->id == $course->id) {
+        // can not delete frontpage!
+        print_error("invalidcourseid", 'error', '', $id);
+    }
+
+    if (!can_delete_course($id)) {
+        print_error('cannotdeletecourse');
     }
 
     $category = $DB->get_record("course_categories", array("id"=>$course->category));

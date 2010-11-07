@@ -28,5 +28,7 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$string['language'] = 'Jezik';
 $string['next'] = 'Naslednje';
 $string['previous'] = 'Prejšnje';
+$string['reload'] = 'Osveži';

@@ -16,10 +16,13 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @package   moodlecore
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage group
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Groups not used in course or activity
@@ -624,8 +627,8 @@ function groups_get_course_group($course, $update=false) {
             $SESSION->activegroup[$course->id][$groupmode][0] = 0; // all groups by default if user has accessallgroups
 
         } else if ($usergroups = groups_get_all_groups($course->id, $USER->id, $course->defaultgroupingid)) {
-            $fistgroup = reset($usergroups);
-            $SESSION->activegroup[$course->id][$groupmode][0] = $fistgroup->id;
+            $firstgroup = reset($usergroups);
+            $SESSION->activegroup[$course->id][$groupmode][0] = $firstgroup->id;
 
         } else {
             // this happen when user not assigned into group in SEPARATEGROUPS mode or groups do not exist yet
@@ -698,8 +701,8 @@ function groups_get_activity_group($cm, $update=false) {
             $SESSION->activegroup[$cm->course][$groupmode][$cm->groupingid] = 0; // all groups by default if user has accessallgroups
 
         } else if ($usergroups = groups_get_all_groups($cm->course, $USER->id, $cm->groupingid)) {
-            $fistgroup = reset($usergroups);
-            $SESSION->activegroup[$cm->course][$groupmode][$cm->groupingid] = $fistgroup->id;
+            $firstgroup = reset($usergroups);
+            $SESSION->activegroup[$cm->course][$groupmode][$cm->groupingid] = $firstgroup->id;
 
         } else {
             // this happen when user not assigned into group in SEPARATEGROUPS mode or groups do not exist yet

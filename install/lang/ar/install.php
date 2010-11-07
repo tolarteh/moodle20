@@ -29,10 +29,15 @@
  */
 
 $string['admindirname'] = 'مجلد الإدارة';
+$string['availablelangs'] = 'حزم اللغة المتوفره';
 $string['chooselanguagehead'] = 'اختر اللغة';
+$string['chooselanguagesub'] = 'الرجاء حدد لغة للتثبيت. هذه اللغة ستستخدم أيضاً كاللغة الافتراضية للموقع، لكن يمكنك تغييرها لاحقا.';
+$string['clialreadyinstalled'] = 'الملف config.php موجود مسبقاً، يرجى استخدام admin/cli/upgrade.php إن كنت تريد تحديث موقعك.';
+$string['databasename'] = 'اسم قاعدة البيانات';
 $string['dataroot'] = 'دليل البيانات';
 $string['dbprefix'] = 'مقدمة الجداول';
 $string['dirroot'] = 'دليل مودل';
+$string['environmenthead'] = 'يتم فحص البيئة';
 $string['installation'] = 'تثبيت';
 $string['phpversion'] = 'أصدار PHP';
 $string['phpversionhelp'] = '<p> يتطلب مودل على الاقل الأصدار 4.1.0 لـ PHP </p>

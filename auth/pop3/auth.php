@@ -46,7 +46,7 @@ class auth_plugin_pop3 extends auth_plugin_base {
         }
 
         global $CFG;
-        $hosts = split(';', $this->config->host);   // Could be multiple hosts
+        $hosts = explode(';', $this->config->host);   // Could be multiple hosts
         foreach ($hosts as $host) {                 // Try each host in turn
             $host = trim($host);
 
@@ -108,10 +108,10 @@ class auth_plugin_pop3 extends auth_plugin_base {
      * Returns the URL for changing the user's pw, or false if the default can
      * be used.
      *
-     * @return bool
+     * @return moodle_url
      */
     function change_password_url() {
-        return $this->config->changepasswordurl;
+        return new moodle_url($this->config->changepasswordurl);
     }
 
     /**

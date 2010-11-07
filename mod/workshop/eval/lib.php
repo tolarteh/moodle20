@@ -18,9 +18,10 @@
 /**
  * This file defines interface of all grading evaluation classes
  *
- * @package   mod-workshop-eval
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -28,8 +29,17 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Defines all methods that grading evaluation subplugins has to implement
  *
- * @todo
+ * @todo the final interface is not decided yet as we have only one implementation so far
  */
 interface workshop_evaluation {
 
+    /**
+     * Delete all data related to a given workshop module instance
+     *
+     * This is called from {@link workshop_delete_instance()}.
+     *
+     * @param int $workshopid id of the workshop module instance being deleted
+     * @return void
+     */
+    public static function delete_instance($workshopid);
 }

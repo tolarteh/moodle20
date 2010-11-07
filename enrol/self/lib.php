@@ -18,9 +18,10 @@
 /**
  * Self enrolment plugin.
  *
- * @package   enrol_self
- * @copyright 2010 Petr Skoda  {@link http://skodak.org}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    enrol
+ * @subpackage self
+ * @copyright  2010 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /**
@@ -29,6 +30,38 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class enrol_self_plugin extends enrol_plugin {
+
+    /**
+     * Returns optional enrolment information icons.
+     *
+     * This is used in course list for quick overview of enrolment options.
+     *
+     * We are not using single instance parameter because sometimes
+     * we might want to prevent icon repetition when multiple instances
+     * of one type exist. One instance may also produce several icons.
+     *
+     * @param array $instances all enrol instances of this type in one course
+     * @return array of pix_icon
+     */
+    public function get_info_icons(array $instances) {
+        $key = false;
+        $nokey = false;
+        foreach ($instances as $instance) {
+            if ($instance->password or $instance->customint1) {
+                $key = true;
+            } else {
+                $nokey = true;
+            }
+        }
+        $icons = array();
+        if ($nokey) {
+            $icons[] = new pix_icon('withoutkey', get_string('pluginname', 'enrol_self'), 'enrol_self');
+        }
+        if ($key) {
+            $icons[] = new pix_icon('withkey', get_string('pluginname', 'enrol_self'), 'enrol_self');
+        }
+        return $icons;
+    }
 
     /**
      * Returns localised name of enrol instance
@@ -67,17 +100,64 @@ class enrol_self_plugin extends enrol_plugin {
         return true;
     }
 
+    public function show_enrolme_link(stdClass $instance) {
+        return ($instance->status == ENROL_INSTANCE_ENABLED);
+    }
+
+    /**
+     * Sets up navigation entries.
+     *
+     * @param object $instance
+     * @return void
+     */
+    public function add_course_navigation($instancesnode, stdClass $instance) {
+        if ($instance->enrol !== 'self') {
+             throw new coding_exception('Invalid enrol instance type!');
+        }
+
+        $context = get_context_instance(CONTEXT_COURSE, $instance->courseid);
+        if (has_capability('enrol/self:config', $context)) {
+            $managelink = new moodle_url('/enrol/self/edit.php', array('courseid'=>$instance->courseid, 'id'=>$instance->id));
+            $instancesnode->add($this->get_instance_name($instance), $managelink, navigation_node::TYPE_SETTING);
+        }
+    }
+
+    /**
+     * Returns edit icons for the page with list of instances
+     * @param stdClass $instance
+     * @return array
+     */
+    public function get_action_icons(stdClass $instance) {
+        global $OUTPUT;
+
+        if ($instance->enrol !== 'self') {
+            throw new coding_exception('invalid enrol instance!');
+        }
+        $context = get_context_instance(CONTEXT_COURSE, $instance->courseid);
+
+        $icons = array();
+
+        if (has_capability('enrol/self:config', $context)) {
+            $editlink = new moodle_url("/enrol/self/edit.php", array('courseid'=>$instance->courseid, 'id'=>$instance->id));
+            $icons[] = $OUTPUT->action_icon($editlink, new pix_icon('i/edit', get_string('edit'), 'core', array('class'=>'icon')));
+        }
+
+        return $icons;
+    }
+
     /**
      * Returns link to page which may be used to add new instance of enrolment plugin in course.
      * @param int $courseid
      * @return moodle_url page url
      */
-    public function get_candidate_link($courseid) {
-        if (!has_capability('moodle/course:enrolconfig', get_context_instance(CONTEXT_COURSE, $courseid, MUST_EXIST))) {
+    public function get_newinstance_link($courseid) {
+        $context = get_context_instance(CONTEXT_COURSE, $courseid, MUST_EXIST);
+
+        if (!has_capability('moodle/course:enrolconfig', $context) or !has_capability('enrol/manual:config', $context)) {
             return NULL;
         }
         // multiple instances supported - different roles with different password
-        return new moodle_url('/enrol/self/addinstance.php', array('sesskey'=>sesskey(), 'id'=>$courseid));
+        return new moodle_url('/enrol/self/edit.php', array('courseid'=>$courseid));
     }
 
     /**
@@ -99,35 +179,59 @@ class enrol_self_plugin extends enrol_plugin {
             return null;
         }
 
-        if ($instance->enrolstartdate != 0 and $instance->enrolstartdate < time) {
+        if ($instance->enrolstartdate != 0 and $instance->enrolstartdate < time()) {
             //TODO: inform that we can not enrol yet
             return null;
         }
 
-        if ($instance->enrolenddate != 0 and $instance->enrolenddate > time) {
+        if ($instance->enrolenddate != 0 and $instance->enrolenddate > time()) {
             //TODO: inform that enrolment is not possible any more
             return null;
         }
 
+        if ($instance->customint3 > 0) {
+            // max enrol limit specified
+            $count = $DB->count_records('user_enrolments', array('enrolid'=>$instance->id));
+            if ($count >= $instance->customint3) {
+                // bad luck, no more self enrolments here
+                return $OUTPUT->notification(get_string('maxenrolledreached', 'enrol_self'));
+            }
+        }
+
         require_once("$CFG->dirroot/enrol/self/locallib.php");
+        require_once("$CFG->dirroot/group/lib.php");
+
         $form = new enrol_self_enrol_form(NULL, $instance);
         $instanceid = optional_param('instance', 0, PARAM_INT);
 
         if ($instance->id == $instanceid) {
             if ($data = $form->get_data()) {
                 $enrol = enrol_get_plugin('self');
+                $timestart = time();
                 if ($instance->enrolperiod) {
-                    $timestart = time();
-                    $tineend   = $timestart + $instance->enrolperiod;
+                    $tineend = $timestart + $instance->enrolperiod;
                 } else {
-                    $timestart = 0;
-                    $tineend   = 0;
+                    $tineend = 0;
                 }
 
                 $this->enrol_user($instance, $USER->id, $instance->roleid, $timestart, $tineend);
                 add_to_log($instance->courseid, 'course', 'enrol', '../enrol/users.php?id='.$instance->courseid, $instance->courseid); //there should be userid somewhere!
+
+                if ($instance->password and $instance->customint1 and $data->enrolpassword !== $instance->password) {
+                    // it must be a group enrolment, let's assign group too
+                    $groups = $DB->get_records('groups', array('courseid'=>$instance->courseid), 'id', 'id, enrolmentkey');
+                    foreach ($groups as $group) {
+                        if (empty($group->enrolmentkey)) {
+                            continue;
+                        }
+                        if ($group->enrolmentkey === $data->enrolpassword) {
+                            groups_add_member($group->id, $USER->id);
+                            break;
+                        }
+                    }
+                }
                 // send welcome
-                if ($this->get_config('sendcoursewelcomemessage')) {
+                if ($instance->customint4) {
                     $this->email_welcome_message($instance, $USER);
                 }
             }
@@ -141,247 +245,18 @@ class enrol_self_plugin extends enrol_plugin {
     }
 
     /**
-     * Adds enrol instance UI to course edit form
-     *
-     * @param object $instance enrol instance or null if does not exist yet
-     * @param MoodleQuickForm $mform
-     * @param object $data
-     * @param object $context context of existing course or parent category if course does not exist
-     * @return void
-     */
-    public function course_edit_form($instance, MoodleQuickForm $mform, $data, $context) {
-
-        $i = isset($instance->id) ? $instance->id : 0;
-        $plugin = enrol_get_plugin('self');
-        $header = $plugin->get_instance_name($instance);
-        $config = has_capability('enrol/self:config', $context);
-
-        $mform->addElement('header', 'enrol_self_header_'.$i, $header);
-
-
-        $options = array(ENROL_INSTANCE_ENABLED  => get_string('yes'),
-                         ENROL_INSTANCE_DISABLED => get_string('no'));
-        $mform->addElement('select', 'enrol_self_status_'.$i, get_string('status', 'enrol_self'), $options);
-        $mform->setDefault('enrol_self_status_'.$i, $this->get_config('status'));
-        $mform->setAdvanced('enrol_self_status_'.$i, $this->get_config('status_adv'));
-        if (!$config) {
-            $mform->hardFreeze('enrol_self_status_'.$i);
-        }
-
-
-        $mform->addElement('passwordunmask', 'enrol_self_password_'.$i, get_string('password', 'enrol_self'));
-        if (!$config) {
-            $mform->hardFreeze('enrol_self_password_'.$i);
-        } else {
-            $mform->disabledIf('enrol_self_password_'.$i, 'enrol_self_status_'.$i, 'noteq', ENROL_INSTANCE_ENABLED);
-        }
-
-
-        $options = array(1 => get_string('yes'),
-                         0 => get_string('no'));
-        $mform->addElement('select', 'enrol_self_customint1_'.$i, get_string('groupkey', 'enrol_self'), $options);
-        $mform->setDefault('enrol_self_customint1_'.$i, $this->get_config('groupkey'));
-        $mform->setAdvanced('enrol_self_customint1_'.$i, $this->get_config('groupkey_adv'));
-        if (!$config) {
-            $mform->hardFreeze('enrol_self_customint1_'.$i);
-        } else {
-            $mform->disabledIf('enrol_self_customint1_'.$i, 'enrol_self_status_'.$i, 'noteq', ENROL_INSTANCE_ENABLED);
-        }
-
-
-        if ($instance) {
-            $roles = get_default_enrol_roles($context, $instance->roleid);
-        } else {
-            $roles = get_default_enrol_roles($context, $this->get_config('roleid'));
-        }
-        $mform->addElement('select', 'enrol_self_roleid_'.$i, get_string('role', 'enrol_self'), $roles);
-        $mform->setDefault('enrol_self_roleid_'.$i, $this->get_config('roleid'));
-        $mform->setAdvanced('enrol_self_roleid_'.$i, $this->get_config('roleid_adv'));
-        if (!$config) {
-            $mform->hardFreeze('enrol_self_roleid_'.$i);
-        } else {
-            $mform->disabledIf('enrol_self_roleid_'.$i, 'enrol_self_status_'.$i, 'noteq', ENROL_INSTANCE_ENABLED);
-        }
-
-
-        $mform->addElement('duration', 'enrol_self_enrolperiod_'.$i, get_string('enrolperiod', 'enrol_self'), array('optional' => true, 'defaultunit' => 86400));
-        $mform->setDefault('enrol_self_enrolperiod_'.$i, $this->get_config('enrolperiod'));
-        $mform->setAdvanced('enrol_self_enrolperiod_'.$i, $this->get_config('enrolperiod_adv'));
-        if (!$config) {
-            $mform->hardFreeze('enrol_self_enrolperiod_'.$i);
-        } else {
-            $mform->disabledIf('enrol_self_enrolperiod_'.$i, 'enrol_self_status_'.$i, 'noteq', ENROL_INSTANCE_ENABLED);
-        }
-
-
-        $mform->addElement('date_selector', 'enrol_self_enrolstartdate_'.$i, get_string('enrolstartdate', 'enrol_self'), array('optional' => true));
-        $mform->setDefault('enrol_self_enrolstartdate_'.$i, 0);
-        $mform->setAdvanced('enrol_self_enrolstartdate_'.$i, 1);
-        if (!$config) {
-            $mform->hardFreeze('enrol_self_enrolstartdate_'.$i);
-        } else {
-            $mform->disabledIf('enrol_self_enrolstartdate_'.$i, 'enrol_self_status_'.$i, 'noteq', ENROL_INSTANCE_ENABLED);
-        }
-
-
-        $mform->addElement('date_selector', 'enrol_self_enrolenddate_'.$i, get_string('enrolenddate', 'enrol_self'), array('optional' => true));
-        $mform->setDefault('enrol_self_enrolenddate_'.$i, 0);
-        $mform->setAdvanced('enrol_self_enrolenddate_'.$i, 1);
-        if (!$config) {
-            $mform->hardFreeze('enrol_self_enrolenddate_'.$i);
-        } else {
-            $mform->disabledIf('enrol_self_enrolenddate_'.$i, 'enrol_self_status_'.$i, 'noteq', ENROL_INSTANCE_ENABLED);
-        }
-
-
-        // now add all values from enrol table
-        if ($instance) {
-            foreach($instance as $key=>$val) {
-                $data->{'enrol_self_'.$key.'_'.$i} = $val;
-            }
-        }
-    }
-
-
-    /**
-     * Validates course edit form data
-     *
-     * @param object $instance enrol instance or null if does not exist yet
-     * @param array $data
-     * @param object $context context of existing course or parent category if course does not exist
-     * @return array errors array
-     */
-    public function course_edit_validation($instance, array $data, $context) {
-        $errors = array();
-
-        if (!has_capability('enrol/self:config', $context)) {
-            // we are going to ignore the data later anyway, they would not be able to fix the form anyway
-            return $errors;
-        }
-
-        $i = isset($instance->id) ? $instance->id : 0;
-
-        $password = empty($data['enrol_self_password_'.$i]) ? '' : $data['enrol_self_password_'.$i];
-        $checkpassword = false;
-
-        if ($instance) {
-            if ($data['enrol_self_status_'.$i] == ENROL_INSTANCE_ENABLED) {
-                if ($instance->password !== $password) {
-                    $checkpassword = true;
-                }
-            }
-        } else {
-            if ($data['enrol_self_status_'.$i] == ENROL_INSTANCE_ENABLED) {
-                $checkpassword = true;
-            }
-        }
-
-        if ($checkpassword) {
-            $require = $this->get_config('requirepassword');
-            $policy  = $this->get_config('usepasswordpolicy');
-            if ($require and empty($password)) {
-                $errors['enrol_self_password_'.$i] = get_string('required');
-            } else if ($policy) {
-                $errmsg = '';//prevent eclipse warning
-                if (!check_password_policy($password, $errmsg)) {
-                    $errors['enrol_self_password_'.$i] = $errmsg;
-                }
-            }
-        }
-
-        if ($data['enrol_self_status_'.$i] == ENROL_INSTANCE_ENABLED) {
-            if (!empty($data['enrol_self_enrolenddate_'.$i]) and $data['enrol_self_enrolenddate_'.$i] < $data['enrol_self_enrolstartdate_'.$i]) {
-                $errors['enrol_self_enrolenddate_'.$i] = get_string('enrolenddaterror', 'enrol_self');
-            }
-        }
-
-        return $errors;
-    }
-
-
-    /**
-     * Called after updating/inserting course.
-     *
-     * @param bool $inserted true if course just inserted
-     * @param object $course
-     * @param object $data form data
-     * @return void
-     */
-    public function course_updated($inserted, $course, $data) {
-        global $DB;
-
-        $context = get_context_instance(CONTEXT_COURSE, $course->id);
-
-        if (has_capability('enrol/self:config', $context)) {
-            if ($inserted) {
-                if (isset($data->enrol_self_status_0)) {
-                    $fields = array('status'=>$data->enrol_self_status_0);
-                    if ($fields['status'] == ENROL_INSTANCE_ENABLED) {
-                        $fields['password']       = $data->enrol_self_password_0;
-                        $fields['customint1']     = $data->enrol_self_customint1_0;
-                        $fields['roleid']         = $data->enrol_self_roleid_0;
-                        $fields['enrolperiod']    = $data->enrol_self_enrolperiod_0;
-                        $fields['enrolstartdate'] = $data->enrol_self_enrolstartdate_0;
-                        $fields['enrolenddate']   = $data->enrol_self_enrolenddate_0;
-                    } else {
-                        if ($this->get_config('requirepassword')) {
-                            // make sure some password is set after enabling this plugin
-                            $fields['password']   = generate_password(20);
-                        }
-                        $fields['customint1']     = $this->get_config('groupkey');
-                        $fields['roleid']         = $this->get_config('roleid');
-                        $fields['enrolperiod']    = $this->get_config('enrolperiod');
-                        $fields['enrolstartdate'] = 0;
-                        $fields['enrolenddate']   = 0;
-                    }
-                    $this->add_instance($course, $fields);
-                }
-
-            } else {
-                $instances = $DB->get_records('enrol', array('courseid'=>$course->id, 'enrol'=>'self'));
-                foreach ($instances as $instance) {
-                    $i = $instance->id;
-
-                    if (isset($data->{'enrol_self_status_'.$i})) {
-                        $instance->status       = $data->{'enrol_self_status_'.$i};
-                        $instance->timemodified = time();
-                        if ($instance->status == ENROL_INSTANCE_ENABLED) {
-                            $instance->password       = $data->{'enrol_self_password_'.$i};
-                            $instance->customint1     = $data->{'enrol_self_customint1_'.$i};
-                            $instance->roleid         = $data->{'enrol_self_roleid_'.$i};
-                            $instance->enrolperiod    = $data->{'enrol_self_enrolperiod_'.$i};
-                            $instance->enrolstartdate = $data->{'enrol_self_enrolstartdate_'.$i};
-                            $instance->enrolenddate   = $data->{'enrol_self_enrolenddate_'.$i};
-                        }
-                        $DB->update_record('enrol', $instance);
-                    }
-                }
-            }
-
-        } else {
-            if ($inserted) {
-                if ($this->get_config('defaultenrol')) {
-                    $this->add_default_instance($course);
-                }
-            } else {
-                // bad luck, user can not change anything
-            }
-        }
-    }
-
-    /**
      * Add new instance of enrol plugin with default settings.
      * @param object $course
      * @return int id of new instance
      */
     public function add_default_instance($course) {
-        global $DB;
-
-        $exists = $DB->record_exists('enrol', array('courseid'=>$course->id, 'enrol'=>'self'));
-
-        $fields = array('customint1'=>$this->get_config('groupkey'), 'enrolperiod'=>$this->get_config('enrolperiod', 0), 'roleid'=>$this->get_config('roleid', 0));
-
-        $fields['status'] = $exists ? ENROL_INSTANCE_DISABLED : $this->get_config('status');
+        $fields = array('customint1'  => $this->get_config('groupkey'),
+                        'customint2'  => $this->get_config('longtimenosee'),
+                        'customint3'  => $this->get_config('maxenrolled'),
+                        'customint4'  => $this->get_config('sendcoursewelcomemessage'),
+                        'enrolperiod' => $this->get_config('enrolperiod', 0),
+                        'status'      => $this->get_config('status'),
+                        'roleid'      => $this->get_config('roleid', 0));
 
         if ($this->get_config('requirepassword')) {
             $fields['password'] = generate_password(20);
@@ -402,20 +277,22 @@ class enrol_self_plugin extends enrol_plugin {
 
         $course = $DB->get_record('course', array('id'=>$instance->courseid), '*', MUST_EXIST);
 
-        if (!empty($instance->customtext1)) {
-            //note: there is no gui for this yet, do we really need it?
-            $message = formaat_string($instance->customtext1);
+        $a = new stdClass();
+        $a->coursename = format_string($course->fullname);
+        $a->profileurl = "$CFG->wwwroot/user/view.php?id=$user->id&course=$course->id";
+
+        if (trim($instance->customtext1) !== '') {
+            $message = $instance->customtext1;
+            $message = str_replace('{$a->coursename}', $a->coursename, $message);
+            $message = str_replace('{$a->profileurl}', $a->profileurl, $message);
         } else {
-            $a = new object();
-            $a->coursename = format_string($course->fullname);
-            $a->profileurl = "$CFG->wwwroot/user/view.php?id=$user->id&course=$course->id";
-            $message = get_string("welcometocoursetext", 'enrol_self', $a);
+            $message = get_string('welcometocoursetext', 'enrol_self', $a);
         }
 
         $subject = get_string('welcometocourse', 'enrol_self', format_string($course->fullname));
 
         $context = get_context_instance(CONTEXT_COURSE, $course->id);
-        $rusers = null;
+        $rusers = array();
         if (!empty($CFG->coursecontact)) {
             $croles = explode(',', $CFG->coursecontact);
             $rusers = get_role_users($croles, $context, true, '', 'r.sortorder ASC, u.lastname ASC');
@@ -428,6 +305,69 @@ class enrol_self_plugin extends enrol_plugin {
 
         email_to_user($user, $contact, $subject, $message);
     }
+
+    /**
+     * Enrol self cron support
+     * @return void
+     */
+    public function cron() {
+        global $DB;
+
+        if (!enrol_is_enabled('self')) {
+            return;
+        }
+
+        $plugin = enrol_get_plugin('self');
+
+        $now = time();
+
+        //note: the logic of self enrolment guarantees that user logged in at least once (=== u.lastaccess set)
+        //      and that user accessed course at least once too (=== user_lastaccess record exists)
+
+        // first deal with users that did not log in for a really long time
+        $sql = "SELECT e.*, ue.userid
+                  FROM {user_enrolments} ue
+                  JOIN {enrol} e ON (e.id = ue.enrolid AND e.enrol = 'self' AND e.customint2 > 0)
+                  JOIN {user} u ON u.id = ue.userid
+                 WHERE :now - u.lastaccess > e.customint2";
+        $rs = $DB->get_recordset_sql($sql, array('now'=>$now));
+        foreach ($rs as $instance) {
+            $userid = $instance->userid;
+            unset($instance->userid);
+            $plugin->unenrol_user($instance, $userid);
+            mtrace("unenrolling user $userid from course $instance->courseid as they have did not log in for $instance->customint2 days");
+        }
+        $rs->close();
+
+        // now unenrol from course user did not visit for a long time
+        $sql = "SELECT e.*, ue.userid
+                  FROM {user_enrolments} ue
+                  JOIN {enrol} e ON (e.id = ue.enrolid AND e.enrol = 'self' AND e.customint2 > 0)
+                  JOIN {user_lastaccess} ul ON (ul.userid = ue.userid AND ul.courseid = e.courseid)
+                 WHERE :now - ul.timeaccess > e.customint2";
+        $rs = $DB->get_recordset_sql($sql, array('now'=>$now));
+        foreach ($rs as $instance) {
+            $userid = $instance->userid;
+            unset($instance->userid);
+            $plugin->unenrol_user($instance, $userid);
+            mtrace("unenrolling user $userid from course $instance->courseid as they have did not access course for $instance->customint2 days");
+        }
+        $rs->close();
+
+        flush();
+    }
 }
 
+/**
+ * Indicates API features that the enrol plugin supports.
+ *
+ * @param string $feature
+ * @return mixed True if yes (some features may use other values)
+ */
+function enrol_self_supports($feature) {
+    switch($feature) {
+        case ENROL_RESTORE_TYPE: return ENROL_RESTORE_EXACT;
 
+        default: return null;
+    }
+}

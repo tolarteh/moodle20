@@ -18,14 +18,13 @@
 /**
  * Page configuration form
  *
- * @package   mod-page
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage page
+ * @copyright  2009 Petr Skoda (http://skodak.org)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-if (!defined('MOODLE_INTERNAL')) {
-    die('Direct access to this script is forbidden.');    ///  It must be included from a Moodle page
-}
+defined('MOODLE_INTERNAL') || die;
 
 require_once($CFG->dirroot.'/course/moodleform_mod.php');
 require_once($CFG->dirroot.'/mod/page/locallib.php');
@@ -34,7 +33,8 @@ require_once($CFG->libdir.'/filelib.php');
 class mod_page_mod_form extends moodleform_mod {
     function definition() {
         global $CFG, $DB;
-        $mform =& $this->_form;
+
+        $mform = $this->_form;
 
         $config = get_config('page');
 
@@ -44,7 +44,7 @@ class mod_page_mod_form extends moodleform_mod {
         if (!empty($CFG->formatstringstriptags)) {
             $mform->setType('name', PARAM_TEXT);
         } else {
-            $mform->setType('name', PARAM_CLEAN);
+            $mform->setType('name', PARAM_CLEANHTML);
         }
         $mform->addRule('name', null, 'required', null, 'client');
         $this->add_intro_editor($config->requiremodintro);
@@ -52,7 +52,7 @@ class mod_page_mod_form extends moodleform_mod {
         //-------------------------------------------------------
         $mform->addElement('header', 'contentsection', get_string('contentheader', 'page'));
         $mform->addElement('editor', 'page', get_string('content', 'page'), null, page_get_editor_options($this->context));
-        $mform->addElement('static', 'note', '', '<i>(TODO: The format switching is not implemented yet, sorry...)</i>');
+        $mform->addRule('page', get_string('required'), 'required', null, 'client');
 
         //-------------------------------------------------------
         $mform->addElement('header', 'optionssection', get_string('optionsheader', 'page'));
@@ -122,7 +122,7 @@ class mod_page_mod_form extends moodleform_mod {
         if ($this->current->instance) {
             $draftitemid = file_get_submitted_draft_itemid('page');
             $default_values['page']['format'] = $default_values['contentformat'];
-            $default_values['page']['text']   = file_prepare_draft_area($draftitemid, $this->context->id, 'page_content', 0, page_get_editor_options($this->context), $default_values['content']);
+            $default_values['page']['text']   = file_prepare_draft_area($draftitemid, $this->context->id, 'mod_page', 'content', 0, page_get_editor_options($this->context), $default_values['content']);
             $default_values['page']['itemid'] = $draftitemid;
         }
         if (!empty($default_values['displayoptions'])) {

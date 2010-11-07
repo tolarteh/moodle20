@@ -10,7 +10,7 @@
  * @author    Marc McIntyre <mmcintyre@squiz.net>
  * @copyright 2006 Squiz Pty Ltd (ABN 77 084 670 600)
  * @license   http://matrix.squiz.net/developer/tools/php_cs/licence BSD Licence
- * @version   CVS: $Id: AbstractParser.php,v 1.1 2009-05-19 15:22:44 nicolasconnault Exp $
+ * @version   CVS: $Id: AbstractParser.php,v 1.2 2010/07/20 01:16:56 jonathanharker Exp $
  * @link      http://pear.php.net/package/PHP_CodeSniffer
  */
 
@@ -215,7 +215,7 @@ abstract class PHP_CodeSniffer_CommentParser_AbstractParser
     private function _parse($comment)
     {
         // Firstly, remove the comment tags and any stars from the left side.
-        $lines = split($this->phpcsFile->eolChar, $comment);
+        $lines = explode($this->phpcsFile->eolChar, $comment);
         foreach ($lines as &$line) {
             $line = trim($line);
 

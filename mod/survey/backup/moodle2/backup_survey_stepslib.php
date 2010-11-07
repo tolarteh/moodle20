@@ -43,7 +43,7 @@ class backup_survey_activity_structure_step extends backup_activity_structure_st
 
         $answers = new backup_nested_element('answers');
 
-        $answer = new backup_nested_element('anwser', array('id'), array(
+        $answer = new backup_nested_element('answer', array('id'), array(
             'userid', 'question', 'time', 'answer1',
             'answer2'));
 
@@ -71,7 +71,7 @@ class backup_survey_activity_structure_step extends backup_activity_structure_st
         $analys->annotate_ids('user', 'userid');
 
         // Define file annotations
-        $survey->annotate_files(array('survey_intro'), null); // This file area hasn't itemid
+        $survey->annotate_files('mod_survey', 'intro', null); // This file area hasn't itemid
 
         // Return the root element (survey), wrapped into standard activity structure
         return $this->prepare_activity_structure($survey);

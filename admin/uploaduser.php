@@ -25,13 +25,7 @@ $choices = array(UU_ADDNEW    => get_string('uuoptype_addnew', 'admin'),
                  UU_UPDATE     => get_string('uuoptype_update', 'admin'));
 
 @set_time_limit(3600); // 1 hour should be enough
-@raise_memory_limit('256M');
-if (function_exists('apache_child_terminate')) {
-    // if we are running from Apache, give httpd a hint that
-    // it can recycle the process after it's done. Apache's
-    // memory management is truly awful but we can help it.
-    @apache_child_terminate();
-}
+raise_memory_limit(MEMORY_EXTRA);
 
 require_login();
 admin_externalpage_setup('uploadusers');
@@ -67,10 +61,14 @@ $strduplicateusername       = get_string('duplicateusername', 'error');
 $struserauthunsupported     = get_string('userauthunsupported', 'error');
 $stremailduplicate          = get_string('useremailduplicate', 'error');
 
+$strinvalidpasswordpolicy   = get_string('invalidpasswordpolicy', 'error');
 $errorstr                   = get_string('error');
 
 $returnurl = $CFG->wwwroot.'/'.$CFG->admin.'/uploaduser.php';
 $bulknurl  = $CFG->wwwroot.'/'.$CFG->admin.'/user/user_bulk.php';
+
+$today = time();
+$today = make_timestamp(date('Y', $today), date('m', $today), date('d', $today), 0, 0, 0);
 
 // array of all valid fields for validation
 $STD_FIELDS = array('id', 'firstname', 'lastname', 'username', 'email',
@@ -78,7 +76,7 @@ $STD_FIELDS = array('id', 'firstname', 'lastname', 'username', 'email',
         'maildisplay', 'maildigest', 'htmleditor', 'ajax', 'autosubscribe',
         'mnethostid', 'institution', 'department', 'idnumber', 'skype',
         'msn', 'aim', 'yahoo', 'icq', 'phone1', 'phone2', 'address',
-        'url', 'description', 'descriptionformat', 'oldusername', 'emailstop', 'deleted',
+        'url', 'description', 'descriptionformat', 'oldusername', 'deleted',
         'password');
 
 $PRF_FIELDS = array();
@@ -164,7 +162,7 @@ if ($formdata = $mform->is_cancelled()) {
     // caches
     $ccache       = array(); // course cache - do not fetch all courses here, we  will not probably use them all anyway!
     $rolecache    = uu_allowed_roles_cache(); // roles lookup cache
-    $manualcacche = array(); // cache of used manual enrol plugins in each course
+    $manualcache  = array(); // cache of used manual enrol plugins in each course
 
     $allowedauths   = uu_allowed_auths();
     $allowedauths   = array_keys($allowedauths);
@@ -199,28 +197,19 @@ if ($formdata = $mform->is_cancelled()) {
 
         $forcechangepassword = false;
 
-        $user = new object();
+        $user = new stdClass();
         // by default, use the local mnet id (this may be changed in the file)
         $user->mnethostid = $CFG->mnet_localhost_id;
         // add fields to user object
         foreach ($line as $key => $value) {
             if ($value !== '') {
                 $key = $columns[$key];
-                // password is special field
-                if ($key == 'password') {
-                    if ($value !== '') {
-                        $user->password = hash_internal_user_password($value);
-                        if (!empty($CFG->passwordpolicy) and !check_password_policy($value, $errmsg)) {
-                            $forcechangepassword = true;
-                            $weakpasswords++;
-                        }
-                    }
-                } else {
-                    $user->$key = $value;
-                    if (in_array($key, $upt->columns)) {
-                        $upt->track($key, $value);
-                    }
+                $user->$key = $value;
+                if (in_array($key, $upt->columns)) {
+                    $upt->track($key, $value);
                 }
+            } else {
+                $user->$columns[$key] = '';
             }
         }
 
@@ -441,21 +430,12 @@ if ($formdata = $mform->is_cancelled()) {
                     $allowed = array_merge($STD_FIELDS, $PRF_FIELDS);
                 }
                 foreach ($allowed as $column) {
+                    $temppasswordhandler = '';
                     if ($column == 'username') {
                         continue;
                     }
-                    if ($column == 'password') {
-                        if (!$updatepasswords or $updatetype == 3) {
-                            continue;
-                        } else if (!empty($user->password)) {
-                            $upt->track('password', get_string('updated'));
-                            if ($forcechangepassword) {
-                                set_user_preference('auth_forcepasswordchange', 1, $existinguser->id);
-                            }
-                        }
-                    }
-                    if ((array_key_exists($column, $existinguser) and array_key_exists($column, $user)) or in_array($column, $PRF_FIELDS)) {
-                        if ($updatetype == 3 and $existinguser->$column !== '') {
+                    if ((property_exists($existinguser, $column) and property_exists($user, $column)) or in_array($column, $PRF_FIELDS)) {
+                        if ($updatetype == 3 && $existinguser->$column !== '') {
                             //missing == non-empty only
                             continue;
                         }
@@ -472,16 +452,48 @@ if ($formdata = $mform->is_cancelled()) {
                                     }
                                 }
                             }
-                            if ($column != 'password' and in_array($column, $upt->columns)) {
-                                $upt->track($column, '', 'normal', false); // clear previous
+
+                            if ($column == 'password') {
+                                $temppasswordhandler = $existinguser->password;
+                            }
+
+                            if ($column == 'auth') {
+                                if (isset($user->auth) && empty($user->auth)) {
+                                    $user->auth = 'manual';
+                                }
+
+                                $existinguserauth = get_auth_plugin($existinguser->auth);
+                                $existingisinternalauth = $existinguserauth->is_internal();
+
+                                $userauth = get_auth_plugin($user->auth);
+                                $isinternalauth = $userauth->is_internal();
+
+                                if ($isinternalauth === $existingisinternalauth) {
+                                    if ($updatepasswords) {
+                                        if (empty($user->password)) {
+                                            $forcechangepassword = true;
+                                        }
+                                    }
+                                } else if ($isinternalauth) {
+                                    $existinguser->password = '';
+                                    $forcechangepassword = true;
+                                }
+                            }
+
+                            $upt->track($column, '', 'normal', false); // clear previous
+                            if ($column != 'password' && in_array($column, $upt->columns)) {
                                 $upt->track($column, $existinguser->$column.'-->'.$user->$column, 'info');
                             }
                             $existinguser->$column = $user->$column;
+
+                            if (!isset($user->auth) && !$updatepasswords) {
+                                $existinguser->password = $temppasswordhandler;
+                            }
                         }
                     }
                 }
 
-                // do not update record if new auth plguin does not exist!
+                // do not update record if new auth plugin does not exist!
                 if (!in_array($existinguser->auth, $availableauths)) {
                     $upt->track('auth', get_string('userautherror', 'error', $existinguser->auth), 'error');
                     $upt->track('status', $strusernotupdated, 'error');
@@ -491,11 +503,54 @@ if ($formdata = $mform->is_cancelled()) {
                     $upt->track('auth', $struserauthunsupported, 'warning');
                 }
 
+                $auth = get_auth_plugin($existinguser->auth);
+                $isinternalauth = $auth->is_internal();
+
+                if ($isinternalauth && $updatepasswords && !check_password_policy($user->password, $errmsg)) {
+                    $upt->track('password', get_string('internalauthpassworderror', 'error', $existinguser->password), 'error');
+                    $upt->track('status', $strusernotupdated, 'error');
+                    $userserrors++;
+                    continue;
+                } else {
+                    $forcechangepassword = true;
+                }
+
+                if (!$isinternalauth) {
+                    $existinguser->password = 'not cached';
+                    $upt->track('password', 'not cached');
+                    $forcechangepassword = false;
+                } else if ($updatepasswords){
+                    $existinguser->password = hash_internal_user_password($existinguser->password);
+                } else {
+                    $existinguser->password = $temppasswordhandler;
+                }
+
                 $DB->update_record('user', $existinguser);
+
+                //remove user preference
+                
+                if (get_user_preferences('create_password', false, $existinguser)) {
+                    unset_user_preference('create_password', $existinguser);
+                }
+                if (get_user_preferences('auth_forcepasswordchange', false, $existinguser)) {
+                    unset_user_preference('auth_forcepasswordchange', $existinguser);
+                }
+
+                if ($isinternalauth && $updatepasswords) {
+                    if (empty($existinguser->password)) {
+                        set_user_preference('create_password', 1, $existinguser->id);
+                        set_user_preference('auth_forcepasswordchange', 1, $existinguser->id);
+                        $upt->track('password', get_string('new'));
+                    } else if ($forcechangepassword) {
+                        set_user_preference('auth_forcepasswordchange', 1, $existinguser->id);
+                    }
+                }
                 $upt->track('status', $struserupdated);
                 $usersupdated++;
                 // save custom profile fields data from csv file
                 profile_save_data($existinguser);
+
+                events_trigger('user_updated', $existinguser);
             }
 
             if ($bulk == 2 or $bulk == 3) {
@@ -510,11 +565,24 @@ if ($formdata = $mform->is_cancelled()) {
             $user->timemodified = time();
             $user->timecreated = time();
 
-            if (!$createpasswords and empty($user->password)) {
-                $upt->track('password', get_string('missingfield', 'error', 'password'), 'error');
-                $upt->track('status', $strusernotaddederror, 'error');
-                $userserrors++;
-                continue;
+            if (isset($user->auth) && empty($user->auth)) {
+                $user->auth = 'manual';
+            }
+            $auth = get_auth_plugin($user->auth);
+            $isinternalauth = $auth->is_internal();
+
+            if (!$createpasswords && $isinternalauth) {
+                if (empty($user->password)) {
+                    $upt->track('password', get_string('missingfield', 'error', 'password'), 'error');
+                    $upt->track('status', $strusernotaddederror, 'error');
+                    $userserrors++;
+                    continue;
+                } else if ($forcechangepassword) {
+                    $upt->track('password', $strinvalidpasswordpolicy);
+                    $upt->track('status', $strusernotaddederror, 'error');
+                    $userserrors++;
+                    continue;
+                }
             }
 
             // do not insert record if new auth plguin does not exist!
@@ -539,20 +607,27 @@ if ($formdata = $mform->is_cancelled()) {
                     $upt->track('email', $stremailduplicate, 'warning');
                 }
             }
+            if (!$isinternalauth) {
+                $user->password = 'not cached';
+                $upt->track('password', 'not cached');
+            } else {
+                $user->password = hash_internal_user_password($user->password);
+            }
 
             $user->id = $DB->insert_record('user', $user);
             $info = ': ' . $user->username .' (ID = ' . $user->id . ')';
             $upt->track('status', $struseradded);
             $upt->track('id', $user->id, 'normal', false);
             $usersnew++;
-            if ($createpasswords and empty($user->password)) {
-                // passwords will be created and sent out on cron
-                set_user_preference('create_password', 1, $user->id);
-                set_user_preference('auth_forcepasswordchange', 1, $user->id);
-                $upt->track('password', get_string('new'));
-            }
-            if ($forcechangepassword) {
-                set_user_preference('auth_forcepasswordchange', 1, $user->id);
+            if ($createpasswords && $isinternalauth) {
+                if (empty($user->password) || $forcechangepassword) {
+                    // passwords will be created and sent out on cron
+                    set_user_preference('create_password', 1, $user->id);
+                    set_user_preference('auth_forcepasswordchange', 1, $user->id);
+                    $upt->track('password', get_string('new'));
+                } else {
+                    set_user_preference('auth_forcepasswordchange', 1, $user->id);
+                }
             }
 
             // save custom profile fields data
@@ -560,6 +635,8 @@ if ($formdata = $mform->is_cancelled()) {
 
             // make sure user context exists
             get_context_instance(CONTEXT_USER, $user->id);
+
+            events_trigger('user_created', $user);
 
             if ($bulk == 1 or $bulk == 3) {
                 if (!in_array($user->id, $SESSION->bulk_users)) {
@@ -628,19 +705,17 @@ if ($formdata = $mform->is_cancelled()) {
 
                 if ($rid) {
                     // find duration
-                    $timestart = 0;
                     $timeend   = 0;
                     if (!empty($user->{'enrolperiod'.$i})) {
                         $duration = (int)$user->{'enrolperiod'.$i} * 86400; // convert days to seconds
                         if ($duration > 0) { // sanity check
-                            $timestart = time();
-                            $timeend   = $timestart + $duration;
+                            $timeend   = $today + $duration;
                         }
                     }
 
-                    $manual->enrol_user($manualcache[$courseid], $user->id, $rid, $timestart, $timeend, true);
+                    $manual->enrol_user($manualcache[$courseid], $user->id, $rid, $today, $timeend, true);
 
-                    $a = new object();
+                    $a = new stdClass();
                     $a->course = $shortname;
                     $a->role   = $rolecache[$rid]->name;
                     $upt->track('enrolments', get_string('enrolledincourserole', 'enrol_manual', $a));
@@ -651,7 +726,7 @@ if ($formdata = $mform->is_cancelled()) {
             if (!empty($user->{'group'.$i})) {
                 // make sure user is enrolled into course before adding into groups
                 if (!is_enrolled($coursecontext, $user->id)) {
-                    $upt->track('enrolments', get_string('addedtogroupnotenrolled', '', $gname), 'error');
+                    $upt->track('enrolments', get_string('addedtogroupnotenrolled', '', $user->{'group'.$i}), 'error');
                     continue;
                 }
                 //build group cache
@@ -659,11 +734,11 @@ if ($formdata = $mform->is_cancelled()) {
                     $ccache[$shortname]->groups = array();
                     if ($groups = groups_get_all_groups($courseid)) {
                         foreach ($groups as $gid=>$group) {
-                            $ccache[$shortname]->groups[$gid] = new object();
+                            $ccache[$shortname]->groups[$gid] = new stdClass();
                             $ccache[$shortname]->groups[$gid]->id   = $gid;
                             $ccache[$shortname]->groups[$gid]->name = $group->name;
                             if (!is_numeric($group->name)) { // only non-numeric names are supported!!!
-                            $ccache[$shortname]->groups[$group->name] = new object();
+                            $ccache[$shortname]->groups[$group->name] = new stdClass();
                             $ccache[$shortname]->groups[$group->name]->id   = $gid;
                             $ccache[$shortname]->groups[$group->name]->name = $group->name;
                             }
@@ -674,7 +749,7 @@ if ($formdata = $mform->is_cancelled()) {
                 $addgroup = $user->{'group'.$i};
                 if (!array_key_exists($addgroup, $ccache[$shortname]->groups)) {
                     // if group doesn't exist,  create it
-                    $newgroupdata = new object();
+                    $newgroupdata = new stdClass();
                     $newgroupdata->name = $addgroup;
                     $newgroupdata->courseid = $ccache[$shortname]->id;
                     if ($ccache[$shortname]->groups[$addgroup]->id = groups_create_group($newgroupdata)){
@@ -746,7 +821,8 @@ echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('uploaduserspreview', 'admin'));
 
 $cir->init();
-
+$availableauths = get_plugin_list('auth');
+$availableauths = array_keys($availableauths);
 $contents = array();
 while ($fields = $cir->next()) {
     $errormsg = array();
@@ -768,6 +844,28 @@ while ($fields = $cir->next()) {
         if (!$validemail) {
             $errormsg['email'] = get_string('invalidemail');
         }
+    }
+
+    //check password column
+    if (array_key_exists('auth', $rowcols)) {
+        if (isset($rowcols['auth']) && empty($rowcols['auth'])) {
+                $rowcols['auth'] = 'manual';
+        }
+        $rowauth = get_auth_plugin($rowcols['auth']);
+        $rowisinternalauth = $rowauth->is_internal();
+        if (!$rowisinternalauth) {
+            if (array_key_exists('password', $rowcols) && !empty($rowcols['password'])) {
+                $errormsg['password'] = get_string('externalauthpassworderror', 'error');
+            }
+        }
+
+        if (!in_array($rowcols['auth'], $availableauths)) {
+            $errormsg['auth'] = get_string('userautherror', 'error');
+        }
+    }
+
+    if (empty($optype) ) {
+        $optype = $uploadtype;
     }
 
     switch($optype) {
@@ -912,10 +1010,9 @@ if (in_array('error', $headings)) {
         $countcontent++;
     }
 }
-echo html_writer::table($table);
+echo html_writer::tag('div', html_writer::table($table), array('class'=>'flexible-wrap'));
 
 if ($haserror) {
-
     echo $OUTPUT->container(get_string('useruploadtype', 'moodle', $choices[$uploadtype]), 'centerpara');
     echo $OUTPUT->container(get_string('uploadinvalidpreprocessedcount', 'moodle', $countcontent), 'centerpara');
     echo $OUTPUT->container(get_string('invalidusername', 'moodle'), 'centerpara');
@@ -944,7 +1041,7 @@ class uu_progress_tracker {
 
     function init() {
         $ci = 0;
-        echo '<table id="uuresults" class="generaltable boxaligncenter" summary="'.get_string('uploadusersresult', 'admin').'">';
+        echo '<table id="uuresults" class="generaltable boxaligncenter flexible-wrap" summary="'.get_string('uploadusersresult', 'admin').'">';
         echo '<tr class="heading r0">';
         echo '<th class="header c'.$ci++.'" scope="col">'.get_string('status').'</th>';
         echo '<th class="header c'.$ci++.'" scope="col">'.get_string('uucsvline', 'admin').'</th>';
@@ -1085,7 +1182,7 @@ function process_template($template, $user) {
 
     // very very ugly hack!
     global $template_globals;
-    $template_globals = new object();
+    $template_globals = new stdClass();
     $template_globals->username  = isset($user->username)  ? $user->username  : '';
     $template_globals->firstname = isset($user->firstname) ? $user->firstname : '';
     $template_globals->lastname  = isset($user->lastname)  ? $user->lastname  : '';
@@ -1156,11 +1253,11 @@ function uu_allowed_roles() {
 function uu_allowed_roles_cache() {
     $allowedroles = get_assignable_roles(get_context_instance(CONTEXT_COURSE, SITEID), ROLENAME_SHORT);
     foreach ($allowedroles as $rid=>$rname) {
-        $rolecache[$rid] = new object();
+        $rolecache[$rid] = new stdClass();
         $rolecache[$rid]->id   = $rid;
         $rolecache[$rid]->name = $rname;
         if (!is_numeric($rname)) { // only non-numeric shortnames are supported!!!
-            $rolecache[$rname] = new object();
+            $rolecache[$rname] = new stdClass();
             $rolecache[$rname]->id   = $rid;
             $rolecache[$rname]->name = $rname;
         }

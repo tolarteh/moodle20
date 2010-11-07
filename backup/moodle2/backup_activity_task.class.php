@@ -43,11 +43,11 @@ abstract class backup_activity_task extends backup_task {
 
         // Check moduleid exists
         if (!$coursemodule = get_coursemodule_from_id(false, $moduleid)) {
-            throw backup_task_exception('activity_task_coursemodule_not_found', $moduleid);
+            throw new backup_task_exception('activity_task_coursemodule_not_found', $moduleid);
         }
         // Check activity supports this moodle2 backup format
         if (!plugin_supports('mod', $coursemodule->modname, FEATURE_BACKUP_MOODLE2)) {
-            throw backup_task_exception('activity_task_activity_lacks_moodle2_backup_support', $coursemodule->modname);
+            throw new backup_task_exception('activity_task_activity_lacks_moodle2_backup_support', $coursemodule->modname);
         }
 
         $this->moduleid   = $moduleid;
@@ -108,7 +108,7 @@ abstract class backup_activity_task extends backup_task {
         // Create the activity directory
         $this->add_step(new create_taskbasepath_directory('create_activity_directory'));
 
-        // Generate the module.xml file, contaning general information for the
+        // Generate the module.xml file, containing general information for the
         // activity and from its related course_modules record and availability
         $this->add_step(new backup_module_structure_step('module_info', 'module.xml'));
 
@@ -173,7 +173,7 @@ abstract class backup_activity_task extends backup_task {
         // Find activity_included_setting
         if (!$this->get_setting_value('included')) {
             $this->log('activity skipped by _included setting', backup::LOG_DEBUG, $this->name);
-
+            $this->plan->set_excluding_activities();
         } else { // Setting tells us it's ok to execute
             parent::execute();
         }
@@ -223,6 +223,7 @@ abstract class backup_activity_task extends backup_task {
         // - section_included setting (if exists)
         $settingname = $settingprefix . 'included';
         $activity_included = new backup_activity_generic_setting($settingname, base_setting::IS_BOOLEAN, true);
+        $activity_included->get_ui()->set_icon(new pix_icon('icon', get_string('pluginname', $this->modulename), $this->modulename));
         $this->add_setting($activity_included);
         // Look for "activities" root setting
         $activities = $this->plan->get_setting('activities');
@@ -240,7 +241,8 @@ abstract class backup_activity_task extends backup_task {
         // - activity_included setting
         $settingname = $settingprefix . 'userinfo';
         $activity_userinfo = new backup_activity_userinfo_setting($settingname, base_setting::IS_BOOLEAN, true);
-        $activity_userinfo->get_ui()->set_label(get_string('includeuserinfo','backup'));
+        //$activity_userinfo->get_ui()->set_label(get_string('includeuserinfo','backup'));
+        $activity_userinfo->get_ui()->set_label('-');
         $this->add_setting($activity_userinfo);
         // Look for "users" root setting
         $users = $this->plan->get_setting('users');
@@ -272,6 +274,8 @@ abstract class backup_activity_task extends backup_task {
      * Code the transformations to perform in the activity in
      * order to get transportable (encoded) links
      */
-    abstract static public function encode_content_links($content);
+    static public function encode_content_links($content) {
+        throw new coding_exception('encode_content_links() method needs to be overridden in each subclass of backup_activity_task');
+    }
 
 }

@@ -3,7 +3,7 @@
  *  Base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage UnitTester
- *  @version    $Id: test_case.php,v 1.13 2009-11-30 23:18:35 stronk7 Exp $
+ *  @version    $Id: test_case.php,v 1.15 2010/11/01 15:14:37 sam_marshall Exp $
  */
 
 /**#@+
@@ -107,9 +107,9 @@ class SimpleTestCase {
      *    @access public
      */
     function &createInvoker() {
-        $invoker = &new SimpleErrorTrappingInvoker(new SimpleInvoker($this));
+        $invoker = new SimpleErrorTrappingInvoker(new SimpleInvoker($this));
         if (version_compare(phpversion(), '5') >= 0) {
-            $invoker = &new SimpleExceptionTrappingInvoker($invoker);
+            $invoker = new SimpleExceptionTrappingInvoker($invoker);
         }
         return $invoker;
     }
@@ -138,6 +138,11 @@ class SimpleTestCase {
                     $reporter->paintCaseStart($this->getLabel());
                     $started = true;
                 }
+//moodlefix begins
+                if (defined('TIME_ALLOWED_PER_UNIT_TEST')) {
+                    set_time_limit(TIME_ALLOWED_PER_UNIT_TEST);
+                }
+//moodlefix ends
                 $invoker = &$this->_reporter->createInvoker($this->createInvoker());
                 $invoker->before($method);
                 $invoker->invoke($method);
@@ -467,11 +472,11 @@ class SimpleFileLoader {
      */
     function &createSuiteFromClasses($title, $classes) {
         if (count($classes) == 0) {
-            $suite = &new BadTestSuite($title, "No runnable test cases in [$title]");
+            $suite = new BadTestSuite($title, "No runnable test cases in [$title]");
             return $suite;
         }
         SimpleTest::ignoreParentsIfIgnored($classes);
-        $suite = &new TestSuite($title);
+        $suite = new TestSuite($title);
         foreach ($classes as $class) {
             if (! SimpleTest::isIgnored($class)) {
                 $suite->addTestClass($class);
@@ -530,7 +535,7 @@ class TestSuite {
      */
     function addTestClass($class) {
         if (TestSuite::getBaseTestCase($class) == 'testsuite') {
-            $this->_test_cases[] = &new $class();
+            $this->_test_cases[] = new $class();
         } else {
             $this->_test_cases[] = $class;
         }
@@ -548,7 +553,7 @@ class TestSuite {
         if (! is_string($test_case)) {
             $this->_test_cases[] = &$test_case;
         } elseif (TestSuite::getBaseTestCase($class) == 'testsuite') {
-            $this->_test_cases[] = &new $class();
+            $this->_test_cases[] = new $class();
         } else {
             $this->_test_cases[] = $class;
         }
@@ -607,11 +612,8 @@ class TestSuite {
                     $reporter->paintSkip("Unit test \"{$class}\" of type UnitTestCaseUsingDatabase skipped. Must define different, non-conflicting \$CFG->unittestprefix to be runnable.");
                     continue;
                 }
-                if ($currenttl = @ini_get('max_execution_time')) {
-                    @ini_set('max_execution_time', $currenttl);
-                }
                 // moodle hack end
-                $test = &new $class();
+                $test = new $class();
                 $test->run($reporter);
                 unset($test);
             } else {

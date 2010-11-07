@@ -24,7 +24,7 @@
  *
  * The upgrade function in this file will attempt
  * to perform all the necessary actions to upgrade
- * your older installtion to the current version.
+ * your older installation to the current version.
  *
  * @package mod-wiki-2.0
  * @copyrigth 2009 Marc Alier, Jordi Piguillem marc.alier@upc.edu
@@ -70,19 +70,18 @@ function xmldb_wiki_upgrade($oldversion) {
     global $CFG, $DB, $OUTPUT;
 
     $dbman = $DB->get_manager();
-    $result = true;
 
     // Step 0: Add new fields to main wiki table
-    if ($result && $oldversion < 2010040100) {
+    if ($oldversion < 2010040100) {
         require_once(dirname(__FILE__) . '/upgradelib.php');
         echo $OUTPUT->notification('Adding new fields to wiki table', 'notifysuccess');
         wiki_add_wiki_fields();
 
-        upgrade_mod_savepoint($result, 2010040100, 'wiki');
+        upgrade_mod_savepoint(true, 2010040100, 'wiki');
     }
 
     // Step 1: Rename old tables
-    if ($result && $oldversion < 2010040101) {
+    if ($oldversion < 2010040101) {
         $tables = array('wiki_pages', 'wiki_locks', 'wiki_entries');
 
         echo $OUTPUT->notification('Renaming old wiki module tables', 'notifysuccess');
@@ -94,36 +93,36 @@ function xmldb_wiki_upgrade($oldversion) {
                 }
             }
         }
-        upgrade_mod_savepoint($result, 2010040101, 'wiki');
+        upgrade_mod_savepoint(true, 2010040101, 'wiki');
     }
 
     // Step 2: Creating new tables
-    if ($result && $oldversion < 2010040102) {
+    if ($oldversion < 2010040102) {
         require_once(dirname(__FILE__) . '/upgradelib.php');
         echo $OUTPUT->notification('Installing new wiki module tables', 'notifysuccess');
         wiki_upgrade_install_20_tables();
-        upgrade_mod_savepoint($result, 2010040102, 'wiki');
+        upgrade_mod_savepoint(true, 2010040102, 'wiki');
     }
 
     // Step 3: migrating wiki instances
-    if ($result && $oldversion < 2010040103) {
+    if ($oldversion < 2010040103) {
         upgrade_set_timeout();
 
         // Setting up wiki configuration
-        $sql = 'UPDATE {wiki} ' .
-            'SET intro = summary, ' .
-            'firstpagetitle = pagename, ' .
-            'defaultformat = ?';
+        $sql = "UPDATE {wiki}
+                    SET intro = summary,
+                    firstpagetitle = pagename,
+                    defaultformat = ?";
         $DB->execute($sql, array('html'));
 
-        $sql = 'UPDATE {wiki} ' .
-            'SET wikimode = ? ' .
-            'WHERE wtype = ?';
+        $sql = "UPDATE {wiki}
+                    SET wikimode = ?
+                    WHERE wtype = ?";
         $DB->execute($sql, array('collaborative', 'group'));
 
-        $sql = 'UPDATE {wiki} ' .
-            'SET wikimode = ? ' .
-            'WHERE wtype != ?';
+        $sql = "UPDATE {wiki}
+                    SET wikimode = ?
+                    WHERE wtype != ?";
         $DB->execute($sql, array('individual', 'group'));
 
         // Removing edit & create capability to students in old teacher wikis
@@ -142,26 +141,26 @@ function xmldb_wiki_upgrade($oldversion) {
         }
 
         echo $OUTPUT->notification('Migrating old wikis to new wikis', 'notifysuccess');
-        upgrade_mod_savepoint($result, 2010040103, 'wiki');
+        upgrade_mod_savepoint(true, 2010040103, 'wiki');
     }
 
     // Step 4: migrating wiki entries to new subwikis
-    if ($result && $oldversion < 2010040104) {
+    if ($oldversion < 2010040104) {
         /**
          * Migrating wiki entries to new subwikis
          */
-        $sql = 'INSERT into {wiki_subwikis} (wikiid, groupid, userid) ' .
-            'SELECT e.wikiid, e.groupid, e.userid ' .
-            'FROM {wiki_entries_old} e ';
+        $sql = "INSERT into {wiki_subwikis} (wikiid, groupid, userid)
+                    SELECT e.wikiid, e.groupid, e.userid
+                    FROM {wiki_entries_old} e";
         echo $OUTPUT->notification('Migrating old entries to new subwikis', 'notifysuccess');
 
         $DB->execute($sql, array());
 
-        upgrade_mod_savepoint($result, 2010040104, 'wiki');
+        upgrade_mod_savepoint(true, 2010040104, 'wiki');
     }
 
     // Step 5: Migrating pages
-    if ($result && $oldversion < 2010040105) {
+    if ($oldversion < 2010040105) {
         /**
          * Filling pages table with latest versions of every page.
          *
@@ -171,35 +170,35 @@ function xmldb_wiki_upgrade($oldversion) {
          *          the order by and it would be much faster.
          */
 
-        $sql = 'INSERT into {wiki_pages} (subwikiid, title, cachedcontent, timecreated, timemodified, userid, pageviews) ' .
-            'SELECT s.id, p.pagename, ?, p.created, p.lastmodified, p.userid, p.hits ' .
-            'FROM {wiki_pages_old} p '.
-            'LEFT OUTER JOIN {wiki_entries_old} e ON e.id = p.wiki ' .
-            'LEFT OUTER JOIN {wiki_subwikis} s ' .
-            'ON s.wikiid = e.wikiid AND s.groupid = e.groupid AND s.userid = e.userid ' .
-            'WHERE p.version = (' .
-            '   SELECT max(po.version) ' .
-            '   FROM {wiki_pages_old} po ' .
-            '   WHERE p.pagename = po.pagename and ' .
-            '   p.wiki = po.wiki ' .
-            '   )';
+        $sql = "INSERT into {wiki_pages} (subwikiid, title, cachedcontent, timecreated, timemodified, userid, pageviews)
+                    SELECT s.id, p.pagename, ?, p.created, p.lastmodified, p.userid, p.hits
+                    FROM {wiki_pages_old} p
+                    LEFT OUTER JOIN {wiki_entries_old} e ON e.id = p.wiki
+                    LEFT OUTER JOIN {wiki_subwikis} s
+                    ON s.wikiid = e.wikiid AND s.groupid = e.groupid AND s.userid = e.userid
+                    WHERE p.version = (
+                        SELECT max(po.version)
+                        FROM {wiki_pages_old} po
+                        WHERE p.pagename = po.pagename and
+                        p.wiki = po.wiki
+                    )";
         echo $OUTPUT->notification('Migrating old pages to new pages', 'notifysuccess');
 
         $DB->execute($sql, array('**reparse needed**'));
 
-        upgrade_mod_savepoint($result, 2010040105, 'wiki');
+        upgrade_mod_savepoint(true, 2010040105, 'wiki');
     }
 
     // Step 6: Migrating versions
-    if ($result && $oldversion < 2010040106) {
+    if ($oldversion < 2010040106) {
         require_once(dirname(__FILE__) . '/upgradelib.php');
         echo $OUTPUT->notification('Migrating old history to new history', 'notifysuccess');
         wiki_upgrade_migrate_versions();
-        upgrade_mod_savepoint($result, 2010040106, 'wiki');
+        upgrade_mod_savepoint(true, 2010040106, 'wiki');
     }
 
     // Step 7: refresh cachedcontent and fill wiki links table
-    if ($result && $oldversion < 2010040107) {
+    if ($oldversion < 2010040107) {
         require_once($CFG->dirroot. '/mod/wiki/locallib.php');
         upgrade_set_timeout();
 
@@ -214,24 +213,23 @@ function xmldb_wiki_upgrade($oldversion) {
         $pages->close();
 
         echo $OUTPUT->notification('Caching content', 'notifysuccess');
-        upgrade_mod_savepoint($result, 2010040107, 'wiki');
+        upgrade_mod_savepoint(true, 2010040107, 'wiki');
     }
     // Step 8, migrating files
-    if ($result && $oldversion < 2010040108) {
+    if ($oldversion < 2010040108) {
         $fs = get_file_storage();
         $sql = "SELECT DISTINCT po.pagename, w.id AS wikiid, po.userid,
-            po.meta AS filemeta, eo.id AS entryid, eo.groupid, s.id AS subwiki,
-            w.course AS courseid, cm.id AS cmid
-            FROM {wiki_pages_old} po
-            LEFT OUTER JOIN {wiki_entries_old} eo
-            ON eo.id=po.wiki
-            LEFT OUTER JOIN {wiki} w
-            ON w.id = eo.wikiid
-            LEFT OUTER JOIN {wiki_subwikis} s
-            ON s.groupid = eo.groupid AND s.wikiid = eo.wikiid AND eo.userid = s.userid
-            JOIN {modules} m ON m.name = 'wiki'
-            JOIN {course_modules} cm ON (cm.module = m.id AND cm.instance = w.id)
-            ";
+                    po.meta AS filemeta, eo.id AS entryid, eo.groupid, s.id AS subwiki,
+                    w.course AS courseid, cm.id AS cmid
+                    FROM {wiki_pages_old} po
+                    LEFT OUTER JOIN {wiki_entries_old} eo
+                    ON eo.id=po.wiki
+                    LEFT OUTER JOIN {wiki} w
+                    ON w.id = eo.wikiid
+                    LEFT OUTER JOIN {wiki_subwikis} s
+                    ON s.groupid = eo.groupid AND s.wikiid = eo.wikiid AND eo.userid = s.userid
+                    JOIN {modules} m ON m.name = 'wiki'
+                    JOIN {course_modules} cm ON (cm.module = m.id AND cm.instance = w.id)";
 
         $rs = $DB->get_recordset_sql($sql);
         foreach ($rs as $r) {
@@ -257,17 +255,18 @@ function xmldb_wiki_upgrade($oldversion) {
 
                 if (is_file($thefile) && is_readable($thefile)) {
                     $filerecord = array('contextid' => $context->id,
-                                        'filearea'  => 'wiki_attachments',
+                                        'component' => 'mod_wiki',
+                                        'filearea'  => 'attachments',
                                         'itemid'    => $r->subwiki,
                                         'filepath'  => '/',
                                         'filename'  => $orgifilename,
                                         'userid'    => $r->userid);
-                    if (!$fs->file_exists($context->id, 'wiki_attachments', $r->subwiki, '/', $orgifilename)) {
+                    if (!$fs->file_exists($context->id, 'mod_wiki', 'attachments', $r->subwiki, '/', $orgifilename)) {
                         //echo $OUTPUT->notification('Migrating file '.$orgifilename, 'notifysuccess');
                         $storedfile = $fs->create_file_from_pathname($filerecord, $thefile);
                     }
                     // we have to create another file here to make sure interlinks work
-                    if (!$fs->file_exists($context->id, 'wiki_attachments', $r->subwiki, '/', $filename)) {
+                    if (!$fs->file_exists($context->id, 'mod_wiki', 'attachments', $r->subwiki, '/', $filename)) {
                         $filerecord['filename'] = $filename;
                         //echo $OUTPUT->notification('Migrating file '.$filename, 'notifysuccess');
                         $storedfile = $fs->create_file_from_pathname($filerecord, $thefile);
@@ -280,11 +279,11 @@ function xmldb_wiki_upgrade($oldversion) {
             }
         }
         $rs->close();
-        upgrade_mod_savepoint($result, 2010040108, 'wiki');
+        upgrade_mod_savepoint(true, 2010040108, 'wiki');
     }
 
     // Step 9: clean wiki table
-    if ($result && $oldversion < 2010040109) {
+    if ($oldversion < 2010040109) {
         $fields = array('summary', 'pagename', 'wtype', 'ewikiprinttitle', 'htmlmode', 'ewikiacceptbinary', 'disablecamelcase', 'setpageflags', 'strippages', 'removepages', 'revertchanges', 'initialcontent');
         $table = new xmldb_table('wiki');
         foreach ($fields as $fieldname) {
@@ -295,13 +294,13 @@ function xmldb_wiki_upgrade($oldversion) {
 
         }
         echo $OUTPUT->notification('Cleaning wiki table', 'notifysuccess');
-        upgrade_mod_savepoint($result, 2010040109, 'wiki');
+        upgrade_mod_savepoint(true, 2010040109, 'wiki');
     }
 
     // TODO: Will hold the old tables so we will have chance to fix problems
     // Will remove old tables once migrating 100% stable
     // Step 10: delete old tables
-    if ($result && $oldversion < 2010040120) {
+    if ($oldversion < 2010040120) {
         //$tables = array('wiki_pages', 'wiki_locks', 'wiki_entries');
 
         //foreach ($tables as $tablename) {
@@ -311,8 +310,57 @@ function xmldb_wiki_upgrade($oldversion) {
             //}
         //}
         //echo $OUTPUT->notification('Droping old tables', 'notifysuccess');
-        //upgrade_mod_savepoint($result, 2010040120, 'wiki');
+        //upgrade_mod_savepoint(true, 2010040120, 'wiki');
     }
 
-    return $result;
+    if ($oldversion < 2010080201) {
+
+        $sql = "UPDATE {comments}
+                SET commentarea = 'wiki_page'
+                WHERE commentarea = 'wiki_comment_section'";
+        $DB->execute($sql);
+
+        $sql = "UPDATE {tag_instance}
+                SET itemtype = 'wiki_page'
+                WHERE itemtype = 'wiki'";
+        $DB->execute($sql);
+
+        echo $OUTPUT->notification('Updating comments and tags', 'notifysuccess');
+
+        upgrade_mod_savepoint(true, 2010080201, 'wiki');
+    }
+
+    if ($oldversion < 2010102500) {
+
+        // Define key subwikifk (foreign) to be added to wiki_pages
+        $table = new xmldb_table('wiki_pages');
+        $key = new xmldb_key('subwikifk', XMLDB_KEY_FOREIGN, array('subwikiid'), 'wiki_subwikis', array('id'));
+
+        // Launch add key subwikifk
+        $dbman->add_key($table, $key);
+
+         // Define key subwikifk (foreign) to be added to wiki_links
+        $table = new xmldb_table('wiki_links');
+        $key = new xmldb_key('subwikifk', XMLDB_KEY_FOREIGN, array('subwikiid'), 'wiki_subwikis', array('id'));
+
+        // Launch add key subwikifk
+        $dbman->add_key($table, $key);
+
+        // wiki savepoint reached
+        upgrade_mod_savepoint(true, 2010102500, 'wiki');
+    }
+
+    if ($oldversion < 2010102800) {
+
+        $sql = "UPDATE {tag_instance}
+                SET itemtype = 'wiki_pages'
+                WHERE itemtype = 'wiki_page'";
+        $DB->execute($sql);
+
+        echo $OUTPUT->notification('Updating tags itemtype', 'notifysuccess');
+
+        upgrade_mod_savepoint(true, 2010102800, 'wiki');
+    }
+
+    return true;
 }

@@ -38,109 +38,23 @@
  * @copyright 2010 Sam Hemelryk
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-abstract class backup_ui_stage {
-    /**
-     * The current stage
-     * @var int
-     */
-    protected $stage = backup_ui::STAGE_INITIAL;
-    /**
-     * The backuck UI object
-     * @var backup_ui
-     */
-    protected $ui;
-    /**
-     * The moodleform for this stage
-     * @var backup_moodleform
-     */
-    protected $stageform = null;
-    /**
-     * Custom form params that will be added as hidden inputs
-     */
-    protected $params = null;
-    /**
-     *
-     * @param backup_ui $ui
-     */
-    public function __construct(backup_ui $ui, array $params=null) {
-        $this->ui = $ui;
-        $this->params = $params;
-    }
-    /**
-     * Returns the custom params for this stage
-     * @return array|null
-     */
-    final public function get_params() {
-        return $this->params;
-    }
-    /**
-     * The current stage
-     * @return int
-     */
-    final public function get_stage() {
-        return $this->stage;
-    }
-    /**
-     * The next stage
-     * @return int
-     */
-    final public function get_next_stage() {
-        return floor($this->stage*2);
-    }
-    /**
-     * The previous stage
-     * @return int
-     */
-    final public function get_prev_stage() {
-        return floor($this->stage/2);
-    }
-    /**
-     * The name of this stage
-     * @return string
-     */
-    final public function get_name() {
-        return get_string('currentstage'.$this->stage,'backup');
+abstract class backup_ui_stage extends base_ui_stage {
+
+    public function __construct(backup_ui $ui, array $params = null) {
+       parent::__construct($ui, $params);
     }
     /**
      * The backup id from the backup controller
      * @return string
      */
     final public function get_backupid() {
-        return $this->ui->get_backupid();
+        return $this->get_uniqueid();
     }
-    /**
-     * Displays the stage.
-     *
-     * By default this involves instantiating the form for the stage and the calling
-     * it to display. Remember this is a moodleform instance so it will print
-     * rather than return.
-     */
-    public function display() {
-        $form = $this->initialise_stage_form();
-        $form->display();
-    }
-    /**
-     * Processes the stage.
-     *
-     * This must be overridden by every stage as it will be different for every stage
-     *
-     * @abstract
-     * @param backup_moodleform|null $form
-     */
-    abstract public function process(backup_moodleform $form=null);
-    /**
-     * Creates an instance of the correct moodleform properly populated and all
-     * dependencies instantiated
-     *
-     * @abstract
-     * @return backup_moodleform
-     */
-    abstract protected function initialise_stage_form();
 }
 
 /**
  * Class representing the initial stage of a backup.
- * 
+ *
  * In this stage the user is required to set the root level settings.
  *
  * @copyright 2010 Sam Hemelryk
@@ -162,7 +76,7 @@ class backup_ui_stage_initial extends backup_ui_stage {
      * @param backup_moodleform $form
      * @return int The number of changes
      */
-    public function process(backup_moodleform $m = null) {
+    public function process(base_moodleform $m = null) {
 
         $form = $this->initialise_stage_form();
 
@@ -172,7 +86,7 @@ class backup_ui_stage_initial extends backup_ui_stage {
 
         $data = $form->get_data();
         if ($data && confirm_sesskey()) {
-            $tasks = $this->ui->get_backup_tasks();
+            $tasks = $this->ui->get_tasks();
             $changes = 0;
             foreach ($tasks as &$task) {
                 // We are only interesting in the backup root task for this stage
@@ -208,7 +122,7 @@ class backup_ui_stage_initial extends backup_ui_stage {
         if ($this->stageform === null) {
             $form = new backup_initial_form($this, $PAGE->url);
             // Store as a variable so we can iterate by reference
-            $tasks = $this->ui->get_backup_tasks();
+            $tasks = $this->ui->get_tasks();
             // Iterate all tasks by reference
             foreach ($tasks as &$task) {
                 // For the initial stage we are only interested in the root settings
@@ -243,7 +157,7 @@ class backup_ui_stage_initial extends backup_ui_stage {
  *
  * During the schema stage the user is required to set the settings that relate
  * to the area that they are backing up as well as its children.
- * 
+ *
  * @copyright 2010 Sam Hemelryk
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -262,7 +176,7 @@ class backup_ui_stage_schema extends backup_ui_stage {
      * @param backup_moodleform|null $form
      * @return int The number of changes the user made
      */
-    public function process(backup_moodleform $form = null) {
+    public function process(base_moodleform $form = null) {
         $form = $this->initialise_stage_form();
         // Check it wasn't cancelled
         if ($form->is_cancelled()) {
@@ -273,7 +187,7 @@ class backup_ui_stage_schema extends backup_ui_stage {
         $data = $form->get_data();
         if ($data && confirm_sesskey()) {
             // Get the tasks into a var so we can iterate by reference
-            $tasks = $this->ui->get_backup_tasks();
+            $tasks = $this->ui->get_tasks();
             $changes = 0;
             // Iterate all tasks by reference
             foreach ($tasks as &$task) {
@@ -298,7 +212,7 @@ class backup_ui_stage_schema extends backup_ui_stage {
             return $changes;
         } else {
             return false;
-        }        
+        }
     }
     /**
      * Creates the backup_schema_form instance for this stage
@@ -309,14 +223,14 @@ class backup_ui_stage_schema extends backup_ui_stage {
         global $PAGE;
         if ($this->stageform === null) {
             $form = new backup_schema_form($this, $PAGE->url);
-            $tasks = $this->ui->get_backup_tasks();
+            $tasks = $this->ui->get_tasks();
             $content = '';
             $courseheading = false;
             foreach ($tasks as $task) {
                 if (!($task instanceof backup_root_task)) {
                     if (!$courseheading) {
                         // If we havn't already display a course heading to group nicely
-                        $form->add_heading('coursesettings', get_string('coursesettings', 'backup'));
+                        $form->add_heading('coursesettings', get_string('includeactivities', 'backup'));
                         $courseheading = true;
                     }
                     // First add each setting
@@ -335,7 +249,7 @@ class backup_ui_stage_schema extends backup_ui_stage {
                     // setting. We only want schema settings to be editable
                     foreach ($task->get_settings() as $setting) {
                         if ($setting->get_name() != 'filename') {
-                            $form->add_fixed_setting($setting);
+                            $form->add_fixed_setting($setting, $task);
                         }
                     }
                 }
@@ -370,7 +284,7 @@ class backup_ui_stage_confirmation extends backup_ui_stage {
      * @param backup_moodleform $form
      * @return int The number of changes the user made
      */
-    public function process(backup_moodleform $form = null) {
+    public function process(base_moodleform $form = null) {
         $form = $this->initialise_stage_form();
         // Check it hasn't been cancelled
         if ($form->is_cancelled()) {
@@ -380,7 +294,7 @@ class backup_ui_stage_confirmation extends backup_ui_stage {
         $data = $form->get_data();
         if ($data && confirm_sesskey()) {
             // Collect into a variable so we can iterate by reference
-            $tasks = $this->ui->get_backup_tasks();
+            $tasks = $this->ui->get_tasks();
             $changes = 0;
             // Iterate each task by reference
             foreach ($tasks as &$task) {
@@ -413,33 +327,36 @@ class backup_ui_stage_confirmation extends backup_ui_stage {
             $content = '';
             $courseheading = false;
 
-            if ($setting = $this->ui->get_setting('filename')) {
-                $form->add_heading('filenamesetting', get_string('filename', 'backup'));
-                if ($setting->get_value() == 'backup.zip') {
-                    $format = $this->ui->get_backup_format();
-                    $type = $this->ui->get_backup_type();
-                    $id = $this->ui->get_controller_id();
-                    $users = $this->ui->get_setting_value('users');
-                    $anonymised = $this->ui->get_setting_value('anonymize');
-                    $setting->set_value(backup_plan_dbops::get_default_backup_filename($format, $type, $id, $users, $anonymised));
+            foreach ($this->ui->get_tasks() as $task) {
+                if ($setting = $task->get_setting('filename')) {
+                    $form->add_heading('filenamesetting', get_string('filename', 'backup'));
+                    if ($setting->get_value() == 'backup.mbz') {
+                        $format = $this->ui->get_format();
+                        $type = $this->ui->get_type();
+                        $id = $this->ui->get_controller_id();
+                        $users = $this->ui->get_setting_value('users');
+                        $anonymised = $this->ui->get_setting_value('anonymize');
+                        $setting->set_value(backup_plan_dbops::get_default_backup_filename($format, $type, $id, $users, $anonymised));
+                    }
+                    $form->add_setting($setting, $task);
+                    break;
                 }
-                $form->add_setting($setting);
             }
 
-            foreach ($this->ui->get_backup_tasks() as $task) {
+            foreach ($this->ui->get_tasks() as $task) {
                 if ($task instanceof backup_root_task) {
                     // If its a backup root add a root settings heading to group nicely
                     $form->add_heading('rootsettings', get_string('rootsettings', 'backup'));
                 } else if (!$courseheading) {
                     // we havn't already add a course heading
-                    $form->add_heading('coursesettings', get_string('coursesettings', 'backup'));
+                    $form->add_heading('coursesettings', get_string('includeditems', 'backup'));
                     $courseheading = true;
                 }
                 // Iterate all settings, doesnt need to happen by reference
                 foreach ($task->get_settings() as $setting) {
                     // For this stage only the filename setting should be editable
                     if ($setting->get_name() != 'filename') {
-                        $form->add_fixed_setting($setting);   
+                        $form->add_fixed_setting($setting, $task);
                     }
                 }
             }
@@ -481,7 +398,7 @@ class backup_ui_stage_final extends backup_ui_stage {
      *
      * In this case it ALWAYS passes processing to the previous stage (confirmation)
      */
-    public function process(backup_moodleform $form=null) {
+    public function process(base_moodleform $form=null) {
         return true;
     }
     /**
@@ -534,20 +451,26 @@ class backup_ui_stage_complete extends backup_ui_stage_final {
      */
     public function display() {
         global $OUTPUT;
-        
+
         // Get the resulting stored_file record
-        $file = $this->results['backup_destination'];
-        // Turn it into a url for the file browser
-        $fileurl = new moodle_url('/files/index.php', array(
-            'contextid' => $file->get_contextid(),
-            'filearea' => $file->get_filearea(),
-            'itemid' => $file->get_itemid(),
-            'filepath' => $file->get_filepath()
-        ));
+        $type = $this->get_ui()->get_controller()->get_type();
+        $courseid = $this->get_ui()->get_controller()->get_courseid();
+        switch ($type) {
+        case 'activity':
+            $cmid = $this->get_ui()->get_controller()->get_id();
+            $cm = get_coursemodule_from_id(null, $cmid, $courseid);
+            $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+            $restorerul = new moodle_url('/backup/restorefile.php', array('contextid'=>$modcontext->id));
+            break;
+        case 'course':
+        default:
+            $coursecontext = get_context_instance(CONTEXT_COURSE, $courseid);
+            $restorerul = new moodle_url('/backup/restorefile.php', array('contextid'=>$coursecontext->id));
+        }
 
         echo $OUTPUT->box_start();
-        echo get_string('executionsuccess', 'backup');
-        echo $OUTPUT->continue_button($fileurl);
+        echo $OUTPUT->notification(get_string('executionsuccess', 'backup'), 'notifysuccess');
+        echo $OUTPUT->continue_button($restorerul);
         echo $OUTPUT->box_end();
     }
 }

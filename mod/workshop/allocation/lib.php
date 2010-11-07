@@ -18,9 +18,10 @@
 /**
  * Code for the submissions allocation support is defined here
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -41,9 +42,9 @@ interface workshop_allocator {
      * Initialize the allocator and eventually process submitted data
      *
      * This method is called soon after the allocator is constructed and before any output
-     * is generated. Therefore is may process any data submitted and do other tasks.
-     * It should not generate any output. However if it does so, the output is rendered
-     * using the method {@link moodle_mod_workshop_renderer::allocation_init_result()}
+     * is generated. Therefore it may process any data submitted and do other tasks.
+     * It must not produce any output. The returned value is processed by
+     * {@see workshop_allocation_init_result} class and rendered.
      *
      * @throws moodle_exception
      * @return void|string
@@ -55,8 +56,18 @@ interface workshop_allocator {
      *
      * If a form is part of the UI, the caller should have called $PAGE->set_url(...)
      *
-     * @param stdclass $wsoutput workshop module renderer can be used
+     * @param stdClass $wsoutput workshop module renderer can be used
      * @return string HTML code to be echoed
      */
     public function ui();
+
+    /**
+     * Delete all data related to a given workshop module instance
+     *
+     * This is called from {@link workshop_delete_instance()}.
+     *
+     * @param int $workshopid id of the workshop module instance being deleted
+     * @return void
+     */
+    public static function delete_instance($workshopid);
 }

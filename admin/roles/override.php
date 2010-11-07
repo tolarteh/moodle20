@@ -18,7 +18,7 @@
 /**
  * Lets you override role definitions in contexts.
  *
- * @package    moodlecore
+ * @package    core
  * @subpackage role
  * @copyright  1999 onwards Martin Dougiamas (http://dougiamas.com)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -34,7 +34,10 @@ list($context, $course, $cm) = get_context_info_array($contextid);
 
 $url = new moodle_url('/admin/roles/override.php', array('contextid' => $contextid, 'roleid' => $roleid));
 
-if (!$course) {
+if ($course) {
+    $isfrontpage = ($course->id == SITEID);
+} else {
+    $isfrontpage = false;
     if ($context->contextlevel == CONTEXT_USER) {
         $course = $DB->get_record('course', array('id'=>optional_param('courseid', SITEID, PARAM_INT)), '*', MUST_EXIST);
         $user = $DB->get_record('user', array('id'=>$context->instanceid), '*', MUST_EXIST);
@@ -52,9 +55,9 @@ if (!has_capability('moodle/role:override', $context)) {
 }
 $PAGE->set_url($url);
 $PAGE->set_context($context);
+$PAGE->set_pagelayout('admin');
 
 $courseid = $course->id;
-$isfrontpage = ($course->id == SITEID);
 
 $returnurl = new moodle_url('/admin/roles/permissions.php', array('contextid' => $context->id));
 
@@ -77,7 +80,6 @@ $title = get_string('overridepermissionsforrole', 'role', $a);
 
 $currenttab = 'permissions';
 
-$PAGE->set_pagelayout('admin');
 $PAGE->set_title($title);
 $PAGE->navbar->add($straction);
 switch ($context->contextlevel) {
@@ -85,12 +87,8 @@ switch ($context->contextlevel) {
         print_error('cannotoverridebaserole', 'error');
         break;
     case CONTEXT_USER:
-        if ($isfrontpage) {
-            $fullname = fullname($user, has_capability('moodle/site:viewfullnames', $context));
-            $PAGE->set_heading($fullname);
-        } else {
-            $PAGE->set_heading($course->fullname);
-        }
+        $fullname = fullname($user, has_capability('moodle/site:viewfullnames', $context));
+        $PAGE->set_heading($fullname);
         $showroles = 1;
         break;
     case CONTEXT_COURSECAT:
@@ -149,7 +147,7 @@ if (!empty($capabilities)) {
     echo html_writer::tag('p', get_string('highlightedcellsshowinherit', 'role'), array('class'=>'overridenotice'));
 
     $overridestable->display();
-    if ($overridestable->has_locked_capabiltites()) {
+    if ($overridestable->has_locked_capabilities()) {
         echo '<p class="overridenotice">' . get_string('safeoverridenotice', 'role') . "</p>\n";
     }
 

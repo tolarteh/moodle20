@@ -28,10 +28,11 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['admindirname'] = 'Admin Directory';
+$string['admindirname'] = 'Admin directory';
 $string['availablelangs'] = 'List of available languages';
 $string['chooselanguagehead'] = 'Choose a language';
 $string['chooselanguagesub'] = 'Please choose a language for the installation. This language will also be used as the default language for the site, though it may be changed later.';
+$string['clialreadyinstalled'] = 'File config.php already exists, please use admin/cli/upgrade.php if you want to upgrade your site.';
 $string['cliinstallheader'] = 'Moodle {$a} command line installation program';
 $string['databasehost'] = 'Database host';
 $string['databasename'] = 'Database name';
@@ -39,6 +40,7 @@ $string['databasetypehead'] = 'Choose database driver';
 $string['dataroot'] = 'Data Directory';
 $string['dbprefix'] = 'Tables prefix';
 $string['dirroot'] = 'Moodle Directory';
+$string['environmenthead'] = 'Checking your environment ...';
 $string['environmentsub2'] = 'Each Moodle release has some minimum PHP version requirement and a number of mandatory PHP extensions.
 Full environment check is done before each install and upgrade. Please contact server administrator if you do not know how to install new version or enable PHP extensions.';
 $string['errorsinenvironment'] = 'Environment check failed!';
@@ -73,14 +75,14 @@ control panel or something.  Unfortunately this conflicts with the standard loca
 renaming the admin directory in your installation, and putting that  new name here.  For example: <em>moodleadmin</em>. This will fix admin links in Moodle.';
 $string['pathssubdataroot'] = 'You need a place where Moodle can save uploaded files. This directory should be readable AND WRITEABLE by the web server user
 (usually \'nobody\' or \'apache\'), but it must not be accessible directly via the web. The installer will try to create it if doesn\'t exist.';
-$string['pathssubdirroot'] = 'Full directory path to moodle installation. Change only if you need to use symbolic links.';
+$string['pathssubdirroot'] = 'Full directory path to moodle installation.';
 $string['pathssubwwwroot'] = 'Full web address where moodle will be accessed.
 It\'s not possible to access Moodle using multiple addresses.
 If your site has multiple public addresses you must setup permanent redirects on all of them except this one.
-If your site is accessible both from intranet and Internet use the public address here and setup DNS so that the inranet users may use the public adress too.';
+If your site is accessible both from intranet and Internet use the public address here and setup DNS so that the intranet users may use the public address too.
+If the address is not correct please change the URL in your browser to restart installation with a different value.';
 $string['pathsunsecuredataroot'] = 'Dataroot location is not secure';
 $string['pathswrongadmindir'] = 'Admin directory does not exist';
-$string['pathswrongdirroot'] = 'Incorrect dirroot localtion';
 $string['phpextension'] = '{$a} PHP extension';
 $string['phpversion'] = 'PHP version';
 $string['phpversionhelp'] = '<p>Moodle requires a PHP version of at least 4.3.0 or 5.1.0 (5.0.x has a number of known problems).</p>

@@ -9,7 +9,7 @@ define ('PROFILE_VISIBLE_NONE',    '0'); // only visible for moodle/user:update 
 
 
 /**
- * Base class for the cusomisable profile fields.
+ * Base class for the customisable profile fields.
  */
 class profile_field_base {
 
@@ -54,7 +54,7 @@ class profile_field_base {
      * Display the data for this field
      */
     function display_data() {
-        $options = new object();
+        $options = new stdClass();
         $options->para = false;
         return format_text($this->data, FORMAT_MOODLE, $options);
     }
@@ -105,7 +105,7 @@ class profile_field_base {
             return;
         }
 
-        $data = new object();
+        $data = new stdClass();
 
         $usernew->{$this->inputname} = $this->edit_save_data_preprocess($usernew->{$this->inputname}, $data);
 
@@ -267,10 +267,12 @@ class profile_field_base {
                 if ($this->userid == $USER->id) {
                     return true;
                 } else {
-                    return has_capability('moodle/user:update', get_context_instance(CONTEXT_SYSTEM));
+                    return has_capability('moodle/user:viewalldetails',
+                            get_context_instance(CONTEXT_USER, $this->userid));
                 }
             default:
-                return has_capability('moodle/user:update', get_context_instance(CONTEXT_SYSTEM));
+                return has_capability('moodle/user:viewalldetails',
+                        get_context_instance(CONTEXT_USER, $this->userid));
         }
     }
 
@@ -424,7 +426,7 @@ function profile_display_fields($userid) {
                     $newfield = 'profile_field_'.$field->datatype;
                     $formfield = new $newfield($field->id, $userid);
                     if ($formfield->is_visible() and !$formfield->is_empty()) {
-                        print_row(s($formfield->field->name.':'), $formfield->display_data());
+                        print_row(format_string($formfield->field->name.':'), $formfield->display_data());
                     }
                 }
             }
@@ -471,19 +473,34 @@ function profile_signup_fields(&$mform) {
 function profile_user_record($userid) {
     global $CFG, $DB;
 
-    $usercustomfields = new object();
+    $usercustomfields = new stdClass();
 
     if ($fields = $DB->get_records('user_info_field')) {
         foreach ($fields as $field) {
             require_once($CFG->dirroot.'/user/profile/field/'.$field->datatype.'/field.class.php');
             $newfield = 'profile_field_'.$field->datatype;
             $formfield = new $newfield($field->id, $userid);
-            if ($formfield->is_user_object_data()) $usercustomfields->{$field->shortname} = $formfield->data;
+            if ($formfield->is_user_object_data()) {
+                $usercustomfields->{$field->shortname} = $formfield->data;
+            }
         }
     }
 
     return $usercustomfields;
 }
 
+/**
+ * Load custom profile fields into user object
+ *
+ * Please note originally in 1.9 we were using the custom field names directly,
+ * but it was causing unexpected collisions when adding new fields to user table,
+ * so instead we now use 'profile_' prefix.
+ *
+ * @param object $user user object
+ * @return void $user object is modified
+ */
+function profile_load_custom_fields(&$user) {
+    $user->profile = (array)profile_user_record($user->id);
+}
 
 

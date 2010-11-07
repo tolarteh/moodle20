@@ -130,7 +130,7 @@ if (empty($modes)) {
 }
 
 if (!in_array($mode, $modes)) {
-    // forbidden or non-exitent mode
+    // forbidden or non-existent mode
     $mode = reset($modes);
 }
 
@@ -318,8 +318,7 @@ switch ($mode) {
                                     case "complete":
                                         $user_complete = $mod->modname."_user_complete";
                                         if (function_exists($user_complete)) {
-                                            $image = "<img src=\"../mod/$mod->modname/icon.gif\" ".
-                                                     "class=\"icon\" alt=\"$mod->modfullname\" />";
+                                            $image = $OUTPUT->pix_icon('icon', $mod->modfullname, 'mod_'.$mod->modname, array('class'=>'icon'));
                                             echo "<h4>$image $mod->modfullname: ".
                                                  "<a href=\"$CFG->wwwroot/mod/$mod->modname/view.php?id=$mod->id\">".
                                                  format_string($instance->name,true)."</a></h4>";
@@ -363,12 +362,12 @@ switch ($mode) {
             SELECT DISTINCT
                 c.id AS id
             FROM
-                {$CFG->prefix}course c
+                {course} c
             INNER JOIN
-                {$CFG->prefix}context con
+                {context} con
              ON con.instanceid = c.id
             INNER JOIN
-                {$CFG->prefix}role_assignments ra
+                {role_assignments} ra
              ON ra.contextid = con.id
             AND ra.userid = {$user->id}
         ";
@@ -395,7 +394,7 @@ switch ($mode) {
         }
 
         // Check if result is empty
-        if (!$rs = get_recordset_sql($sql)) {
+        if (!$rs = $DB->get_recordset_sql($sql)) {
 
             if ($course->id != 1) {
                 $error = get_string('nocompletions', 'coursereport_completion');
@@ -459,7 +458,7 @@ switch ($mode) {
                 foreach ($infos as $c_info) {
 
                     // Get course info
-                    $c_course = get_record('course', 'id', $c_info->course_id);
+                    $c_course = $DB->get_record('course', array('id' => $c_info->course_id));
                     $course_name = $c_course->fullname;
 
                     // Get completions
@@ -471,7 +470,7 @@ switch ($mode) {
                     // For aggregating activity completion
                     $activities = array();
                     $activities_complete = 0;
-                    
+
                     // For aggregating prerequisites
                     $prerequisites = array();
                     $prerequisites_complete = 0;

@@ -101,12 +101,10 @@ class grade_report_user extends grade_report {
         $this->showhiddenitems = grade_get_setting($this->courseid, 'report_user_showhiddenitems', $CFG->grade_report_user_showhiddenitems);
         $this->showtotalsifcontainhidden = grade_get_setting($this->courseid, 'report_user_showtotalsifcontainhidden', $CFG->grade_report_user_showtotalsifcontainhidden);
 
-        $this->showrange = true;
-
         $this->switch = grade_get_setting($this->courseid, 'aggregationposition', $CFG->grade_aggregationposition);
 
         // Grab the grade_tree for this course
-        $this->gtree = new grade_tree($this->courseid, false, $this->switch, false, !$CFG->enableoutcomes);
+        $this->gtree = new grade_tree($this->courseid, false, $this->switch, null, !$CFG->enableoutcomes);
 
         // Determine the number of rows and indentation
         $this->maxdepth = 1;
@@ -326,7 +324,7 @@ class grade_report_user extends grade_report {
 
                 } else {
                     $data['feedback']['class'] = $class.' feedbacktext';
-                    $data['feedback']['content'] = format_text($grade_grade->feedback, $grade_grade->feedbackformat);
+                    $data['feedback']['content'] = format_text($grade_grade->feedback, $grade_grade->feedbackformat, array('overflowdiv'=>true));
                 }
 
                 /// Range
@@ -440,7 +438,7 @@ function grade_report_user_settings_definition(&$mform) {
     }
 
     $mform->addElement('select', 'report_user_showrank', get_string('showrank', 'grades'), $options);
-    $mform->setHelpButton('report_user_showrank', array('showrank', get_string('showrank', 'grades'), 'grade'));
+    $mform->addHelpButton('report_user_showrank', 'showrank', 'grades');
 
     if (empty($CFG->grade_report_user_showpercentage)) {
         $options[-1] = get_string('defaultprev', 'grades', $options[0]);
@@ -497,7 +495,7 @@ function grade_report_user_profilereport($course, $user) {
 
         // print the page
         echo '<div class="grade-report-user">'; // css fix to share styles with real report page
-        echo $OUTPUT->heading(get_string('modulename', 'gradereport_user'). ' - '.fullname($report->user));
+        echo $OUTPUT->heading(get_string('pluginname', 'gradereport_user'). ' - '.fullname($report->user));
 
         if ($report->fill_table()) {
             echo $report->print_table(true);

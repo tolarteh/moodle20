@@ -3,7 +3,7 @@
  *  base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage UnitTester
- *  @version    $Id: shell_tester.php,v 1.3 2008-06-10 20:10:53 nicolasconnault Exp $
+ *  @version    $Id: shell_tester.php,v 1.4 2010/07/19 08:53:16 skodak Exp $
  */
 
 /**#@+
@@ -326,7 +326,7 @@ class ShellTestCase extends SimpleTestCase {
      *    @access protected
      */
     function &_createShell() {
-        $shell = &new SimpleShell();
+        $shell = new SimpleShell();
         return $shell;
     }
 }

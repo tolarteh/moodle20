@@ -1,9 +1,10 @@
 <?php
 
+require_once($CFG->dirroot.'/course/lib.php');
+
 class block_recent_activity extends block_base {
     function init() {
         $this->title = get_string('pluginname', 'block_recent_activity');
-        $this->version = 2007101509;
     }
 
     function get_content() {

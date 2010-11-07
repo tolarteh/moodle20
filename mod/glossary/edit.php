@@ -59,7 +59,7 @@ if ($id) { // if entry is specified
 } else { // new entry
     require_capability('mod/glossary:write', $context);
     // note: guest user does not have any write capability
-    $entry = new object();
+    $entry = new stdClass();
     $entry->id = null;
 }
 
@@ -69,8 +69,8 @@ $maxbytes = $course->maxbytes; // TODO: add some setting
 $definitionoptions = array('trusttext'=>true, 'subdirs'=>false, 'maxfiles'=>$maxfiles, 'maxbytes'=>$maxbytes, 'context'=>$context);
 $attachmentoptions = array('subdirs'=>false, 'maxfiles'=>$maxfiles, 'maxbytes'=>$maxbytes);
 
-$entry = file_prepare_standard_editor($entry, 'definition', $definitionoptions, $context, 'glossary_entry', $entry->id);
-$entry = file_prepare_standard_filemanager($entry, 'attachment', $attachmentoptions, $context, 'glossary_attachment', $entry->id);
+$entry = file_prepare_standard_editor($entry, 'definition', $definitionoptions, $context, 'mod_glossary', 'entry', $entry->id);
+$entry = file_prepare_standard_filemanager($entry, 'attachment', $attachmentoptions, $context, 'mod_glossary', 'attachment', $entry->id);
 
 $entry->cmid = $cm->id;
 
@@ -80,7 +80,7 @@ $mform = new mod_glossary_entry_form(null, array('current'=>$entry, 'cm'=>$cm, '
 
 if ($mform->is_cancelled()){
     if ($id){
-        redirect("view.php?id=$cm->id&amp;mode=entry&amp;hook=$id");
+        redirect("view.php?id=$cm->id&mode=entry&hook=$id");
     } else {
         redirect("view.php?id=$cm->id");
     }
@@ -131,8 +131,8 @@ if ($mform->is_cancelled()){
     }
 
     // save and relink embedded images and save attachments
-    $entry = file_postupdate_standard_editor($entry, 'definition', $definitionoptions, $context, 'glossary_entry', $entry->id);
-    $entry = file_postupdate_standard_filemanager($entry, 'attachment', $attachmentoptions, $context, 'glossary_attachment', $entry->id);
+    $entry = file_postupdate_standard_editor($entry, 'definition', $definitionoptions, $context, 'mod_glossary', 'entry', $entry->id);
+    $entry = file_postupdate_standard_filemanager($entry, 'attachment', $attachmentoptions, $context, 'mod_glossary', 'attachment', $entry->id);
 
     // store the updated value values
     $DB->update_record('glossary_entries', $entry);
@@ -145,7 +145,7 @@ if ($mform->is_cancelled()){
     // TODO: this deletes cats from both both main and secondary glossary :-(
     if (!empty($categories) and array_search(0, $categories) === false) {
         foreach ($categories as $catid) {
-            $newcategory = new object();
+            $newcategory = new stdClass();
             $newcategory->entryid    = $entry->id;
             $newcategory->categoryid = $catid;
             $DB->insert_record('glossary_entries_categories', $newcategory, false);
@@ -159,7 +159,7 @@ if ($mform->is_cancelled()){
         foreach ($aliases as $alias) {
             $alias = trim($alias);
             if ($alias !== '') {
-                $newalias = new object();
+                $newalias = new stdClass();
                 $newalias->entryid = $entry->id;
                 $newalias->alias   = $alias;
                 $DB->insert_record('glossary_alias', $newalias, false);
@@ -167,7 +167,7 @@ if ($mform->is_cancelled()){
         }
     }
 
-    redirect("view.php?id=$cm->id&amp;mode=entry&amp;hook=$entry->id");
+    redirect("view.php?id=$cm->id&mode=entry&hook=$entry->id");
 }
 
 if (!empty($id)) {

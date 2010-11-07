@@ -46,7 +46,7 @@ class profile_define_base {
         $choices[PROFILE_VISIBLE_PRIVATE] = get_string('profilevisibleprivate', 'admin');
         $choices[PROFILE_VISIBLE_ALL]     = get_string('profilevisibleall', 'admin');
         $form->addElement('select', 'visible', get_string('profilevisible', 'admin'), $choices);
-        $form->setHelpButton('visible', array('profilevisible', get_string('profilevisible','admin')));
+        $form->addHelpButton('visible', 'profilevisible', 'admin');
         $form->setDefault('visible', PROFILE_VISIBLE_ALL);
 
         $choices = profile_list_categories();
@@ -102,11 +102,9 @@ class profile_define_base {
         /// Check the shortname is unique
             if ($field and $field->id <> $data->id) {
                 $err['shortname'] = get_string('profileshortnamenotunique', 'admin');
-
-        /// Shortname must also be unique compared to the standard user fields
-            } else if (!$field and isset($USER->{$data->shortname})) {
-                $err['shortname'] = get_string('profileshortnamenotunique', 'admin');
             }
+
+            //NOTE: since 2.0 the shortname may collide with existing fields in $USER because we load these fields into $USER->profile array instead
         }
 
         /// No further checks necessary as the form class will take care of it
@@ -200,7 +198,7 @@ function profile_reorder_fields() {
             $i = 1;
             if ($fields = $DB->get_records('user_info_field', array('categoryid'=>$category->id), 'sortorder ASC')) {
                 foreach ($fields as $field) {
-                    $f = new object();
+                    $f = new stdClass();
                     $f->id = $field->id;
                     $f->sortorder = $i++;
                     $DB->update_record('user_info_field', $f);
@@ -220,7 +218,7 @@ function profile_reorder_categories() {
     $i = 1;
     if ($categories = $DB->get_records('user_info_category', null, 'sortorder ASC')) {
         foreach ($categories as $cat) {
-            $c = new object();
+            $c = new stdClass();
             $c->id = $cat->id;
             $c->sortorder = $i++;
             $DB->update_record('user_info_category', $c);
@@ -265,7 +263,7 @@ function profile_delete_category($id) {
 
         if ($fields = $DB->get_records('user_info_field', array('categoryid'=>$category->id), 'sortorder ASC')) {
             foreach ($fields as $field) {
-                $f = new object();
+                $f = new stdClass();
                 $f->id = $field->id;
                 $f->sortorder = $sortorder++;
                 $f->categoryid = $newcategory->id;
@@ -370,9 +368,8 @@ function profile_move_category($id, $move) {
         $category->sortorder     = $neworder;
 
         /// Update the category records
-        if ($DB->update_record('user_info_category', $category) and $DB->update_record('user_info_category', $swapcategory)) {
-            return true;
-        }
+        $DB->update_record('user_info_category', $category) and $DB->update_record('user_info_category', $swapcategory);
+        return true;
     }
 
     return false;
@@ -456,7 +453,7 @@ function profile_edit_field($id, $datatype, $redirect) {
     global $CFG, $DB, $OUTPUT, $PAGE;
 
     if (!$field = $DB->get_record('user_info_field', array('id'=>$id))) {
-        $field = new object();
+        $field = new stdClass();
         $field->datatype = $datatype;
         $field->description = '';
         $field->descriptionformat = FORMAT_HTML;

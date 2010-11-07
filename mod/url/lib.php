@@ -18,10 +18,13 @@
 /**
  * Mandatory public API of url module
  *
- * @package   mod-url
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage url
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die;
 
 /**
  * List of features supported in URL module
@@ -108,7 +111,7 @@ function url_add_instance($data, $mform) {
     }
     $data->displayoptions = serialize($displayoptions);
 
-    if (strpos($data->externalurl, '://') === false) {
+    if (!empty($data->externalurl) && (strpos($data->externalurl, '://') === false) && (strpos($data->externalurl, '/', 0) === false)) {
         $data->externalurl = 'http://'.$data->externalurl;
     }
 
@@ -149,7 +152,7 @@ function url_update_instance($data, $mform) {
     }
     $data->displayoptions = serialize($displayoptions);
 
-    if (strpos($data->externalurl, '://') === false) {
+    if (!empty($data->externalurl) && (strpos($data->externalurl, '://') === false) && (strpos($data->externalurl, '/', 0) === false)) {
         $data->externalurl = 'http://'.$data->externalurl;
     }
 
@@ -197,7 +200,7 @@ function url_user_outline($course, $user, $mod, $url) {
         $numviews = count($logs);
         $lastlog = array_pop($logs);
 
-        $result = new object();
+        $result = new stdClass();
         $result->info = get_string('numviews', '', $numviews);
         $result->time = $lastlog->time;
 
@@ -259,7 +262,7 @@ function url_get_coursemodule_info($coursemodule) {
         return NULL;
     }
 
-    $info = new object();
+    $info = new stdClass();
     $info->name = $url->name;
 
     //note: there should be a way to differentiate links from normal resources
@@ -288,7 +291,7 @@ function url_get_coursemodule_info($coursemodule) {
 }
 
 /**
- * This function extends the global navigaiton for the site.
+ * This function extends the global navigation for the site.
  * It is important to note that you should not rely on PAGE objects within this
  * body of code as there is no guarantee that during an AJAX request they are
  * available
@@ -296,7 +299,7 @@ function url_get_coursemodule_info($coursemodule) {
  * @param navigation_node $navigation The url node within the global navigation
  * @param stdClass $course The course object returned from the DB
  * @param stdClass $module The module object returned from the DB
- * @param stdClass $cm The course module isntance returned from the DB
+ * @param stdClass $cm The course module instance returned from the DB
  */
 function url_extend_navigation($navigation, $course, $module, $cm) {
     /**

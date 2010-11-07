@@ -18,10 +18,13 @@
 /**
  * End of cluster
  *
- * @package   lesson
- * @copyright 2009 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage lesson
+ * @copyright  2009 Sam Hemelryk
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  **/
+
+defined('MOODLE_INTERNAL') || die();
 
  /** End of Cluster page */
 define("LESSON_PAGE_ENDOFCLUSTER",   "31");
@@ -73,7 +76,7 @@ class lesson_page_type_endofcluster extends lesson_page {
         if (empty($properties->qoption)) {
             $properties->qoption = '0';
         }
-        $properties = file_postupdate_standard_editor($properties, 'contents', array('noclean'=>true, 'maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$PAGE->course->maxbytes), get_context_instance(CONTEXT_MODULE, $PAGE->cm->id), 'lesson_page_contents', $properties->id);
+        $properties = file_postupdate_standard_editor($properties, 'contents', array('noclean'=>true, 'maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$PAGE->course->maxbytes), get_context_instance(CONTEXT_MODULE, $PAGE->cm->id), 'mod_lesson', 'page_contents', $properties->id);
         $DB->update_record("lesson_pages", $properties);
 
         $answers  = $this->get_answers();
@@ -92,7 +95,7 @@ class lesson_page_type_endofcluster extends lesson_page {
         if (isset($properties->jumpto[0])) {
             $answer->jumpto = $properties->jumpto[0];
         }
-        if (isset($form->score[0])) {
+        if (isset($properties->score[0])) {
             $answer->score = $properties->score[0];
         }
         if (!empty($answer->id)) {
@@ -103,6 +106,7 @@ class lesson_page_type_endofcluster extends lesson_page {
         return true;
     }
     public function override_next_page() {
+        global $DB;
         $jump = $DB->get_field("lesson_answers", "jumpto", array("pageid" => $this->properties->id, "lessonid" => $this->lesson->id));
         if ($jump == LESSON_NEXTPAGE) {
             if ($this->properties->nextpageid == 0) {
@@ -151,7 +155,7 @@ class lesson_add_page_form_endofcluster extends lesson_add_page_form_base {
 
         $this->editoroptions = array('noclean'=>true, 'maxfiles'=>EDITOR_UNLIMITED_FILES, 'maxbytes'=>$PAGE->course->maxbytes);
         $mform->addElement('editor', 'contents_editor', get_string("pagecontents", "lesson"), null, $this->editoroptions);
-        $mform->setType('contents_editor', PARAM_CLEANHTML);
+        $mform->setType('contents_editor', PARAM_RAW);
 
         $this->add_jumpto(0);
     }

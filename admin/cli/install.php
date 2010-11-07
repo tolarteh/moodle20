@@ -24,15 +24,17 @@
  * - su to apache account or sudo before execution
  * - not compatible with Windows platform
  *
- * @package    moodlecore
+ * @package    core
  * @subpackage cli
  * @copyright  2009 Petr Skoda (http://skodak.org)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+define('CLI_SCRIPT', true);
+
+// extra execution prevention - we can not just require config.php here
 if (isset($_SERVER['REMOTE_ADDR'])) {
-    error_log("admin/cli/install.php can not be called from web server!");
-    exit;
+    exit(1);
 }
 
 $help =
@@ -59,6 +61,8 @@ Options:
 --dbpass=PASSWORD     Database password. Default is blank
 --dbsocket            Use database sockets. Available for some databases only.
 --prefix=STRING       Table prefix for above database tables. Default is mdl_
+--fullname=STRING     The fullname of the site
+--shortname=STRING    The shortname of the site
 --adminuser=USERNAME  Username for the moodle admin account. Default is admin
 --adminpass=PASSWORD  Password for the moodle admin account,
                       required in non-interactive mode.
@@ -68,7 +72,8 @@ Options:
                       required in non-interactive mode.
 -h, --help            Print out this help
 
-Example: \$sudo -u wwwrun /usr/bin/php admin/cli/install.php --lang=cs
+Example:
+\$sudo -u www-data /usr/bin/php admin/cli/install.php --lang=cs
 "; //TODO: localize, mark as needed in install - to be translated later when everything is finished
 
 
@@ -92,11 +97,20 @@ $olddir = getcwd();
 // change directory so that includes bellow work properly
 chdir(dirname($_SERVER['argv'][0]));
 
+// Servers should define a default timezone in php.ini, but if they don't then make sure something is defined.
+// This is a quick hack.  Ideally we should ask the admin for a value.  See MDL-22625 for more on this.
+if (function_exists('date_default_timezone_set') and function_exists('date_default_timezone_get')) {
+    @date_default_timezone_set(@date_default_timezone_get());
+}
+
 // make sure PHP errors are displayed - helps with diagnosing of problems
 @error_reporting(E_ALL);
 @ini_set('display_errors', '1');
 // we need a lot of memory
 @ini_set('memory_limit', '128M');
+
+/** Used by library scripts to check they are being called by Moodle */
+define('MOODLE_INTERNAL', true);
 
 // Check that PHP is of a sufficient version
 if (version_compare(phpversion(), "5.2.8") < 0) {
@@ -138,18 +152,14 @@ require_once($CFG->libdir.'/dmllib.php');
 require_once($CFG->libdir.'/moodlelib.php');
 require_once($CFG->libdir.'/deprecatedlib.php');
 require_once($CFG->libdir.'/adminlib.php');
-require_once($CFG->libdir.'/environmentlib.php');
-require_once($CFG->libdir.'/xmlize.php');
 require_once($CFG->libdir.'/componentlib.class.php');
-require_once($CFG->libdir.'/upgradelib.php');
-require_once($CFG->libdir.'/environmentlib.php');
 
 //Database types
 $databases = array('mysqli' => moodle_database::get_driver_instance('mysqli', 'native'),
                    'pgsql'  => moodle_database::get_driver_instance('pgsql',  'native'),
                    'oci'    => moodle_database::get_driver_instance('oci',    'native'),
-                   //'sqlsrv' => moodle_database::get_driver_instance('sqlsrv', 'native'), // new MS sql driver - win32 only
-                   //'mssql'  => moodle_database::get_driver_instance('mssql',  'native'), // FreeTDS driver
+                   'sqlsrv' => moodle_database::get_driver_instance('sqlsrv', 'native'), // MS SQL*Server PHP driver
+                   'mssql'  => moodle_database::get_driver_instance('mssql',  'native'), // FreeTDS driver
                   );
 foreach ($databases as $type=>$database) {
     if ($database->driver_installed() !== true) {
@@ -166,7 +176,7 @@ if (empty($databases)) {
 // now get cli options
 list($options, $unrecognized) = cli_get_params(
     array(
-        'chmod'             => '02777',
+        'chmod'             => '2777',
         'lang'              => $CFG->lang,
         'wwwroot'           => '',
         'dataroot'          => $CFG->dataroot,
@@ -177,6 +187,8 @@ list($options, $unrecognized) = cli_get_params(
         'dbpass'            => '',
         'dbsocket'          => false,
         'prefix'            => 'mdl_',
+        'fullname'          => '',
+        'shortname'         => '',
         'adminuser'         => 'admin',
         'adminpass'         => '',
         'non-interactive'   => false,
@@ -219,7 +231,7 @@ if ($interactive) {
     foreach ($languages as $key=>$lang) {
         $c++;
         $length = iconv_strlen($lang, 'UTF-8');
-        $padded = $lang.str_repeat(' ', 28-$length);
+        $padded = $lang.str_repeat(' ', 38-$length);
         $langlist .= $padded;
         if ($c % 3 == 0) {
             $langlist .= "\n";
@@ -255,14 +267,14 @@ if ($interactive) {
     $error = '';
     do {
         echo $error;
-        $input = cli_input($prompt, $chmod);
+        $input = cli_input($prompt, decoct($chmod));
         $input = octdec(clean_param($input, PARAM_INT));
         if (empty($input)) {
             $error = get_string('cliincorrectvalueretry', 'admin')."\n";
         } else {
             $error = '';
         }
-     } while ($error !== '');
+    } while ($error !== '');
     $chmod = $input;
 
 } else {
@@ -341,7 +353,7 @@ if ($interactive) {
             $CFG->dataroot = '';
             $error = get_string('pathsunsecuredataroot', 'install')."\n";
         } else {
-            if (make_upload_directory('lang', false)) {
+            if (install_init_dataroot($CFG->dataroot, $CFG->directorypermissions)) {
                 $error = '';
             } else {
                 $a = (object)array('dataroot' => $CFG->dataroot);
@@ -355,7 +367,7 @@ if ($interactive) {
     if (is_dataroot_insecure()) {
         cli_error(get_string('pathsunsecuredataroot', 'install'));
     }
-    if (!make_upload_directory('lang', false)) {
+    if (!install_init_dataroot($CFG->dataroot, $CFG->directorypermissions)) {
         $a = (object)array('dataroot' => $CFG->dataroot);
         cli_error(get_string('pathserrcreatedataroot', 'install', $a));
     }
@@ -499,6 +511,48 @@ if ($interactive) {
     }
 }
 
+// ask for fullname
+if ($interactive) {
+    cli_separator();
+    cli_heading(get_string('fullsitename', 'moodle'));
+
+    if ($options['fullname'] !== '') {
+        $prompt = get_string('clitypevaluedefault', 'admin', $options['fullname']);
+    } else {
+        $prompt = get_string('clitypevalue', 'admin');
+    }
+
+    do {
+        $options['fullname'] = cli_input($prompt, $options['fullname']);
+    } while (empty($options['fullname']));
+} else {
+    if (empty($options['fullname'])) {
+        $a = (object)array('option'=>'fullname', 'value'=>$options['fullname']);
+        cli_error(get_string('cliincorrectvalueerror', 'admin', $a));
+    }
+}
+
+// ask for shortname
+if ($interactive) {
+    cli_separator();
+    cli_heading(get_string('shortsitename', 'moodle'));
+
+    if ($options['shortname'] !== '') {
+        $prompt = get_string('clitypevaluedefault', 'admin', $options['shortname']);
+    } else {
+        $prompt = get_string('clitypevalue', 'admin');
+    }
+
+    do {
+        $options['shortname'] = cli_input($prompt, $options['shortname']);
+    } while (empty($options['shortname']));
+} else {
+    if (empty($options['shortname'])) {
+        $a = (object)array('option'=>'shortname', 'value'=>$options['shortname']);
+        cli_error(get_string('cliincorrectvalueerror', 'admin', $a));
+    }
+}
+
 // ask for admin user name
 if ($interactive) {
     cli_separator();
@@ -564,81 +618,18 @@ if (!file_exists($configfile)) {
     cli_error('Can not create config file.');
 }
 
-// return back to original dir before executing setup.php chich changes the dir again
+// remember selected language
+$installlang = $CFG->lang;
+// return back to original dir before executing setup.php which changes the dir again
 chdir($olddir);
 // We have config.php, it is a real php script from now on :-)
 require($configfile);
 
-// show as much debug as possible
-@error_reporting(1023);
-@ini_set('display_errors', '1');
-$CFG->debug = 38911;
-$CFG->debugdisplay = true;
+// use selected language
+$CFG->lang = $installlang;
+$SESSION->lang = $CFG->lang;
 
-$CFG->version = "";
-$CFG->release = "";
-
-// read $version adn $release
-require($CFG->dirroot.'/version.php');
-
-if ($DB->get_tables() ) {
-    cli_error(get_string('clitablesexist', 'install'));
-}
-
-// test environment first
-if (!check_moodle_environment($version, $environment_results, false, ENV_SELECT_RELEASE)) {
-    $errors = environment_get_errors($environment_results);
-    cli_heading(get_string('environment', 'admin'));
-    foreach ($errors as $error) {
-        list($info, $report) = $error;
-        echo "!! $info !!\n$report\n\n";
-    }
-    //remove config.php, we do not want half finished upgrades!
-    unlink($configfile);
-    exit(1);
-}
-
-if (!$DB->setup_is_unicodedb()) {
-    if (!$DB->change_db_encoding()) {
-        // If could not convert successfully, throw error, and prevent installation
-        cli_error(get_string('unicoderequired', 'admin'));
-    }
-}
-
-if ($interactive) {
-    cli_separator();
-    cli_heading(get_string('databasesetup'));
-}
-
-// install core
-install_core($version, true);
-set_config('release', $release);
-
-// install all plugins types, local, etc.
-upgrade_noncore(true);
-
-// set up admin user password
-$DB->set_field('user', 'password', hash_internal_user_password($options['adminpass']), array('username' => 'admin'));
-
-// rename admin username if needed
-if ($options['adminuser'] !== 'admin') {
-    $DB->set_field('user', 'username', $options['adminuser'], array('username' => 'admin'));
-}
-
-// indicate that this site is fully configured
-set_config('rolesactive', 1);
-upgrade_finished();
-
-// log in as admin - we need do anything when applying defaults
-$admins = get_admins();
-$admin = reset($admins);
-session_set_user($admin);
-message_set_default_message_preferences($admin);
-
-// apply all default settings, do it twice to fill all defaults - some settings depend on other setting
-admin_apply_default_settings(NULL, true);
-admin_apply_default_settings(NULL, true);
-set_config('registerauth', '');
+install_cli_database($options, $interactive);
 
 echo get_string('cliinstallfinished', 'install')."\n";
 exit(0); // 0 means success

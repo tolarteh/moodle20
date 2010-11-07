@@ -78,8 +78,52 @@ class backup_anonymizer_helper {
         return 'anon' . $counter . '@doesntexist.com'; // Just a counter
     }
 
-    public static function process_user_emailstop($value) {
-        return 1; // Stop email for anon users
+    public static function process_user_icq($value) {
+        return ''; // Clean icq
+    }
+
+    public static function process_user_skype($value) {
+        return ''; // Clean skype
+    }
+
+    public static function process_user_yahoo($value) {
+        return ''; // Clean yahoo
+    }
+
+    public static function process_user_aim($value) {
+        return ''; // Clean aim
+    }
+
+    public static function process_user_msn($value) {
+        return ''; // Clean msn
+    }
+
+    public static function process_user_phone1($value) {
+        return ''; // Clean phone1
+    }
+
+    public static function process_user_phone2($value) {
+        return ''; // Clean phone2
+    }
+
+    public static function process_user_institution($value) {
+        return ''; // Clean institution
+    }
+
+    public static function process_user_department($value) {
+        return ''; // Clean department
+    }
+
+    public static function process_user_address($value) {
+        return ''; // Clean address
+    }
+
+    public static function process_user_city($value) {
+        return 'Perth'; // Set city
+    }
+
+    public static function process_user_country($value) {
+        return 'AU'; // Set country
     }
 
     public static function process_user_lastip($value) {
@@ -96,6 +140,10 @@ class backup_anonymizer_helper {
 
     public static function process_user_description($value) {
         return ''; // No user description
+    }
+
+    public static function process_user_descriptionformat($value) {
+        return 0; // Format moodle
     }
 
     public static function process_user_imagealt($value) {

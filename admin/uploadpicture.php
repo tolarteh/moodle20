@@ -21,7 +21,6 @@
 ///////////////////////////////////////////////////////////////////////////
 
 require_once('../config.php');
-require_once($CFG->libdir.'/uploadlib.php');
 require_once($CFG->libdir.'/adminlib.php');
 require_once($CFG->libdir.'/gdlib.php');
 require_once('uploadpicture_form.php');
@@ -69,10 +68,7 @@ if ($formdata = $mform->get_data()) {
         // that we'll take longer, and that the process should be recycled soon
         // to free up memory.
         @set_time_limit(0);
-        @raise_memory_limit("192M");
-        if (function_exists('apache_child_terminate')) {
-            @apache_child_terminate();
-        }
+        raise_memory_limit(MEMORY_EXTRA);
 
         // Create a unique temporary directory, to process the zip file
         // contents.
@@ -83,7 +79,9 @@ if ($formdata = $mform->get_data()) {
             echo $OUTPUT->notification(get_string('uploadpicture_cannotmovezip','admin'));
             @remove_dir($zipdir);
         } else {
-            if (!unzip_file($dstfile, $zipdir, false)) {
+            $fp = get_file_packer('application/zip');
+            $unzipresult = $fp->extract_to_pathname($dstfile, $zipdir);
+            if (!$unzipresult) {
                 echo $OUTPUT->notification(get_string('uploadpicture_cannotunzip','admin'));
                 @remove_dir($zipdir);
             } else {
@@ -118,18 +116,21 @@ exit;
  *
  * @param string $dir where to create the temp directory.
  * @param string $prefix prefix for the temp directory name (default '')
- * @param string $mode permissions for the temp directory (default 700)
  *
  * @return string The full path to the temp directory.
  */
-function my_mktempdir($dir, $prefix='', $mode=0700) {
+function my_mktempdir($dir, $prefix='') {
+    global $CFG;
+
     if (substr($dir, -1) != '/') {
         $dir .= '/';
     }
 
     do {
         $path = $dir.$prefix.mt_rand(0, 9999999);
-    } while (!mkdir($path, $mode));
+    } while (file_exists($path));
+
+    check_dir_exists($path);
 
     return $path;
 }
@@ -207,7 +208,7 @@ function process_file ($file, $userfield, $overwrite) {
 
     // userfield names are safe, so don't quote them.
     if (!($user = $DB->get_record('user', array ($userfield => $uservalue, 'deleted' => 0)))) {
-        $a = new Object();
+        $a = new stdClass();
         $a->userfield = clean_param($userfield, PARAM_CLEANHTML);
         $a->uservalue = clean_param($uservalue, PARAM_CLEANHTML);
         echo $OUTPUT->notification(get_string('uploadpicture_usernotfound', 'admin', $a));
@@ -241,12 +242,8 @@ function process_file ($file, $userfield, $overwrite) {
  * @return bool
  */
 function my_save_profile_image($id, $originalfile) {
-    $destination = create_profile_image_destination($id, 'user');
-    if ($destination === false) {
-        return false;
-    }
-
-    return process_profile_image($originalfile, $destination);
+    $context = get_context_instance(CONTEXT_USER, $id);
+    return process_new_icon($context, 'user', 'icon', 0, $originalfile);
 }
 
 

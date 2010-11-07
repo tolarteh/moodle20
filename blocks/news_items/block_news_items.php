@@ -3,7 +3,6 @@
 class block_news_items extends block_base {
     function init() {
         $this->title = get_string('pluginname', 'block_news_items');
-        $this->version = 2007101509;
     }
 
     function get_content() {
@@ -107,7 +106,7 @@ class block_news_items extends block_base {
                 } else {
                     $userid = $USER->id;
                 }
-                $this->content->footer .= '<br />'.rss_get_link($this->page->context->id, $userid, 'forum', $forum->id, $tooltiptext);
+                $this->content->footer .= '<br />'.rss_get_link($this->page->context->id, $userid, 'mod_forum', $forum->id, $tooltiptext);
             }
 
         }

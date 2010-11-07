@@ -41,43 +41,27 @@ switch ($action) {
         break;
     case 'deletecategory':
         $id      = required_param('id', PARAM_INT);
-        $confirm = optional_param('confirm', 0, PARAM_BOOL);
-
-        if (data_submitted() and $confirm and confirm_sesskey()) {
-            profile_delete_category($id);
-            redirect($redirect);
-        }
-
-        //ask for confirmation
-        $fieldcount = $DB->count_records('user_info_field', array('categoryid'=>$id));
-        $optionsyes = array ('id'=>$id, 'confirm'=>1, 'action'=>'deletecategory', 'sesskey'=>sesskey());
-        echo $OUTPUT->header();
-        echo $OUTPUT->heading('profiledeletecategory', 'admin');
-
-        $formcontinue = new single_button(new moodle_url($redirect, $optionsyes), get_string('yes'), 'post');
-        $formcancel = new single_button($redirect, get_string('no'), 'get');
-        echo $OUTPUT->confirm(get_string('profileconfirmcategorydeletion', 'admin', $fieldcount), $formcontinue, $formcancel);
-        echo $OUTPUT->footer();
-        die;
+        profile_delete_category($id);
+        redirect($redirect,get_string('deleted'));
         break;
     case 'deletefield':
         $id      = required_param('id', PARAM_INT);
         $confirm = optional_param('confirm', 0, PARAM_BOOL);
 
-        if (data_submitted() and $confirm and confirm_sesskey()) {
+        $datacount = $DB->count_records('user_info_data', array('fieldid'=>$id));
+        if (data_submitted() and ($confirm and confirm_sesskey()) or $datacount===0) {
             profile_delete_field($id);
-            redirect($redirect);
+            redirect($redirect,get_string('deleted'));
         }
 
         //ask for confirmation
-        $datacount = $DB->count_records('user_info_data', array('fieldid'=>$id));
         $optionsyes = array ('id'=>$id, 'confirm'=>1, 'action'=>'deletefield', 'sesskey'=>sesskey());
         $strheading = get_string('profiledeletefield', 'admin');
         $PAGE->navbar->add($strheading);
         echo $OUTPUT->header();
         echo $OUTPUT->heading($strheading);
         $formcontinue = new single_button(new moodle_url($redirect, $optionsyes), get_string('yes'), 'post');
-        $formcancel = new single_button($redirect, get_string('no'), 'get');
+        $formcancel = new single_button(new moodle_url($redirect), get_string('no'), 'get');
         echo $OUTPUT->confirm(get_string('profileconfirmfielddeletion', 'admin', $datacount), $formcontinue, $formcancel);
         echo $OUTPUT->footer();
         die;
@@ -105,7 +89,7 @@ echo $OUTPUT->heading(get_string('profilefields', 'admin'));
 
 /// Check that we have at least one category defined
 if ($DB->count_records('user_info_category') == 0) {
-    $defaultcategory = new object();
+    $defaultcategory = new stdClass();
     $defaultcategory->name = $strdefaultcategory;
     $defaultcategory->sortorder = 1;
     $DB->insert_record('user_info_category', $defaultcategory);
@@ -149,6 +133,11 @@ $options = profile_list_datatypes();
 $popupurl = new moodle_url('/user/profile/index.php?id=0&action=editfield');
 echo $OUTPUT->single_select($popupurl, 'datatype', $options, '', array(''=>$strcreatefield), 'newfieldform');
 
+//add a div with a class so themers can hide, style or reposition the text
+html_writer::start_tag('div',array('class'=>'adminuseractionhint'));
+echo get_string('or', 'lesson');
+html_writer::end_tag('div');
+
 /// Create a new category link
 $options = array('action'=>'editcategory');
 echo $OUTPUT->single_button(new moodle_url('index.php', $options), get_string('profilecreatecategory', 'admin'));
@@ -166,7 +155,7 @@ die;
  * @param   object   the category object
  * @return  string   the icon string
  */
-function profile_category_icons ($category) {
+function profile_category_icons($category) {
     global $CFG, $USER, $DB, $OUTPUT;
 
     $strdelete   = get_string('delete');
@@ -214,12 +203,10 @@ function profile_category_icons ($category) {
 function profile_field_icons($field) {
     global $CFG, $USER, $DB, $OUTPUT;
 
-    if (empty($str)) {
-        $strdelete   = get_string('delete');
-        $strmoveup   = get_string('moveup');
-        $strmovedown = get_string('movedown');
-        $stredit     = get_string('edit');
-    }
+    $strdelete   = get_string('delete');
+    $strmoveup   = get_string('moveup');
+    $strmovedown = get_string('movedown');
+    $stredit     = get_string('edit');
 
     $fieldcount = $DB->count_records('user_info_field', array('categoryid'=>$field->categoryid));
     $datacount  = $DB->count_records('user_info_data', array('fieldid'=>$field->id));

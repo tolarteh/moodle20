@@ -18,9 +18,10 @@
 /**
  * Allows user to allocate the submissions manually
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    workshopallocation
+ * @subpackage manual
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -129,14 +130,18 @@ class workshop_manual_allocator implements workshop_allocator {
      * Prints user interface - current allocation and a form to edit it
      */
     public function ui() {
-        global $PAGE, $OUTPUT, $DB;
+        global $PAGE, $DB;
+
+        $output     = $PAGE->get_renderer('workshopallocation_manual');
+
         $pagingvar  = 'page';
         $page       = optional_param($pagingvar, 0, PARAM_INT);
         $perpage    = 10;   // todo let the user modify this
 
         $hlauthorid     = -1;           // highlight this author
         $hlreviewerid   = -1;           // highlight this reviewer
-        $msg            = new stdclass(); // message to render
+
+        $message        = new workshop_message();
 
         $m  = optional_param('m', '', PARAM_ALPHANUMEXT);   // message code
         if ($m) {
@@ -145,47 +150,46 @@ class workshop_manual_allocator implements workshop_allocator {
             case self::MSG_ADDED:
                 $hlauthorid     = $m[1];
                 $hlreviewerid   = $m[2];
-                $msg->text      = get_string('allocationadded', 'workshopallocation_manual');
-                $msg->sty       = 'ok';
+                $message        = new workshop_message(get_string('allocationadded', 'workshopallocation_manual'),
+                    workshop_message::TYPE_OK);
                 break;
             case self::MSG_EXISTS:
                 $hlauthorid     = $m[1];
                 $hlreviewerid   = $m[2];
-                $msg->text      = get_string('allocationexists', 'workshopallocation_manual');
-                $msg->sty       = 'info';
+                $message        = new workshop_message(get_string('allocationexists', 'workshopallocation_manual'),
+                    workshop_message::TYPE_INFO);
                 break;
             case self::MSG_NOSUBMISSION:
                 $hlauthorid     = $m[1];
-                $msg->text      = get_string('nosubmissionfound', 'workshop');
-                $msg->sty       = 'error';
+                $message        = new workshop_message(get_string('nosubmissionfound', 'workshop'),
+                    workshop_message::TYPE_ERROR);
                 break;
             case self::MSG_CONFIRM_DEL:
                 $hlauthorid     = $m[2];
                 $hlreviewerid   = $m[3];
                 if ($m[4] == 0) {
-                    $msg->text  = get_string('areyousuretodeallocate', 'workshopallocation_manual');
-                    $msg->sty   = 'info';
+                    $message    = new workshop_message(get_string('areyousuretodeallocate', 'workshopallocation_manual'),
+                        workshop_message::TYPE_INFO);
                 } else {
-                    $msg->text  = get_string('areyousuretodeallocategraded', 'workshopallocation_manual');
-                    $msg->sty   = 'error';
+                    $message    = new workshop_message(get_string('areyousuretodeallocategraded', 'workshopallocation_manual'),
+                        workshop_message::TYPE_ERROR);
                 }
+                $url = new moodle_url($PAGE->url, array('mode' => 'del', 'what' => $m[1], 'confirm' => 1, 'sesskey' => sesskey()));
+                $label = get_string('iamsure', 'workshop');
+                $message->set_action($url, $label);
                 break;
             case self::MSG_DELETED:
                 $hlauthorid     = $m[1];
                 $hlreviewerid   = $m[2];
-                $msg->text      = get_string('assessmentdeleted', 'workshop');
-                $msg->sty       = 'ok';
+                $message        = new workshop_message(get_string('assessmentdeleted', 'workshop'),
+                    workshop_message::TYPE_OK);
                 break;
             case self::MSG_DELETE_ERROR:
                 $hlauthorid     = $m[1];
                 $hlreviewerid   = $m[2];
-                $msg->text      = get_string('assessmentnotdeleted', 'workshop');
-                $msg->sty       = 'error';
+                $message        = new workshop_message(get_string('assessmentnotdeleted', 'workshop'),
+                    workshop_message::TYPE_ERROR);
                 break;
-            }
-            if ($m[0] == self::MSG_CONFIRM_DEL) {
-                $url = new moodle_url($PAGE->url, array('mode' => 'del', 'what' => $m[1], 'confirm' => 1));
-                $msg->extra = $OUTPUT->single_button($url, get_string('iamsure', 'workshop'), 'post');
             }
         }
 
@@ -198,13 +202,15 @@ class workshop_manual_allocator implements workshop_allocator {
         if ($hlauthorid > 0 and $hlreviewerid > 0) {
             // display just those two users
             $participants = array_intersect_key($participants, array($hlauthorid => null, $hlreviewerid => null));
+            $button = $output->single_button($PAGE->url, get_string('showallparticipants', 'workshopallocation_manual'), 'get');
         } else {
             // slice the list of participants according to the current page
             $participants = array_slice($participants, $page * $perpage, $perpage, true);
+            $button = '';
         }
 
         // this will hold the information needed to display user names and pictures
-        $userinfo = $DB->get_records_list('user', 'id', array_keys($participants), '', 'id,lastname,firstname,picture,imagealt');
+        $userinfo = $DB->get_records_list('user', 'id', array_keys($participants), '', user_picture::fields());
 
         // load the participants' submissions
         $submissions = $this->workshop->get_submissions(array_keys($participants));
@@ -216,6 +222,7 @@ class workshop_manual_allocator implements workshop_allocator {
                 $userinfo[$submission->authorid]->lastname  = $submission->authorlastname;
                 $userinfo[$submission->authorid]->picture   = $submission->authorpicture;
                 $userinfo[$submission->authorid]->imagealt  = $submission->authorimagealt;
+                $userinfo[$submission->authorid]->email     = $submission->authoremail;
             }
         }
 
@@ -224,7 +231,7 @@ class workshop_manual_allocator implements workshop_allocator {
         if ($submissions) {
             list($submissionids, $params) = $DB->get_in_or_equal(array_keys($submissions), SQL_PARAMS_NAMED);
             $sql = "SELECT a.id AS assessmentid, a.submissionid,
-                           r.id AS reviewerid, r.lastname, r.firstname, r.picture, r.imagealt,
+                           r.id AS reviewerid, r.lastname, r.firstname, r.picture, r.imagealt, r.email,
                            s.id AS submissionid, s.authorid
                       FROM {workshop_assessments} a
                       JOIN {user} r ON (a.reviewerid = r.id)
@@ -239,6 +246,7 @@ class workshop_manual_allocator implements workshop_allocator {
                     $userinfo[$reviewer->reviewerid]->lastname  = $reviewer->lastname;
                     $userinfo[$reviewer->reviewerid]->picture   = $reviewer->picture;
                     $userinfo[$reviewer->reviewerid]->imagealt  = $reviewer->imagealt;
+                    $userinfo[$reviewer->reviewerid]->email     = $reviewer->email;
                 }
             }
         }
@@ -251,7 +259,7 @@ class workshop_manual_allocator implements workshop_allocator {
             $sql = "SELECT a.id AS assessmentid, a.submissionid,
                            u.id AS reviewerid,
                            s.id AS submissionid,
-                           e.id AS revieweeid, e.lastname, e.firstname, e.picture, e.imagealt
+                           e.id AS revieweeid, e.lastname, e.firstname, e.picture, e.imagealt, e.email
                       FROM {user} u
                       JOIN {workshop_assessments} a ON (a.reviewerid = u.id)
                       JOIN {workshop_submissions} s ON (a.submissionid = s.id)
@@ -266,6 +274,7 @@ class workshop_manual_allocator implements workshop_allocator {
                     $userinfo[$reviewee->revieweeid]->lastname  = $reviewee->lastname;
                     $userinfo[$reviewee->revieweeid]->picture   = $reviewee->picture;
                     $userinfo[$reviewee->revieweeid]->imagealt  = $reviewee->imagealt;
+                    $userinfo[$reviewee->revieweeid]->email     = $reviewee->email;
                 }
             }
         }
@@ -274,7 +283,7 @@ class workshop_manual_allocator implements workshop_allocator {
         $allocations = array();
 
         foreach ($participants as $participant) {
-            $allocations[$participant->id] = new stdclass;
+            $allocations[$participant->id] = new stdClass();
             $allocations[$participant->id]->userid = $participant->id;
             $allocations[$participant->id]->submissionid = null;
             $allocations[$participant->id]->reviewedby = array();
@@ -297,8 +306,8 @@ class workshop_manual_allocator implements workshop_allocator {
         }
         unset($reviewees);
 
-        // prepare data to be displayed
-        $data                   = new stdclass();
+        // prepare data to be rendered
+        $data                   = new workshopallocation_manual_allocations();
         $data->allocations      = $allocations;
         $data->userinfo         = $userinfo;
         $data->authors          = $this->workshop->get_potential_authors();
@@ -309,14 +318,22 @@ class workshop_manual_allocator implements workshop_allocator {
 
         // prepare paging bar
         $pagingbar              = new paging_bar($numofparticipants, $page, $perpage, $PAGE->url, $pagingvar);
+        $pagingbarout           = $output->render($pagingbar);
 
-        $pagingbarout = $OUTPUT->render($pagingbar);
+        return $pagingbarout . $output->render($message) . $output->render($data) . $button . $pagingbarout;
+    }
 
-        // we have all data, let us pass it to the renderers and return the output
-        $wsoutput = $PAGE->get_renderer('mod_workshop');
-        $uioutput = $PAGE->get_renderer('workshopallocation_manual');
-
-        return $pagingbarout . $wsoutput->status_message($msg) . $uioutput->display_allocations($data) . $pagingbarout;
+    /**
+     * Delete all data related to a given workshop module instance
+     *
+     * This plugin does not store any data.
+     *
+     * @see workshop_delete_instance()
+     * @param int $workshopid id of the workshop module instance being deleted
+     * @return void
+     */
+    public static function delete_instance($workshopid) {
+        return;
     }
 
     /**
@@ -340,7 +357,7 @@ class workshop_manual_allocator implements workshop_allocator {
         $params['workshopid'] = $this->workshop->id;
 
         $sql = "SELECT author.id AS authorid, author.firstname AS authorfirstname, author.lastname AS authorlastname,
-                       author.picture AS authorpicture, author.imagealt AS authorimagealt,
+                       author.picture AS authorpicture, author.imagealt AS authorimagealt, author.email AS authoremail,
                        s.id AS submissionid, s.title AS submissiontitle, s.grade AS submissiongrade,
                        a.id AS assessmentid, a.timecreated AS timeallocated, a.reviewerid,
                        reviewer.firstname AS reviewerfirstname, reviewer.lastname AS reviewerlastname,
@@ -354,7 +371,19 @@ class workshop_manual_allocator implements workshop_allocator {
 
         return $DB->get_recordset_sql($sql, $params);
     }
+}
 
-
-
+/**
+ * Contains all information needed to render current allocations and the allocator UI
+ *
+ * @see workshop_manual_allocator::ui()
+ */
+class workshopallocation_manual_allocations implements renderable {
+    public $allocations;
+    public $userinfo;
+    public $authors;
+    public $reviewers;
+    public $hlauthorid;
+    public $hlreviewerid;
+    public $selfassessment;
 }

@@ -17,11 +17,14 @@
 /**
  * Definitions of constants for gradebook
  *
- * @package    moodlecore
+ * @package    core
  * @subpackage grade
  * @copyright  2006 Nicolas Connault
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
+
 require_once('grade_object.php');
 
 /**
@@ -165,7 +168,7 @@ class grade_category extends grade_object {
      * @return int The depth of this category (2 means there is one parent)
      * @static
      */
-    public function build_path($grade_category) {
+    public static function build_path($grade_category) {
         global $DB;
 
         if (empty($grade_category->parent)) {
@@ -517,7 +520,7 @@ class grade_category extends grade_object {
      * @param array  $items Grade items
      * @param array  $grade_values Array of grade values
      * @param object $oldgrade Old grade
-     * @param bool   $excluded Excluded
+     * @param array  $excluded Excluded
      *
      * @return boolean (just plain return;)
      * @todo Document correctly
@@ -762,7 +765,7 @@ class grade_category extends grade_object {
     }
 
     /**
-     * Some aggregation tpyes may update max grade
+     * Some aggregation types may update max grade
      * @param array $items sub items
      * @return void
      */
@@ -816,11 +819,11 @@ class grade_category extends grade_object {
     /**
      * internal function for category grades summing
      *
-     * @param grade_item &$grade The grade item
+     * @param grade_grade &$grade The grade item
      * @param float      $oldfinalgrade Old Final grade?
      * @param array      $items Grade items
      * @param array      $grade_values Grade values
-     * @param bool       $excluded Excluded
+     * @param array      $excluded Excluded
      *
      * @return boolean (just plain return;)
      */
@@ -829,7 +832,7 @@ class grade_category extends grade_object {
             return null;
         }
 
-        // ungraded and exluded items are not used in aggregation
+        // ungraded and excluded items are not used in aggregation
         foreach ($grade_values as $itemid=>$v) {
 
             if (is_null($v)) {
@@ -1013,10 +1016,9 @@ class grade_category extends grade_object {
         $course_category = grade_category::fetch_course_category($courseid);
         $category_array = array('object'=>$course_category, 'type'=>'category', 'depth'=>1,
                                 'children'=>$course_category->get_children($include_category_items));
-        $sortorder = 1;
-        $course_category->set_sortorder($sortorder);
-        $course_category->sortorder = $sortorder;
-        return grade_category::_fetch_course_tree_recursion($category_array, $sortorder);
+
+        $course_category->sortorder = $course_category->get_sortorder();
+        return grade_category::_fetch_course_tree_recursion($category_array, $course_category->get_sortorder());
     }
 
     /**
@@ -1031,8 +1033,13 @@ class grade_category extends grade_object {
      */
     static private function _fetch_course_tree_recursion($category_array, &$sortorder) {
         // update the sortorder in db if needed
-        if ($category_array['object']->sortorder != $sortorder) {
-            $category_array['object']->set_sortorder($sortorder);
+        //NOTE: This leads to us resetting sort orders every time the categories and items page is viewed :(
+        //if ($category_array['object']->sortorder != $sortorder) {
+            //$category_array['object']->set_sortorder($sortorder);
+        //}
+
+        if (isset($category_array['object']->gradetype) && $category_array['object']->gradetype==GRADE_TYPE_NONE) {
+            return null;
         }
 
         // store the grade_item or grade_category instance with extra info
@@ -1047,19 +1054,25 @@ class grade_category extends grade_object {
         if (!empty($category_array['children'])) {
             $result['children'] = array();
             //process the category item first
-            $cat_item_id = null;
+            $child = null;
 
             foreach ($category_array['children'] as $oldorder=>$child_array) {
 
                 if ($child_array['type'] == 'courseitem' or $child_array['type'] == 'categoryitem') {
-                    $result['children'][$sortorder] = grade_category::_fetch_course_tree_recursion($child_array, $sortorder);
+                    $child = grade_category::_fetch_course_tree_recursion($child_array, $sortorder);
+                    if (!empty($child)) {
+                        $result['children'][$sortorder] = $child;
+                    }
                 }
             }
 
             foreach ($category_array['children'] as $oldorder=>$child_array) {
 
                 if ($child_array['type'] != 'courseitem' and $child_array['type'] != 'categoryitem') {
-                    $result['children'][++$sortorder] = grade_category::_fetch_course_tree_recursion($child_array, $sortorder);
+                    $child = grade_category::_fetch_course_tree_recursion($child_array, $sortorder);
+                    if (!empty($child)) {
+                        $result['children'][++$sortorder] = $child;
+                    }
                 }
             }
         }
@@ -1183,7 +1196,7 @@ class grade_category extends grade_object {
      *
      * @return array
      */
-    private function _get_children_recursion($category) {
+    private static function _get_children_recursion($category) {
 
         $children_array = array();
         foreach ($category->children as $sortorder=>$child) {
@@ -1424,7 +1437,7 @@ class grade_category extends grade_object {
      * @return object grade_category instance for course grade
      * @static
      */
-    public function fetch_course_category($courseid) {
+    public static function fetch_course_category($courseid) {
         if (empty($courseid)) {
             debugging('Missing course id!');
             return false;
@@ -1506,14 +1519,14 @@ class grade_category extends grade_object {
 
         parent::set_properties($instance, $params);
 
-        //if theyve changed aggregation type we made need to do some fiddling to provide appropriate defaults
+        //if they've changed aggregation type we made need to do some fiddling to provide appropriate defaults
         if (!empty($params->aggregation)) {
 
             //weight and extra credit share a column :( Would like a default of 1 for weight and 0 for extra credit
             //Flip from the default of 0 to 1 (or vice versa) if ALL items in the category are still set to the old default.
             if ($params->aggregation==GRADE_AGGREGATE_WEIGHTED_MEAN || $params->aggregation==GRADE_AGGREGATE_EXTRACREDIT_MEAN) {
                 $sql = $defaultaggregationcoef = null;
-                
+
                 if ($params->aggregation==GRADE_AGGREGATE_WEIGHTED_MEAN) {
                     //if all items in this category have aggregation coefficient of 0 we can change it to 1 ie evenly weighted
                     $sql = "select count(id) from {grade_items} where categoryid=:categoryid and aggregationcoef!=0";

@@ -12,6 +12,9 @@
             }
         }
     }
+    if (!isset($currentorg)) {
+        $currentorg = '';
+    }
 ?>
 //
 // SCORM 1.2 API Implementation
@@ -25,7 +28,7 @@ function SCORMapi1_2() {
     CMIInteger = '^\\d+$';
     CMISInteger = '^-?([0-9]+)$';
     CMIDecimal = '^-?([0-9]{0,3})(\.[0-9]{1,2})?$';
-    CMIIdentifier = '^\\w{1,255}$';
+    CMIIdentifier = '^[\\u0021-\\u007E]{0,255}$';
     CMIFeedback = CMIString256; // This must be redefined
     CMIIndex = '[._](\\d+).';
     // Vocabulary Data Type Definition
@@ -181,6 +184,11 @@ function SCORMapi1_2() {
         return "false";
     }
 
+<?php
+    // pull in the TOC callback
+    include_once($CFG->dirroot.'/mod/scorm/datamodels/callback.js.php');
+ ?>
+
     function LMSFinish (param) {
         errorCode = "0";
         if (param == "") {
@@ -189,13 +197,13 @@ function SCORMapi1_2() {
                 result = StoreData(cmi,true);
                 if (nav.event != '') {
                     if (nav.event == 'continue') {
-                        setTimeout('top.document.location=top.next;',500);
+                        setTimeout('scorm_get_next();',500);
                     } else {
-                        setTimeout('top.document.location=top.prev;',500);
+                        setTimeout('scorm_get_prev();',500);
                     }
                 } else {
                     if (<?php echo $scorm->auto ?> == 1) {
-                        setTimeout('top.document.location=top.next;',500);
+                        setTimeout('scorm_get_next();',500);
                     }
                 }
                 <?php
@@ -212,6 +220,9 @@ function SCORMapi1_2() {
                         echo 'LogAPICall("LMSFinish", param, "", 0);';
                     }
                 ?>
+                // trigger TOC update
+                var sURL = "<?php echo $CFG->wwwroot; ?>" + "/mod/scorm/prereqs.php?a=<?php echo $scorm->id ?>&scoid=<?php echo $scoid ?>&attempt=<?php echo $attempt ?>&mode=<?php echo $mode ?>&currentorg=<?php echo $currentorg ?>&sesskey=<?php echo sesskey(); ?>";
+                YAHOO.util.Connect.asyncRequest('GET', sURL, this.connectPrereqCallback, null);
                 return result;
             } else {
                 errorCode = "301";
@@ -425,7 +436,7 @@ function SCORMapi1_2() {
                     if (scorm_debugging($scorm)) {
                         //echo 'alert("Finished SCORM 1.2");';
                         echo 'LogAPICall("LMSCommit", "result", result, 0);';
-                        echo 'LogAPICall("LMSCommit", param, "", 0);';
+                        echo 'LogAPICall("LMSCommit", "errorCode", errorCode, 0);';
                     }
                 ?>
                 return result;
@@ -563,9 +574,11 @@ function SCORMapi1_2() {
                             if ((typeof eval('datamodel["'+elementmodel+'"].defaultvalue')) != "undefined") {
                                 if (eval('datamodel["'+elementmodel+'"].defaultvalue') != data[property] || eval('typeof(datamodel["'+elementmodel+'"].defaultvalue)') != typeof(data[property])) {
                                     datastring += elementstring;
+                                    eval('datamodel["'+elementmodel+'"].defaultvalue=data[property];');
                                 }
                             } else {
                                 datastring += elementstring;
+                                eval('datamodel["'+elementmodel+'"].defaultvalue=data[property];');
                             }
                         }
                     }
@@ -582,13 +595,11 @@ function SCORMapi1_2() {
             }
             if (cmi.core.lesson_mode == 'normal') {
                 if (cmi.core.credit == 'credit') {
-                    if (cmi.core.lesson_status == 'completed') {
-                        if (cmi.student_data.mastery_score != '' && cmi.core.score.raw != '') {
-                            if (parseFloat(cmi.core.score.raw) >= parseFloat(cmi.student_data.mastery_score)) {
-                                cmi.core.lesson_status = 'passed';
-                            } else {
-                                cmi.core.lesson_status = 'failed';
-                            }
+                    if (cmi.student_data.mastery_score != '' && cmi.core.score.raw != '') {
+                        if (parseFloat(cmi.core.score.raw) >= parseFloat(cmi.student_data.mastery_score)) {
+                            cmi.core.lesson_status = 'passed';
+                        } else {
+                            cmi.core.lesson_status = 'failed';
                         }
                     }
                 }
@@ -607,7 +618,8 @@ function SCORMapi1_2() {
         datastring += '&scoid=<?php echo $scoid ?>';
 
         var myRequest = NewHttpReq();
-        result = DoRequest(myRequest,"<?php p($CFG->wwwroot) ?>/mod/scorm/datamodel.php","id=<?php p($id) ?>&sesskey=<?php echo sesskey() ?>"+datastring);
+        //alert('going to:' + "<?php p($CFG->wwwroot) ?>/mod/scorm/datamodel.php" + "id=<?php p($id) ?>&a=<?php p($a) ?>&sesskey=<?php echo sesskey() ?>"+datastring);
+        result = DoRequest(myRequest,"<?php p($CFG->wwwroot) ?>/mod/scorm/datamodel.php","id=<?php p($id) ?>&a=<?php p($a) ?>&sesskey=<?php echo sesskey() ?>"+datastring);
         results = String(result).split('\n');
         errorCode = results[1];
         return results[0];
@@ -628,8 +640,7 @@ var API = new SCORMapi1_2();
 <?php
 // pull in the debugging utilities
 if (scorm_debugging($scorm)) {
-    include_once($CFG->dirroot.'/mod/scorm/datamodels/debug.js.php');
-    echo 'AppendToLog("Moodle SCORM 1.2 API Loaded, Activity: '.$scorm->name.', SCO: '.$sco->identifier.'", 0);';
+   include_once($CFG->dirroot.'/mod/scorm/datamodels/debug.js.php');
 }
  ?>
 

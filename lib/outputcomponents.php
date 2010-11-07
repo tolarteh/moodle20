@@ -21,11 +21,13 @@
  * Please see http://docs.moodle.org/en/Developement:How_Moodle_outputs_HTML
  * for an overview.
  *
- * @package   moodlecore
- * @copyright 2009 Tim Hunt
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    core
+ * @subpackage lib
+ * @copyright  2009 Tim Hunt
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
 
 /**
  * Interface marking other classes as suitable for renderer_base::render()
@@ -33,144 +35,6 @@
  */
 interface renderable {
     // intentionally empty
-}
-
-/**
- * Data structure representing a area file tree viewer
- *
- * @copyright 2010 Dongsheng Cai
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @since     Moodle 2.0
- */
-class area_file_tree_viewer implements renderable {
-    public $dir;
-    public $result;
-    public $filearea;
-    /**
-     * Constructor of area_file_tree_viewer class
-     * @param int $contextid
-     * @param string $area, file area
-     * @param int $itemid
-     * @param string $urlbase, file serving url base
-     */
-    public function __construct($contextid, $area, $itemid, $urlbase='') {
-        global $CFG;
-        $fs = get_file_storage();
-        if (empty($urlbase)) {
-            $this->urlbase = "$CFG->wwwroot/pluginfile.php";
-        } else {
-            $this->urlbase = $urlbase;
-        }
-        $this->contextid = $contextid;
-        $this->filearea = $area;
-        $this->itemid = $itemid;
-        $this->dir = $fs->get_area_tree($contextid, $area, $itemid);
-        $this->tree_view_parser($this->dir);
-    }
-    /**
-     * Pre-process file tree, generate file url
-     * @param array $dir file tree
-     */
-    public function tree_view_parser($dir) {
-        if (empty($dir['subdirs']) and empty($dir['files'])) {
-            return null;
-        }
-        foreach ($dir['subdirs'] as $subdir) {
-            $this->tree_view_parser($subdir);
-        }
-        foreach ($dir['files'] as $file) {
-            $path    = '/'.$this->contextid.'/'.$this->filearea.'/'.$this->itemid.$file->get_filepath().$file->get_filename();
-            $downloadurl = file_encode_url($this->urlbase, $path, true);
-            $file->fileurl = $downloadurl;
-        }
-    }
-}
-
-/**
- * Data structure representing a general moodle file tree viewer
- *
- * @copyright 2010 Dongsheng Cai
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @since     Moodle 2.0
- */
-class moodle_file_tree_viewer implements renderable {
-    public $tree;
-    public $path;
-    private $enabled_fileareas;
-    /**
-     * Constructor of moodle_file_tree_viewer class
-     * @param int $contextid
-     * @param string $area, file area
-     * @param int $itemid
-     * @param string $urlbase, file serving url base
-     */
-    public function __construct($contextid, $filearea, $itemid, $filepath, $options=array()) {
-        global $CFG, $OUTPUT;
-        $this->tree = array();
-        $browser = get_file_browser();
-        $fs = get_file_storage();
-        $fileinfo = $browser->get_file_info(get_context_instance_by_id($contextid), $filearea, $itemid, $filepath);
-        $children = $fileinfo->get_children();
-        $parent_info = $fileinfo->get_parent();
-        if (!empty($options['enabled_fileareas']) && is_array($options['enabled_fileareas'])) {
-            $this->enabled_fileareas = $options['enabled_fileareas'];
-        } else {
-            unset($this->enabled_fileareas);
-        }
-
-        $level = $parent_info;
-        $this->path = array();
-        while ($level) {
-            $params = $level->get_params();
-            $context = get_context_instance_by_id($params['contextid']);
-            // lock user in course level
-            if ($context->contextlevel == CONTEXT_COURSECAT or $context->contextlevel == CONTEXT_SYSTEM) {
-                break;
-            }
-            $url = new moodle_url('/files/index.php', $params);
-            $this->path[] = html_writer::link($url->out(false), $level->get_visible_name());
-            $level = $level->get_parent();
-        }
-        $this->path = array_reverse($this->path);
-        $this->path[] = $fileinfo->get_visible_name();
-
-        foreach ($children as $child) {
-            $filedate = $child->get_timemodified();
-            $filesize = $child->get_filesize();
-            $mimetype = $child->get_mimetype();
-            $params = $child->get_params();
-            $url = new moodle_url('/files/index.php', $params);
-            $fileitem = array(
-                    'params'=>$params,
-                    'filename'=>$child->get_visible_name(),
-                    'filedate'=>$filedate ? userdate($filedate) : '',
-                    'filesize'=>$filesize ? display_size($filesize) : ''
-                    );
-            if ($child->is_directory()) {
-                $fileitem['isdir'] = true;
-                $fileitem['url'] = $url->out(false);
-                if (isset($this->enabled_fileareas)) {
-                    if (!in_array($params['filearea'], $this->enabled_fileareas)) {
-                        continue;
-                    } else {
-                        if (!empty($params['itemid'])) {
-                            $itemid = $params['itemid'];
-                        } else {
-                            $itemid = false;
-                        }
-                        $draftfiles = $fs->get_area_files($contextid, $params['filearea'], $itemid, 'id', false);
-                        if (count($draftfiles) == 0) {
-                            continue;
-                        }
-                    }
-                }
-            } else {
-                $fileitem['url'] = $child->get_url();
-            }
-            $this->tree[] = $fileitem;
-        }
-
-    }
 }
 
 /**
@@ -187,7 +51,6 @@ class file_picker implements renderable {
         require_once($CFG->dirroot. '/repository/lib.php');
         $defaults = array(
             'accepted_types'=>'*',
-            'context'=>$PAGE->context,
             'return_types'=>FILE_INTERNAL,
             'env' => 'filepicker',
             'client_id' => uniqid(),
@@ -206,14 +69,14 @@ class file_picker implements renderable {
             $fs = get_file_storage();
             $usercontext = get_context_instance(CONTEXT_USER, $USER->id);
             if (empty($options->filename)) {
-                if ($files = $fs->get_area_files($usercontext->id, 'user_draft', $options->itemid, 'id DESC', false)) {
+                if ($files = $fs->get_area_files($usercontext->id, 'user', 'draft', $options->itemid, 'id DESC', false)) {
                     $file = reset($files);
                 }
             } else {
-                $file = $fs->get_file($usercontext->id, 'user_draft', $options->itemid, $options->filepath, $options->filename);
+                $file = $fs->get_file($usercontext->id, 'user', 'draft', $options->itemid, $options->filepath, $options->filename);
             }
             if (!empty($file)) {
-                $options->currentfile = html_writer::link(file_encode_url($CFG->wwwroot.'/draftfile.php/', $usercontext->id.'/user_draft/'.$file->get_itemid().'/'.$file->get_filename()), $file->get_filename());
+                $options->currentfile = html_writer::link(moodle_url::make_draftfile_url($file->get_itemid(), $file->get_filepath(), $file->get_filename()), $file->get_filename());
             }
         }
 
@@ -222,65 +85,10 @@ class file_picker implements renderable {
 
         // copying other options
         foreach ($options as $name=>$value) {
-            $this->options->$name = $value;
-        }
-    }
-}
-
-/**
- * Data structure representing a file manager.
- *
- * @copyright 2010 Dongsheng Cai
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @since     Moodle 2.0
- */
-class file_manager implements renderable {
-    public $options;
-    public function __construct(stdClass $options) {
-        global $CFG, $USER, $PAGE;
-        require_once($CFG->dirroot. '/repository/lib.php');
-        $defaults = array(
-            'maxbytes'=>-1,
-            'maxfiles'=>-1,
-            'filearea'=>'user_draft',
-            'itemid'=>0,
-            'subdirs'=>0,
-            'client_id'=>uniqid(),
-            'accepted_types'=>'*',
-            'return_types'=>FILE_INTERNAL,
-            'context'=>$PAGE->context
-            );
-        foreach ($defaults as $key=>$value) {
-            if (empty($options->$key)) {
-                $options->$key = $value;
+            if (!isset($this->options->$name)) {
+                $this->options->$name = $value;
             }
         }
-
-        $fs = get_file_storage();
-
-        // initilise options, getting files in root path
-        $this->options = file_get_user_area_files($options->itemid, '/', $options->filearea);
-
-        // calculate file count
-        $usercontext = get_context_instance(CONTEXT_USER, $USER->id);
-        $files = $fs->get_area_files($usercontext->id, $options->filearea, $options->itemid, 'id', false);
-        $filecount = count($files);
-        $this->options->filecount = $filecount;
-
-        // copying other options
-        foreach ($options as $name=>$value) {
-            $this->options->$name = $value;
-        }
-
-        // building file picker options
-        $params = new stdclass;
-        $params->accepted_types = $options->accepted_types;
-        $params->return_types = $options->return_types;
-        $params->context = $options->context;
-        $params->env = 'filemanager';
-        $params->disable_types = !empty($options->disable_types)?$options->disable_types:array();
-        $filepicker_options = initialise_filepicker($params);
-        $this->options->filepicker = $filepicker_options;
     }
 }
 
@@ -293,13 +101,12 @@ class file_manager implements renderable {
  */
 class user_picture implements renderable {
     /**
-     * List of mandatory fields in user record here.
-     * @var string
+     * @var array List of mandatory fields in user record here. (do not include TEXT columns because it would break SELECT DISTINCT in MSSQL and ORACLE)
      */
-    const FIELDS = 'id,picture,firstname,lastname,imagealt';
+    protected static $fields = array('id', 'picture', 'firstname', 'lastname', 'imagealt', 'email');
 
     /**
-     * @var object $user A user object with at least fields id, picture, imagealt, firstname and lastname set.
+     * @var object $user A user object with at least fields all columns specified in $fields array constant set.
      */
     public $user;
     /**
@@ -338,18 +145,13 @@ class user_picture implements renderable {
     public function __construct(stdClass $user) {
         global $DB;
 
-        static $fields = null;
-        if (is_null($fields)) {
-            $fields = explode(',', self::FIELDS);
-        }
-
         if (empty($user->id)) {
             throw new coding_exception('User id is required when printing user avatar image.');
         }
 
         // only touch the DB if we are missing data and complain loudly...
         $needrec = false;
-        foreach ($fields as $field) {
+        foreach (self::$fields as $field) {
             if (!array_key_exists($field, $user)) {
                 $needrec = true;
                 debugging('Missing '.$field.' property in $user object, this is a performance problem that needs to be fixed by a developer. '
@@ -359,7 +161,7 @@ class user_picture implements renderable {
         }
 
         if ($needrec) {
-            $this->user = $DB->get_record('user', array('id'=>$user->id), self::FIELDS, MUST_EXIST);
+            $this->user = $DB->get_record('user', array('id'=>$user->id), self::fields(), MUST_EXIST);
         } else {
             $this->user = clone($user);
         }
@@ -373,19 +175,33 @@ class user_picture implements renderable {
      * id of the result record. Please note it has to be converted back to id before rendering.
      *
      * @param string $tableprefix name of database table prefix in query
+     * @param array $extrafields extra fields to be included in result (do not include TEXT columns because it would break SELECT DISTINCT in MSSQL and ORACLE)
      * @param string $idalias alias of id field
      * @return string
      */
-    public static function fields($tableprefix = '', $idalias = '') {
-        if ($tableprefix === '' and $idalias === '') {
-            return self::FIELDS;
+    public static function fields($tableprefix = '', array $extrafields = NULL, $idalias = 'id') {
+        if (!$tableprefix and !$extrafields and !$idalias) {
+            return implode(',', self::$fields);
         }
-        $fields = explode(',', self::FIELDS);
-        foreach ($fields as $key=>$field) {
-            if ($field === 'id' and $idalias !== '') {
-                $field = "$field AS $idalias";
+        if ($tableprefix) {
+            $tableprefix .= '.';
+        }
+        $fields = array();
+        foreach (self::$fields as $field) {
+            if ($field === 'id' and $idalias and $idalias !== 'id') {
+                $fields[$field] = "$tableprefix$field AS $idalias";
+            } else {
+                $fields[$field] = $tableprefix.$field;
             }
-            $fields[$key] = "$tableprefix.$field";
+        }
+        // add extra fields if not already there
+        if ($extrafields) {
+            foreach ($extrafields as $e) {
+                if ($e === 'id' or isset($fields[$e])) {
+                    continue;
+                }
+                $fields[$e] = $tableprefix.$e;
+            }
         }
         return implode(',', $fields);
     }
@@ -522,6 +338,27 @@ class pix_icon implements renderable {
     }
 }
 
+/**
+ * Data structure representing an emoticon image
+ *
+ * @since     Moodle 2.0
+ */
+class pix_emoticon extends pix_icon implements renderable {
+
+    /**
+     * Constructor
+     * @param string $pix short icon name
+     * @param string $alt alternative text
+     * @param string $component emoticon image provider
+     * @param array $attributes explicit HTML attributes
+     */
+    public function __construct($pix, $alt, $component = 'moodle', array $attributes = array()) {
+        if (empty($attributes['class'])) {
+            $attributes['class'] = 'emoticon';
+        }
+        parent::__construct($pix, $alt, $component, $attributes);
+    }
+}
 
 /**
  * Data structure representing a simple form with only one button.
@@ -743,7 +580,7 @@ class single_select implements renderable {
     }
 
     /**
-     * Set's select lable
+     * Sets select's label
      * @param string $label
      * @return void
      */
@@ -851,7 +688,7 @@ class url_select implements renderable {
     }
 
     /**
-     * Set's select lable
+     * Sets select's label
      * @param string $label
      * @return void
      */
@@ -1378,6 +1215,7 @@ class html_writer {
 
         if (!empty($table->head)) {
             $countcols = count($table->head);
+
             $output .= html_writer::start_tag('thead', array()) . "\n";
             $output .= html_writer::start_tag('tr', array()) . "\n";
             $keys = array_keys($table->head);
@@ -1473,7 +1311,13 @@ class html_writer {
                     $keys2 = array_keys($row->cells);
                     $lastkey = end($keys2);
 
+                    $gotlastkey = false; //flag for sanity checking
                     foreach ($row->cells as $key => $cell) {
+                        if ($gotlastkey) {
+                            //This should never happen. Why do we have a cell after the last cell?
+                            mtrace("A cell with key ($key) was found after the last key ($lastkey)");
+                        }
+
                         if (!($cell instanceof html_table_cell)) {
                             $mycell = new html_table_cell();
                             $mycell->text = $cell;
@@ -1491,6 +1335,7 @@ class html_writer {
                         $cell->attributes['class'] .= ' cell c' . $key;
                         if ($key == $lastkey) {
                             $cell->attributes['class'] .= ' lastcol';
+                            $gotlastkey = true;
                         }
                         $tdstyle = '';
                         $tdstyle .= isset($table->align[$key]) ? $table->align[$key] : '';
@@ -1521,6 +1366,53 @@ class html_writer {
         return $output;
     }
 
+    /**
+     * Renders form element label
+     *
+     * By default, the label is suffixed with a label separator defined in the
+     * current language pack (colon by default in the English lang pack).
+     * Adding the colon can be explicitly disabled if needed. Label separators
+     * are put outside the label tag itself so they are not read by
+     * screenreaders (accessibility).
+     *
+     * Parameter $for explicitly associates the label with a form control. When
+     * set, the value of this attribute must be the same as the value of
+     * the id attribute of the form control in the same document. When null,
+     * the label being defined is associated with the control inside the label
+     * element.
+     *
+     * @param string $text content of the label tag
+     * @param string|null $for id of the element this label is associated with, null for no association
+     * @param bool $colonize add label separator (colon) to the label text, if it is not there yet
+     * @param array $attributes to be inserted in the tab, for example array('accesskey' => 'a')
+     * @return string HTML of the label element
+     */
+    public static function label($text, $for, $colonize=true, array $attributes=array()) {
+        if (!is_null($for)) {
+            $attributes = array_merge($attributes, array('for' => $for));
+        }
+        $text = trim($text);
+        $label = self::tag('label', $text, $attributes);
+
+        /*
+        // TODO $colonize disabled for now yet - see MDL-12192 for details
+        if (!empty($text) and $colonize) {
+            // the $text may end with the colon already, though it is bad string definition style
+            $colon = get_string('labelsep', 'langconfig');
+            if (!empty($colon)) {
+                $trimmed = trim($colon);
+                if ((substr($text, -strlen($trimmed)) == $trimmed) or (substr($text, -1) == ':')) {
+                    //debugging('The label text should not end with colon or other label separator,
+                    //           please fix the string definition.', DEBUG_DEVELOPER);
+                } else {
+                    $label .= $colon;
+                }
+            }
+        }
+        */
+
+        return $label;
+    }
 }
 
 // ==== JS writer and helper classes, will be probably moved elsewhere ======
@@ -1537,7 +1429,7 @@ class js_writer {
      * @param int $delay execution delay in seconds
      * @return string JS code fragment
      */
-    public function function_call($function, array $arguments = null, $delay=0) {
+    public static function function_call($function, array $arguments = null, $delay=0) {
         if ($arguments) {
             $arguments = array_map('json_encode', $arguments);
             $arguments = implode(', ', $arguments);
@@ -1559,7 +1451,7 @@ class js_writer {
      * @param array $extraarguments
      * @return string
      */
-    public function function_call_with_Y($function, array $extraarguments = null) {
+    public static function function_call_with_Y($function, array $extraarguments = null) {
         if ($extraarguments) {
             $extraarguments = array_map('json_encode', $extraarguments);
             $arguments = 'Y, ' . implode(', ', $extraarguments);
@@ -1578,7 +1470,7 @@ class js_writer {
      * @param int $delay
      * @return string
      */
-    public function object_init($var, $class, array $arguments = null, array $requirements = null, $delay=0) {
+    public static function object_init($var, $class, array $arguments = null, array $requirements = null, $delay=0) {
         if (is_array($arguments)) {
             $arguments = array_map('json_encode', $arguments);
             $arguments = implode(', ', $arguments);
@@ -1611,7 +1503,7 @@ class js_writer {
      * @param bool $usevar add var definition, ignored for nested properties
      * @return string JS code fragment
      */
-    public function set_variable($name, $value, $usevar=true) {
+    public static function set_variable($name, $value, $usevar=true) {
         $output = '';
 
         if ($usevar) {
@@ -1635,7 +1527,7 @@ class js_writer {
      * @param array  $arguments An optional array of argument parameters to pass to the function
      * @return string JS code fragment
      */
-    public function event_handler($selector, $event, $function, array $arguments = null) {
+    public static function event_handler($selector, $event, $function, array $arguments = null) {
         $selector = json_encode($selector);
         $output = "Y.on('$event', $function, $selector, null";
         if (!empty($arguments)) {
@@ -1878,7 +1770,7 @@ class html_table_cell {
      */
     public $style = null;
     /**
-     * @var array attributes of additional HTML attributes for the <tr> element
+     * @var array attributes of additional HTML attributes for the <td> element
      */
     public $attributes = array();
 
@@ -2323,6 +2215,30 @@ class custom_menu_item implements renderable {
     public function has_children() {
         return (count($this->children) > 0);
     }
+
+    /**
+     * Sets the text for the node
+     * @param string $text
+     */
+    public function set_text($text) {
+        $this->text = (string)$text;
+    }
+
+    /**
+     * Sets the title for the node
+     * @param string $title
+     */
+    public function set_title($title) {
+        $this->title = (string)$title;
+    }
+
+    /**
+     * Sets the url for the node
+     * @param moodle_url $url
+     */
+    public function set_url(moodle_url $url) {
+        $this->url = $url;
+    }
 }
 
 /**
@@ -2406,7 +2322,7 @@ class custom_menu extends custom_menu_item {
                 $bits[1] = null;
             } else {
                 // Make sure the url is a moodle url
-                $bits[1] = new moodle_url($bits[1]);
+                $bits[1] = new moodle_url(trim($bits[1]));
             }
             if (!array_key_exists(2, $bits)) {
                 // Set the title to null seeing as there isn't one
@@ -2464,100 +2380,5 @@ class custom_menu extends custom_menu_item {
             return 0;
         }
         return ($itema > $itemb) ? +1 : -1;
-    }
-}
-
-/**
- * Image gallery component
- *
- * This is the image gallery component that can be used to display several images
- * and if JavaScript is enabled uses the gallery-lightbox YUI module to display
- * them within a lightbox with appropriate controls and such.
- *
- * Lib / YUI Module location: lib/gallery/20100601/
- *
- * @copyright 2010 Sam Hemelryk
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @since     Moodle 2.0
- */
-class image_gallery implements renderable {
-
-    /**
-     * Used to ensure we only initialise the lightbox once... it is shared
-     * @var bool
-     */
-    protected static $jsinit = false;
-    /**
-     * An array of images
-     * @var array
-     */
-    public $images = array();
-    /**
-     * The grouping to apply in the lightbox
-     * @var string
-     */
-    public $grouping = null;
-
-    /**
-     * If set to true only the first image is visible.
-     */
-    public $displayfirstimageonly = false;
-
-    /**
-     * Constructs an image gallery component
-     * @param array $images
-     * @param string $grouping
-     */
-    public function __construct(array $images=null, $grouping=null) {
-        $this->grouping = $grouping;
-        if (is_array($images)) {
-            foreach ($images as $image) {
-                $image = (array)$image;
-                if (!array_key_exists('imageurl', $image)) {
-                    throw new coding_exception('Image gallery images must specify a url for every image');
-                }
-                if (!array_key_exists('thumburl', $image)) {
-                    throw new coding_exception('Image gallery images must specify a url for every image');
-                }
-                if (!array_key_exists('title', $image)) {
-                    throw new coding_exception('Image gallery images must specify a title for every image');
-                }
-                if (!array_key_exists('alt', $image)) {
-                    $image['alt'] = null;
-                }
-                if (!array_key_exists('attributes', $image)) {
-                    $image['attributes'] = null;
-                }
-                $this->add_image($image['thumburl'], $image['imageurl'], $image['title'], $image['alt'], $image['attributes']);
-            }
-        }
-    }
-    /**
-     * Adds an image to the gallery
-     *
-     * @param moodle_url|string $thumburl
-     * @param moodle_url|string $imageurl
-     * @param string $title
-     * @param string $alt
-     * @param array $attributes
-     */
-    public function add_image($thumburl, $imageurl, $title, $alt=null, array $attributes=null) {
-        $image = new stdClass;
-        $image->link = array('id'=>'imagelink'.(count($this->images)+1), 'class'=>'imagelink');
-        $image->thumb = array('id'=>'imagethumb'.(count($this->images)+1), 'class'=>'imagethumb');
-        if (is_array($attributes)) {
-            $image->link = $attributes;
-        }
-        $image->link['href'] = new moodle_url($imageurl);
-        $image->link['title'] = $title;
-        $image->link['rel'] = 'lightbox';
-        if ($this->grouping !== null) {
-            $image->link['rel'] .= "[{$this->grouping}]";
-        }
-
-        $image->thumb['src'] = new moodle_url($thumburl);
-        $image->thumb['alt'] = $alt;
-
-        $this->images[] = $image;
     }
 }

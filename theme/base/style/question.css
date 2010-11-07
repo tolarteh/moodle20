@@ -26,6 +26,11 @@ body.jsenabled #qtypechoicecontainer {display: block;}
 #qtypechoicecontainer #chooseqtype .instruction,
 #qtypechoicecontainer #chooseqtype .selected .qtypesummary {display: block;}
 
+#categoryquestions { margin: 0; }
+#categoryquestions td,
+#categoryquestions th { padding: 0 0.2em; }
+.questionbank .singleselect { margin: 0; }
+
 .que {text-align: left;margin: 0 auto 1.8em auto;border: 1px solid;}
 .que .info {float: left;margin: 0.5em 0;width: 11.9%;}
 .que .info h2 {margin: 0 0 0 0.64em;}
@@ -76,3 +81,8 @@ body.jsenabled #qtypechoicecontainer {display: block;}
 /**** GRRRRR ***/
 /* MSIE Hack */
 * html .que .submit {float: none;}
+
+/** Overide for RTL layout **/
+.dir-rtl #qtypechoicecontainer #chooseqtype .instruction,
+.dir-rtl #qtypechoicecontainer #chooseqtype .qtypesummary {right: 60%;left: 0%; border-left:0;border-right: 1px solid grey;}
+#qtypechoicecontainer #chooseqtype .qtypeoption {padding-right: 0.3em;}

@@ -32,11 +32,13 @@
  *     http://docs.moodle.org/en/DML_functions
  * (feel free to modify, improve and document such page, thanks!)
  *
- * @package    moodlecore
- * @subpackage DML
+ * @package    core
+ * @subpackage dml
  * @copyright  2008 Petr Skoda (http://skodak.org)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
 
 // Require the essential
 require_once($CFG->libdir.'/dml/moodle_database.php');
@@ -153,10 +155,10 @@ class dml_missing_record_exception extends dml_exception {
                 $errcode = 'invalidrecordunknown';
                 break;
             case 'course':
-                $errocode = empty($sql) ? 'invalidcourseid' : 'invalidrecord';
+                $errcode = empty($sql) ? 'invalidcourseid' : 'invalidrecord';
                 break;
             case 'course_module':
-                $errocode = 'invalidcoursemodule';
+                $errcode = 'invalidcoursemodule';
                 break;
             case 'user':
                 $errcode = 'invaliduser';

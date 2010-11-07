@@ -26,16 +26,17 @@
 * to the 'dbid' field in the index
 * */
 
-//this'll take some time, set up the environment
-@set_time_limit(0);
-@ob_implicit_flush(true);
-@ob_end_flush();
 
 /**
 * includes and requires
 */
 require_once('../config.php');
 require_once($CFG->dirroot.'/search/lib.php');
+
+//this'll take some time, set up the environment
+@set_time_limit(0);
+@ob_implicit_flush(true);
+@ob_end_flush();
 
     ini_set('include_path', $CFG->dirroot.DIRECTORY_SEPARATOR.'search'.PATH_SEPARATOR.ini_get('include_path'));
 
@@ -124,6 +125,12 @@ require_once($CFG->dirroot.'/search/lib.php');
 
     if ($searchables){
         foreach ($searchables as $mod) {
+
+            //mark last update times for mods to now.
+            $indexdatestring = 'search_indexer_update_date_'.$mod->name;
+            set_config($indexdatestring, time());
+            $indexdatestring = 'search_indexer_run_date_'.$mod->name;
+            set_config($indexdatestring, time());
         
             mtrace("starting indexing {$mod->name}\n");
         
@@ -157,7 +164,11 @@ require_once($CFG->dirroot.'/search/lib.php');
                             if ($documents){
                                 foreach($documents as $document) {
                                     $counter++;
-                                    
+
+                                    // temporary fix until MDL-24822 is resolved
+                                    if ($document->group_id == -1 and $mod->name ='forum') {
+                                        $document->group_id = 0;
+                                    }
                                     //object to insert into db
                                     $dbid = $dbcontrol->addDocument($document);
                                     
@@ -205,7 +216,7 @@ require_once($CFG->dirroot.'/search/lib.php');
 /// mark the time we last updated
 
     set_config('search_indexer_run_date', time());
-    
+
 /// and the index size
 
     set_config('search_index_size', (int)$index->count());

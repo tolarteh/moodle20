@@ -18,9 +18,10 @@
 /**
  * List of urls in course
  *
- * @package   mod-url
- * @copyright 2009 onwards Martin Dougiamas (http://dougiamas.com)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage url
+ * @copyright  2009 onwards Martin Dougiamas (http://dougiamas.com)
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require('../../config.php');
@@ -36,6 +37,7 @@ add_to_log($course->id, 'url', 'view all', "index.php?id=$course->id", '');
 
 $strurl       = get_string('modulename', 'url');
 $strurls      = get_string('modulenameplural', 'url');
+$strsectionname  = get_string('sectionname', 'format_'.$course->format);
 $strname         = get_string('name');
 $strintro        = get_string('moduleintro');
 $strlastmodified = get_string('lastmodified');
@@ -90,7 +92,7 @@ foreach ($urls as $url) {
     $icon = '';
     if (!empty($cm->icon)) {
         // each url has an icon in 2.0
-        $icon = '<img src="'.$OUTPUT->pix_url($cm->icon).'" class="activityicon" alt="" /> ';
+        $icon = '<img src="'.$OUTPUT->pix_url($cm->icon).'" class="activityicon" alt="'.get_string('modulename', $cm->modname).'" /> ';
     }
 
     $class = $url->visible ? '' : 'class="dimmed"'; // hidden modules are dimmed

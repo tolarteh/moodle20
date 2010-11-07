@@ -18,9 +18,10 @@
 /**
  * Keeps track of upgrades to the workshop module
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage workshop
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /**
@@ -36,7 +37,6 @@ function xmldb_workshop_upgrade($oldversion) {
     global $CFG, $DB, $OUTPUT;
 
     $dbman = $DB->get_manager();
-    $result = true;
 
     //===== 1.9.0 upgrade line ======//
 
@@ -45,18 +45,16 @@ function xmldb_workshop_upgrade($oldversion) {
      * so that it does not matter if we are upgrading from 1.9.0, 1.9.3 or 1.9.whatever
      */
 
-    if ($result && $oldversion < 2007101510) {
+    if ($oldversion < 2007101510) {
         $orphans = $DB->get_records_sql('SELECT wa.id
                                            FROM {workshop_assessments} wa
                                       LEFT JOIN {workshop_submissions} ws ON wa.submissionid = ws.id
                                           WHERE ws.id IS NULL');
         if (!empty($orphans)) {
             echo $OUTPUT->notification('Orphaned assessment records found - cleaning...');
-            foreach (array_keys($orphans) as $waid) {
-                $DB->delete_records('workshop_assessments', 'id', $waid);
-            }
+            $DB->delete_records_list('workshop_assessments', 'id', array_keys($orphans));
         }
-        upgrade_mod_savepoint($result, 2007101510, 'workshop');
+        upgrade_mod_savepoint(true, 2007101510, 'workshop');
     }
 
     //===== end of 1.9.0 upgrade line ======//
@@ -71,13 +69,13 @@ function xmldb_workshop_upgrade($oldversion) {
     /**
      * Migration from 1.9 - step 1 - rename old tables
      */
-    if ($result && $oldversion < 2009102901) {
+    if ($oldversion < 2009102901) {
         echo $OUTPUT->notification('Renaming old workshop module tables', 'notifysuccess');
         foreach (array('workshop', 'workshop_elements', 'workshop_rubrics', 'workshop_submissions', 'workshop_assessments',
                 'workshop_grades', 'workshop_comments', 'workshop_stockcomments') as $tableorig) {
             $tablearchive = $tableorig . '_old';
             if ($dbman->table_exists($tableorig)) {
-                $dbman->rename_table(new XMLDBTable($tableorig), $tablearchive);
+                $dbman->rename_table(new xmldb_table($tableorig), $tablearchive);
             }
             // append a new field 'newplugin' into every archived table. In this field, the name of the subplugin
             // who adopted the record during the migration is stored. null value means the record is not migrated yet
@@ -94,43 +92,43 @@ function xmldb_workshop_upgrade($oldversion) {
                 $dbman->add_field($table, $field);
             }
         }
-        upgrade_mod_savepoint($result, 2009102901, 'workshop');
+        upgrade_mod_savepoint(true, 2009102901, 'workshop');
     }
 
     /**
      * Migration from 1.9 - step 2 - create new workshop core tables
      */
-    if ($result && $oldversion < 2009102902) {
+    if ($oldversion < 2009102902) {
         require_once(dirname(__FILE__) . '/upgradelib.php');
         echo $OUTPUT->notification('Preparing new workshop module tables', 'notifysuccess');
         workshop_upgrade_prepare_20_tables();
-        upgrade_mod_savepoint($result, 2009102902, 'workshop');
+        upgrade_mod_savepoint(true, 2009102902, 'workshop');
     }
 
     /**
      * Migration from 1.9 - step 3 - migrate workshop instances
      */
-    if ($result && $oldversion < 2009102903) {
+    if ($oldversion < 2009102903) {
         require_once(dirname(__FILE__) . '/upgradelib.php');
         echo $OUTPUT->notification('Copying workshop core data', 'notifysuccess');
         workshop_upgrade_module_instances();
-        upgrade_mod_savepoint($result, 2009102903, 'workshop');
+        upgrade_mod_savepoint(true, 2009102903, 'workshop');
     }
 
     /**
      * Migration from 1.9 - step 4 - migrate submissions
      */
-    if ($result && $oldversion < 2009102904) {
+    if ($oldversion < 2009102904) {
         require_once(dirname(__FILE__) . '/upgradelib.php');
         echo $OUTPUT->notification('Copying submissions', 'notifysuccess');
         workshop_upgrade_submissions();
-        upgrade_mod_savepoint($result, 2009102904, 'workshop');
+        upgrade_mod_savepoint(true, 2009102904, 'workshop');
     }
 
     /**
      * Migration from 1.9 - step 5 - migrate submission attachment to new file storage
      */
-    if ($result && $oldversion < 2009102905) {
+    if ($oldversion < 2009102905) {
         // $filearea = "$workshop->course/$CFG->moddata/workshop/$submission->id";
         $fs     = get_file_storage();
         $from   = 'FROM {workshop_submissions} s
@@ -163,18 +161,18 @@ function xmldb_workshop_upgrade($oldversion) {
                         echo $OUTPUT->notification('Unsupported submission filename: ' . $filepath);
                         continue;
                     }
-                    if (! $fs->file_exists($context->id, 'workshop_submission_attachment', $submission->id, '/', $filename)) {
+                    if (! $fs->file_exists($context->id, 'mod_workshop', 'submission_attachment', $submission->id, '/', $filename)) {
                         $filerecord = array('contextid' => $context->id,
-                                            'filearea'  => 'workshop_submission_attachment',
+                                            'component' => 'mod_workshop',
+                                            'filearea'  => 'submission_attachment',
                                             'itemid'    => $submission->id,
                                             'filepath'  => '/',
                                             'filename'  => $filename,
                                             'userid'    => $submission->authorid);
                         if ($fs->create_file_from_pathname($filerecord, $filepath)) {
                             $submission->attachment = 1;
-                            if ($DB->update_record('workshop_submissions', $submission)) {
-                                unlink($filepath);
-                            }
+                            $DB->update_record('workshop_submissions', $submission);
+                            unlink($filepath);
                         }
                     }
                 }
@@ -186,17 +184,17 @@ function xmldb_workshop_upgrade($oldversion) {
             @rmdir("$CFG->dataroot/$submission->course");
         }
         $rs->close();
-        upgrade_mod_savepoint($result, 2009102905, 'workshop');
+        upgrade_mod_savepoint(true, 2009102905, 'workshop');
     }
 
     /**
      * Migration from 1.9 - step 6 - migrate assessments
      */
-    if ($result && $oldversion < 2009102906) {
+    if ($oldversion < 2009102906) {
         require_once(dirname(__FILE__) . '/upgradelib.php');
         echo $OUTPUT->notification('Copying assessments', 'notifysuccess');
         workshop_upgrade_assessments();
-        upgrade_mod_savepoint($result, 2009102906, 'workshop');
+        upgrade_mod_savepoint(true, 2009102906, 'workshop');
     }
 
     /**
@@ -206,14 +204,46 @@ function xmldb_workshop_upgrade($oldversion) {
     /**
      * Add 'published' field into workshop_submissions
      */
-    if ($result && $oldversion < 2009121800) {
+    if ($oldversion < 2009121800) {
         $table = new xmldb_table('workshop_submissions');
         $field = new xmldb_field('published', XMLDB_TYPE_INTEGER, '2', XMLDB_UNSIGNED, null, null, '0', 'timegraded');
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         }
-        upgrade_mod_savepoint($result, 2009121800, 'workshop');
+        upgrade_mod_savepoint(true, 2009121800, 'workshop');
     }
 
-    return $result;
+    /**
+     * Add 'evaluation' field into workshop
+     */
+    if ($oldversion < 2010070700) {
+        $table = new xmldb_table('workshop');
+        $field = new xmldb_field('evaluation', XMLDB_TYPE_CHAR, '30', null, XMLDB_NOTNULL, null, null, 'strategy');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        upgrade_mod_savepoint(true, 2010070700, 'workshop');
+    }
+
+    /**
+     * Set the value of the new 'evaluation' field to 'best', there is no alternative at the moment
+     */
+    if ($oldversion < 2010070701) {
+        $DB->set_field('workshop', 'evaluation', 'best');
+        upgrade_mod_savepoint(true, 2010070701, 'workshop');
+    }
+
+    /**
+     * Add 'late' field into workshop_submissions
+     */
+    if ($oldversion < 2010072300) {
+        $table = new xmldb_table('workshop_submissions');
+        $field = new xmldb_field('late', XMLDB_TYPE_INTEGER, '2', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0', 'published');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        upgrade_mod_savepoint(true, 2010072300, 'workshop');
+    }
+
+    return true;
 }

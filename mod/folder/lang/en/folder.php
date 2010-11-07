@@ -18,14 +18,18 @@
 /**
  * Strings for component 'folder', language 'en', branch 'MOODLE_20_STABLE'
  *
- * @package   folder
- * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage folder
+ * @copyright  1999 onwards Martin Dougiamas  {@link http://moodle.com}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 $string['contentheader'] = 'Content';
-$string['folderadministration'] = 'Folder administration';
+$string['folder:managefiles'] = 'Manage files in folder module';
+$string['folder:view'] = 'View folder content';
 $string['foldercontent'] = 'Files and subfolders';
 $string['modulename'] = 'Folder';
 $string['modulenameplural'] = 'Folders';
 $string['neverseen'] = 'Never seen';
+$string['pluginadministration'] = 'Folder administration';
+$string['pluginname'] = 'Folder';

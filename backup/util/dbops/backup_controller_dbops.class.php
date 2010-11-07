@@ -45,6 +45,7 @@ abstract class backup_controller_dbops extends backup_dbops {
         // Get all the columns
         $rec = new stdclass();
         $rec->backupid     = $controller->get_backupid();
+        $rec->operation    = $controller->get_operation();
         $rec->type         = $controller->get_type();
         $rec->itemid       = $controller->get_id();
         $rec->format       = $controller->get_format();
@@ -84,16 +85,24 @@ abstract class backup_controller_dbops extends backup_dbops {
     }
 
     public static function create_backup_ids_temp_table($backupid) {
+        self::create_temptable_from_real_table($backupid, 'backup_ids_template', 'backup_ids_temp');
+    }
+
+    /**
+     * Given one "real" tablename, create one temp table suitable for be used in backup/restore operations
+     */
+    public static function create_temptable_from_real_table($backupid, $realtablename, $temptablename) {
         global $CFG, $DB;
         $dbman = $DB->get_manager(); // We are going to use database_manager services
 
-        // Note: For now we are going to load the backup_ids_template from core lib/db/install.xml
+        // Note: For now we are going to load the realtablename from core lib/db/install.xml
         // that way, any change in the "template" will be applied here automatically. If this causes
         // too much slow, we can always forget about the template and keep maintained the xmldb_table
         // structure inline - manually - here.
-        $templatetablename = 'backup_ids_template';
-        $targettablename = 'backup_ids_temp';
-        $xmldb_file = new xmldb_file($CFG->dirroot . '/lib/db/install.xml');
+        $templatetablename = $realtablename;
+        $targettablename   = $temptablename;
+        $xmlfile = $CFG->dirroot . '/lib/db/install.xml';
+        $xmldb_file = new xmldb_file($xmlfile);
         if (!$xmldb_file->fileExists()) {
             throw new ddl_exception('ddlxmlfileerror', null, 'File does not exist');
         }
@@ -104,7 +113,7 @@ abstract class backup_controller_dbops extends backup_dbops {
         $xmldb_structure = $xmldb_file->getStructure();
         $xmldb_table = $xmldb_structure->getTable($templatetablename);
         if (is_null($xmldb_table)) {
-            throw new ddl_exception('ddlunknowntable', null, 'The table ' . $templatetablename . ' is not defined in file ' . $file);
+            throw new ddl_exception('ddlunknowntable', null, 'The table ' . $templatetablename . ' is not defined in file ' . $xmlfile);
         }
         // Set default backupid (not needed but this enforce any missing backupid). That's hackery in action!
         $xmldb_table->getField('backupid')->setDefault($backupid);
@@ -209,7 +218,7 @@ abstract class backup_controller_dbops extends backup_dbops {
             }
             $settinginfo = array(
                 'level'    => 'section',
-                'section ' => $prefix,
+                'section'  => $prefix,
                 'name'     => $setting->get_name(),
                 'value'    => $setting->get_value());
             $settingsinfo[$setting->get_name()] = (object)$settinginfo;
@@ -306,15 +315,19 @@ abstract class backup_controller_dbops extends backup_dbops {
 
             if ($task instanceof backup_activity_task) { // Activity task
 
-                list($contentinfo, $settings) = self::get_activity_backup_information($task);
-                $contentsinfo['activities'][] = $contentinfo;
-                $settingsinfo = array_merge($settingsinfo, $settings);
+                if ($task->get_setting_value('included')) { // Only return info about included activities
+                    list($contentinfo, $settings) = self::get_activity_backup_information($task);
+                    $contentsinfo['activities'][] = $contentinfo;
+                    $settingsinfo = array_merge($settingsinfo, $settings);
+                }
 
             } else if ($task instanceof backup_section_task) { // Section task
 
-                list($contentinfo, $settings) = self::get_section_backup_information($task);
-                $contentsinfo['sections'][] = $contentinfo;
-                $settingsinfo = array_merge($settingsinfo, $settings);
+                if ($task->get_setting_value('included')) { // Only return info about included sections
+                    list($contentinfo, $settings) = self::get_section_backup_information($task);
+                    $contentsinfo['sections'][] = $contentinfo;
+                    $settingsinfo = array_merge($settingsinfo, $settings);
+                }
 
             } else if ($task instanceof backup_course_task) { // Course task
 
@@ -346,8 +359,34 @@ abstract class backup_controller_dbops extends backup_dbops {
     }
 
     /**
+     * Given the backupid, detect if the backup includes "mnet" remote users or no
+     */
+    public static function backup_includes_mnet_remote_users($backupid) {
+        global $CFG, $DB;
+
+        $sql = "SELECT COUNT(*)
+                  FROM {backup_ids_temp} b
+                  JOIN {user} u ON u.id = b.itemid
+                 WHERE b.backupid = ?
+                   AND b.itemname = 'userfinal'
+                   AND u.mnethostid != ?";
+        $count = $DB->count_records_sql($sql, array($backupid, $CFG->mnet_localhost_id));
+        return (int)(bool)$count;
+    }
+
+    /**
+     * Given the courseid, return some course related information we want to transport
+     *
+     * @param int $course the id of the course this backup belongs to
+     */
+    public static function backup_get_original_course_info($courseid) {
+        global $DB;
+        return $DB->get_record('course', array('id' => $courseid), 'fullname, shortname, startdate');
+    }
+
+    /**
      * Sets the controller settings default values from the backup config.
-     * 
+     *
      * @param backup_controller $controller
      */
     public static function apply_general_config_defaults(backup_controller $controller) {

@@ -18,9 +18,10 @@
 /**
  * This file defines an mform to edit "Number of errors" grading strategy forms.
  *
- * @package   mod-workshop
- * @copyright 2009 David Mudrak <david.mudrak@gmail.com>
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    workshopform
+ * @subpackage numerrors
+ * @copyright  2009 David Mudrak <david.mudrak@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -51,12 +52,14 @@ class workshop_edit_numerrors_strategy_form extends workshop_edit_strategy_form 
         $current            = $this->_customdata['current'];            // current data to be set
 
         $mform->addElement('hidden', 'norepeats', $norepeats);
+        $mform->setType('norepeats', PARAM_INT);
         // value not to be overridden by submitted value
         $mform->setConstants(array('norepeats' => $norepeats));
 
         for ($i = 0; $i < $norepeats; $i++) {
             $mform->addElement('header', 'dimension'.$i, get_string('dimensionnumber', 'workshopform_numerrors', $i+1));
             $mform->addElement('hidden', 'dimensionid__idx_'.$i);   // the id in workshop_forms
+            $mform->setType('dimensionid__idx_'.$i, PARAM_INT);
             $mform->addElement('editor', 'description__idx_'.$i.'_editor',
                     get_string('dimensiondescription', 'workshopform_numerrors'), '', $descriptionopts);
             $mform->addElement('text', 'grade0__idx_'.$i, get_string('grade0', 'workshopform_numerrors'), array('size'=>'15'));

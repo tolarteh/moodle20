@@ -18,12 +18,14 @@
 /**
  * Private url module utility functions
  *
- * @package   mod-url
- * @copyright 2009 Petr Skoda (http://skodak.org)
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @package    mod
+ * @subpackage url
+ * @copyright  2009 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once("$CFG->libdir/file/file_browser.php");
+defined('MOODLE_INTERNAL') || die;
+
 require_once("$CFG->libdir/filelib.php");
 require_once("$CFG->libdir/resourcelib.php");
 require_once("$CFG->dirroot/mod/url/lib.php");
@@ -225,7 +227,8 @@ function url_print_workaround($url, $cm, $course) {
 function url_display_embed($url, $cm, $course) {
     global $CFG, $PAGE, $OUTPUT;
 
-    $clicktoopen = get_string('clicktoopen', 'url', $url->externalurl);
+    $link = html_writer::tag('a', $url->externalurl, array('href'=>$url->externalurl));
+    $clicktoopen = get_string('clicktoopen', 'url', $link);
 
     $mimetype = resourcelib_guess_url_mimetype($url->externalurl);
     $fullurl  = url_get_full_url($url, $cm, $course);
@@ -348,7 +351,7 @@ function url_get_variable_options($config) {
 
     $options[get_string('miscellaneous')] = array(
         'sitename'        => get_string('fullsitename'),
-        'serverurl'       => get_string('serverurl', 'resource', (object)array('wwwroot'=>$CFG->wwwroot)),
+        'serverurl'       => get_string('serverurl', 'url'),
         'currenttime'     => get_string('time'),
         'lang'            => get_string('language'),
     );

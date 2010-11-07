@@ -3,9 +3,8 @@
 class block_site_main_menu extends block_list {
     function init() {
         $this->title = get_string('pluginname', 'block_site_main_menu');
-        $this->version = 2007101509;
     }
-    
+
     function applicable_formats() {
         return array('site' => true);
     }
@@ -17,7 +16,7 @@ class block_site_main_menu extends block_list {
             return $this->content;
         }
 
-        $this->content = new object();
+        $this->content = new stdClass();
         $this->content->items = array();
         $this->content->icons = array();
         $this->content->footer = '';
@@ -35,26 +34,27 @@ class block_site_main_menu extends block_list {
 /// extra fast view mode
         if (!$isediting) {
             if (!empty($modinfo->sections[0])) {
+                $options = array('overflowdiv'=>true);
                 foreach($modinfo->sections[0] as $cmid) {
                     $cm = $modinfo->cms[$cmid];
                     if (!$cm->uservisible) {
                         continue;
                     }
                     if ($cm->modname == 'label') {
-                        $this->content->items[] = format_text($cm->extra, FORMAT_HTML);
+                        $this->content->items[] = format_text($cm->extra, FORMAT_HTML, $options);
                         $this->content->icons[] = '';
                     } else {
                         $linkcss = $cm->visible ? '' : ' class="dimmed" ';
                         $instancename = format_string($cm->name, true, $course->id);
-                        $this->content->items[] = '<a title="'.$cm->modplural.'" '.$linkcss.' '.$cm->extra.
-                            ' href="'.$CFG->wwwroot.'/mod/'.$cm->modname.'/view.php?id='.$cm->id.'">'.$instancename.'</a>';
                         //Accessibility: incidental image - should be empty Alt text
                         if (!empty($cm->icon)) {
                             $icon = $OUTPUT->pix_url($cm->icon);
                         } else {
                             $icon = $OUTPUT->pix_url('icon', $cm->modname);
                         }
-                        $this->content->icons[] = '<img src="'.$icon.'" class="icon" alt="" />';
+                        $icon = '<img src="'.$icon.'" class="icon" alt="" />&nbsp;';
+                        $this->content->items[] = '<a title="'.$cm->modplural.'" '.$linkcss.' '.$cm->extra.
+                            ' href="'.$CFG->wwwroot.'/mod/'.$cm->modname.'/view.php?id='.$cm->id.'">'.$icon.$instancename.'</a>';
                     }
                 }
             }
@@ -86,6 +86,7 @@ class block_site_main_menu extends block_list {
 
         if (!empty($section->sequence)) {
             $sectionmods = explode(',', $section->sequence);
+            $options = array('overflowdiv'=>true);
             foreach ($sectionmods as $modnumber) {
                 if (empty($mods[$modnumber])) {
                     continue;
@@ -128,13 +129,13 @@ class block_site_main_menu extends block_list {
                     }
 
                     if ($mod->modname == 'label') {
-                        $this->content->items[] = format_text($extra, FORMAT_HTML).$editbuttons;
+                        $this->content->items[] = format_text($extra, FORMAT_HTML,$options).$editbuttons;
                         $this->content->icons[] = '';
                     } else {
-                        $this->content->items[] = '<a title="'.$mod->modfullname.'" '.$linkcss.' '.$extra.
-                            ' href="'.$CFG->wwwroot.'/mod/'.$mod->modname.'/view.php?id='.$mod->id.'">'.$instancename.'</a>'.$editbuttons;
                         //Accessibility: incidental image - should be empty Alt text
-                        $this->content->icons[] = '<img src="'.$icon.'" class="icon" alt="" />';
+                        $icon = '<img src="'.$icon.'" class="icon" alt="" />&nbsp;';
+                        $this->content->items[] = '<a title="'.$mod->modfullname.'" '.$linkcss.' '.$extra.
+                            ' href="'.$CFG->wwwroot.'/mod/'.$mod->modname.'/view.php?id='.$mod->id.'">'.$icon.$instancename.'</a>'.$editbuttons;
                     }
                 }
             }

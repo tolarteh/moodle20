@@ -121,6 +121,8 @@ $string['exporterror'] = 'Errors occur during exporting!';
 $string['exportquestions'] = 'Export questions to file';
 $string['exportquestions_help'] = 'This function enables the export of a complete category (and any subcategories) of questions to file. Please note that, depending on the file format selected, some question data and certain question types may not be exported.';
 $string['exportquestions_link'] = 'question/export';
+$string['filecantmovefrom'] = 'The questions files cannot be moved because you do not have permission to remove files from the place you are trying to move questions from.';
+$string['filecantmoveto'] = 'The question files cannot be moved or copied becuase you do not have permission to add files to the place you are trying to move the questions to.';
 $string['filesareacourse'] = 'the course files area';
 $string['filesareasite'] = 'the site files area';
 $string['filestomove'] = 'Move / copy files to {$a}?';
@@ -187,6 +189,10 @@ $string['parentcategory_help'] = 'The parent category is the one in which the ne
 $string['parentcategory_link'] = 'question/category';
 $string['parenthesisinproperclose'] = 'Parenthesis before ** is not properly closed in {$a}**';
 $string['parenthesisinproperstart'] = 'Parenthesis before ** is not properly started in {$a}**';
+$string['penaltyfactor'] = 'Penalty factor';
+$string['penaltyfactor_help'] = 'This setting determines what fraction of the achieved score is subtracted for each wrong response. It is only applicable if the quiz is run in adaptive mode.
+
+The penalty factor should be a number between 0 and 1. A penalty factor of 1 means that the student has to get the answer right in his first response to get any credit for it at all. A penalty factor of 0 means the student can try as often as he likes and still get the full marks.';
 $string['permissionedit'] = 'Edit this question';
 $string['permissionmove'] = 'Move this question';
 $string['permissionsaveasnew'] = 'Save this as a new question';

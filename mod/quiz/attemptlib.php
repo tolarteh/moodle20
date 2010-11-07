@@ -95,7 +95,7 @@ class quiz {
      *
      * @param integer $quizid the the quiz id.
      * @param integer $userid the the userid.
-     * @return object the new quiz object
+     * @return quiz the new quiz object
      */
     static public function create($quizid, $userid) {
         global $DB;
@@ -273,7 +273,7 @@ class quiz {
 
     /**
      * @param integer $timenow the current time as a unix timestamp.
-     * @return object and instance of the quiz_access_manager class for this quiz at this time.
+     * @return quiz_access_manager and instance of the quiz_access_manager class for this quiz at this time.
      */
     public function get_access_manager($timenow) {
         if (is_null($this->accessmanager)) {
@@ -281,6 +281,10 @@ class quiz {
                     has_capability('mod/quiz:ignoretimelimits', $this->context, NULL, false));
         }
         return $this->accessmanager;
+    }
+
+    public function get_overall_feedback($grade) {
+        return quiz_feedback_for_grade($grade, $this->quiz, $this->context, $this->cm);
     }
 
     /**
@@ -327,8 +331,8 @@ class quiz {
      * @return string the URL of this quiz's edit page. Needs to be POSTed to with a cmid parameter.
      */
     public function start_attempt_url() {
-        global $CFG;
-        return $CFG->wwwroot . '/mod/quiz/startattempt.php';
+        return new moodle_url('/mod/quiz/startattempt.php',
+                array('cmid' => $this->cm->id, 'sesskey' => sesskey()));
     }
 
     /**
@@ -336,8 +340,7 @@ class quiz {
      * @return string the URL of the review of that attempt.
      */
     public function review_url($attemptid) {
-        global $CFG;
-        return $CFG->wwwroot . '/mod/quiz/review.php?attempt=' . $attemptid;
+        return new moodle_url('/mod/quiz/review.php', array('attempt' => $attemptid));
     }
 
     // Bits of content =====================================================================
@@ -462,7 +465,7 @@ class quiz_attempt extends quiz {
      * Static function to create a new quiz_attempt object given an attemptid.
      *
      * @param integer $attemptid the attempt id.
-     * @return object the new quiz_attempt object
+     * @return quiz_attempt the new quiz_attempt object
      */
     static public function create($attemptid) {
         global $DB;
@@ -571,7 +574,7 @@ class quiz_attempt extends quiz {
         return $this->attempt->timefinish != 0;
     }
 
-    /** @return boolean whether this attemp is a preview attempt. */
+    /** @return boolean whether this attempt is a preview attempt. */
     public function is_preview() {
         return $this->attempt->preview;
     }
@@ -610,7 +613,6 @@ class quiz_attempt extends quiz {
      * @return object the state.
      */
     public function get_question_state($questionid) {
-        $this->ensure_state_loaded($questionid);
         return $this->states[$questionid];
     }
 
@@ -629,10 +631,12 @@ class quiz_attempt extends quiz {
     /**
      * Wrapper that calls get_render_options with the appropriate arguments.
      *
+     * @param integer questionid the quetsion to get the render options for.
      * @return object the render options for this user on this attempt.
      */
-    public function get_render_options($state) {
-        return quiz_get_renderoptions($this->quiz, $this->attempt, $this->context, $state);
+    public function get_render_options($questionid) {
+        return quiz_get_renderoptions($this->quiz, $this->attempt, $this->context,
+                $this->get_question_state($questionid));
     }
 
     /**
@@ -669,7 +673,7 @@ class quiz_attempt extends quiz {
             case QUESTION_EVENTCLOSEANDGRADE:
             case QUESTION_EVENTCLOSE:
             case QUESTION_EVENTMANUALGRADE:
-                $options = $this->get_render_options($this->states[$questionid]);
+                $options = $this->get_render_options($questionid);
                 if ($options->scores && $this->questions[$questionid]->maxgrade > 0) {
                     return question_get_feedback_class($state->last_graded->raw_grade /
                             $this->questions[$questionid]->maxgrade);
@@ -703,7 +707,7 @@ class quiz_attempt extends quiz {
      * @return string the formatted grade, to the number of decimal places specified by the quiz.
      */
     public function get_question_score($questionid) {
-        $options = $this->get_render_options($this->states[$questionid]);
+        $options = $this->get_render_options($questionid);
         if ($options->scores) {
             return quiz_format_question_grade($this->quiz, $this->states[$questionid]->last_graded->grade);
         } else {
@@ -763,12 +767,7 @@ class quiz_attempt extends quiz {
      */
     public function get_html_head_contributions($page = 'all') {
         global $PAGE;
-        // The JS does important things like navigation and so must be initialised
-        // as seen as possible, particularly if the page is loading slowly.
-        $PAGE->requires->yui2_lib('dom');
-        $PAGE->requires->yui2_lib('event');
-        $PAGE->requires->js('/mod/quiz/quiz.js', true);
-        get_html_head_contributions($this->get_question_ids($page), $this->questions, $this->states);
+        question_get_html_head_contributions($this->get_question_ids($page), $this->questions, $this->states);
     }
 
     /**
@@ -776,7 +775,7 @@ class quiz_attempt extends quiz {
      * @param integer $questionid the question id.
      */
     public function get_question_html_head_contributions($questionid) {
-        get_html_head_contributions(array($questionid), $this->questions, $this->states);
+        question_get_html_head_contributions(array($questionid), $this->questions, $this->states);
     }
 
     /**
@@ -785,7 +784,7 @@ class quiz_attempt extends quiz {
     public function print_restart_preview_button() {
         global $CFG, $OUTPUT;
         echo $OUTPUT->container_start('controls');
-        $url = new moodle_url($this->start_attempt_url(), array('cmid' => $this->cm->id, 'forcenew' => true));
+        $url = new moodle_url($this->start_attempt_url(), array('forcenew' => true));
         echo $OUTPUT->single_button($url, get_string('startagain', 'quiz'));
         echo $OUTPUT->container_end();
     }
@@ -807,18 +806,37 @@ class quiz_attempt extends quiz {
      * @param string $thispageurl the URL of the page this question is being printed on.
      */
     public function print_question($id, $reviewing, $thispageurl = '') {
+        global $CFG;
+
         if ($reviewing) {
             $options = $this->get_review_options();
         } else {
-            $options = $this->get_render_options($this->states[$id]);
+            $options = $this->get_render_options($id);
+        }
+        if ($thispageurl instanceof moodle_url) {
+            $thispageurl = $thispageurl->out(false);
         }
         if ($thispageurl) {
-            $this->quiz->thispageurl = $thispageurl;
+            $this->quiz->thispageurl = str_replace($CFG->wwwroot, '', $thispageurl);
         } else {
             unset($thispageurl);
         }
         print_question($this->questions[$id], $this->states[$id], $this->questions[$id]->_number,
                 $this->quiz, $options);
+    }
+
+    public function check_file_access($questionid, $isreviewing, $contextid, $component,
+            $filearea, $args, $forcedownload) {
+        if ($isreviewing) {
+            $options = $this->get_review_options();
+        } else {
+            $options = $this->get_render_options($questionid);
+        }
+        // XXX: mulitichoice type needs quiz id to get maxgrade
+        $options->quizid = $this->attempt->quiz;
+        return question_check_file_access($this->questions[$questionid],
+                $this->get_question_state($questionid), $options, $contextid,
+                $component, $filearea, $args, $forcedownload);
     }
 
     /**
@@ -913,7 +931,7 @@ class quiz_attempt extends quiz {
 
     /// Work out a nice title.
         $student = $DB->get_record('user', array('id' => $this->get_userid()));
-        $a = new object();
+        $a = new stdClass();
         $a->fullname = fullname($student, true);
         $a->attempt = $this->get_attempt_number();
 
@@ -979,7 +997,7 @@ class quiz_attempt extends quiz {
             }
         }
 
-        // Add a fragment to scroll down ot the question.
+        // Add a fragment to scroll down to the question.
         if ($questionid) {
             if ($questionid == reset($this->pagequestionids[$page])) {
                 // First question on page, go to top.
@@ -1063,16 +1081,20 @@ class quiz_attempt_question_iterator implements Iterator {
  * @since Moodle 2.0
  */
 abstract class quiz_nav_panel_base {
+    /** @var quiz_attempt */
     protected $attemptobj;
+    /** @var question_display_options */
     protected $options;
+    /** @var integer */
     protected $page;
+    /** @var boolean */
     protected $showall;
 
     public function __construct(quiz_attempt $attemptobj, $options, $page, $showall) {
-          $this->attemptobj = $attemptobj;
-          $this->options = $options;
-          $this->page = $page;
-          $this->showall = $showall;
+        $this->attemptobj = $attemptobj;
+        $this->options = $options;
+        $this->page = $page;
+        $this->showall = $showall;
     }
 
     protected function get_question_buttons() {
@@ -1086,10 +1108,15 @@ abstract class quiz_nav_panel_base {
 
     protected function get_question_button($number, $question) {
         $strstate = get_string($this->attemptobj->get_question_status($question->id), 'quiz');
+        $flagstate = '';
+        if ($this->attemptobj->is_question_flagged($question->id)) {
+            $flagstate = get_string('flagged', 'question');
+        }
         return '<a href="' . s($this->get_question_url($question)) .
                 '" class="qnbutton ' . $this->get_question_state_classes($question) .
                 '" id="quiznavbutton' . $question->id . '" title="' . $strstate . '">' .
-                $number . ' <span class="accesshide"> (' . $strstate . ')</span></a>';
+                $number . ' <span class="accesshide"> (' . $strstate . '
+                    <span class="flagstate">' . $flagstate . '</span>)</span></a>';
     }
 
     protected function get_before_button_bits() {
@@ -1129,7 +1156,7 @@ abstract class quiz_nav_panel_base {
 
     public function get_contents() {
         global $PAGE;
-        $PAGE->requires->js_function_call('quiz_init_nav_flags');
+        $PAGE->requires->js_init_call('M.mod_quiz.nav.init', null, false, quiz_get_js_module());
 
         $content = '';
         if ($this->attemptobj->get_quiz()->showuserpicture) {
@@ -1166,9 +1193,8 @@ class quiz_attempt_nav_panel extends quiz_nav_panel_base {
     protected function get_end_bits() {
         global $PAGE;
         $output = '';
-        $output .= '<a href="' . s($this->attemptobj->summary_url()) . '" class="endtestlink">' . get_string('endtest', 'quiz') . '</a>';
+        $output .= '<a href="' . s($this->attemptobj->summary_url()) . '" class="endtestlink">' . get_string('finishattemptdots', 'quiz') . '</a>';
         $output .= $this->attemptobj->get_timer_html();
-        $output .= html_writer::script(js_writer::function_call('quiz_init_attempt_nav'));
         return $output;
     }
 }
@@ -1189,9 +1215,9 @@ class quiz_review_nav_panel extends quiz_nav_panel_base {
         $html = '';
         if ($this->attemptobj->get_num_pages() > 1) {
             if ($this->showall) {
-                $html = '<a href="' . s($this->attemptobj->review_url(0, 0, false)) . '">' . get_string('showeachpage', 'quiz') . '</a>';
+                $html .= '<a href="' . s($this->attemptobj->review_url(0, 0, false)) . '">' . get_string('showeachpage', 'quiz') . '</a>';
             } else {
-                $html = '<a href="' . s($this->attemptobj->review_url(0, 0, true)) . '">' . get_string('showall', 'quiz') . '</a>';
+                $html .= '<a href="' . s($this->attemptobj->review_url(0, 0, true)) . '">' . get_string('showall', 'quiz') . '</a>';
             }
         }
         $accessmanager = $this->attemptobj->get_access_manager(time());
@@ -1199,4 +1225,3 @@ class quiz_review_nav_panel extends quiz_nav_panel_base {
         return $html;
     }
 }
-
