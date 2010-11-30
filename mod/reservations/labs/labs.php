@@ -8,7 +8,7 @@ $name = $_POST["name"];
 $description = $_POST["description"];
 $code = $_POST["code"];
 
-if (create_equipment($name, $description, $code)) {
+if (create_lab($name, $description, $code)) {
   echo "El laboratorio se ha creado exitosamente";
   echo "<br/><a href='index.php'>Volver</a>";
 } else {

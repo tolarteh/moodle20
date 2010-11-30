@@ -41,7 +41,7 @@ require_logged_user();
   <div>
     <h3>¿Qué laboratorio desea usar?</h3>
     <p>
-      <?php print_equipment_list(); ?>
+      <?php print_lab_list(); ?>
     </p>
   </div>
   <div>

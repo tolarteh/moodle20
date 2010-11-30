@@ -24,7 +24,7 @@ require_logged_user();
       $reservations = find_reservations_for(current_user_id());
       foreach ($reservations as $r) {
         echo "<tr>";
-        echo "<td>" . equipment_name($r->equipment_id) . "</td>";
+        echo "<td>" . lab_name($r->equipment_id) . "</td>";
         echo "<td>" . humanize_date($r->date) . "</td>";
         echo "<td>" . $r->duration . " hora(s)</td>";
         echo "<td><a href=''>Cancelar</a></td>";
@@ -51,7 +51,7 @@ if ($active_reservations) { ?>
 foreach ($active_reservations as $res) {
   echo "<tr>";
     echo "<td>#" . $res->id . "</td>";
-    echo "<td><a href='" . "show.php?id=" . $res->id . "'>" . equipment_name($res->equipment_id) . "</a></td>";
+    echo "<td><a href='" . "show.php?id=" . $res->id . "'>" . lab_name($res->equipment_id) . "</a></td>";
     echo "<td>" . reservation_remaining_time($res) . " minutos</td>";
     echo "</tr>";
 }
@@ -60,7 +60,7 @@ foreach ($active_reservations as $res) {
   </div>
     <?php } ?>
 <p>
-  Puede <?php link_to("reservar un laboratorio", "mod/reservations/new.php") ?> o puede <?php link_to("ver los laboratorios disponibles", "mod/reservations/equipment") ?>.
+  Puede <?php link_to("reservar un laboratorio", "mod/reservations/new.php") ?> o puede <?php link_to("ver los laboratorios disponibles", "mod/reservations/labs") ?>.
 </p>
 
 <?php

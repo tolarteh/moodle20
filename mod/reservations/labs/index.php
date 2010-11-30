@@ -4,7 +4,7 @@ require_once(dirname(dirname(dirname(__FILE__))).'/../config.php');
 require_once(dirname(__FILE__).'/../locallib.php');
 require_once(dirname(__FILE__).'/../lib.php');
 
-$PAGE->set_url('/mod/reservations/equipment/');
+$PAGE->set_url('/mod/reservations/labs/');
 $PAGE->set_title("Laboratorios");
 echo $OUTPUT->header();
 require_logged_user();
@@ -21,7 +21,7 @@ require_logged_user();
       <th>&nbsp;</th>
     </tr>
     <?php
-      $equipment = find_all_equipment();
+      $equipment = find_all_labs();
       foreach ($equipment as $e) {
         echo "<tr>";
         echo "<td>" . $e->name . "</td>";
@@ -36,7 +36,7 @@ require_logged_user();
 </div>
 
 <p>
-  Puede <?php link_to("crear un nuevo laboratorio", "mod/reservations/equipment/new.php"); ?> o <?php link_to("volver a reservas", "mod/reservations"); ?>.
+  Puede <?php link_to("crear un nuevo laboratorio", "mod/reservations/labs/new.php"); ?> o <?php link_to("volver a reservas", "mod/reservations"); ?>.
 </p>
 
 

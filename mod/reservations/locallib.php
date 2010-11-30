@@ -66,10 +66,10 @@ function select_for_duration() {
 }
 
 
-function print_equipment_list() {
+function print_lab_list() {
   global $DB;
 
-  if ($equipment = find_all_equipment()) {
+  if ($equipment = find_all_labs()) {
     echo "<select name='equipment' value=''>Laboratorios</option>";
     foreach ($equipment as $e) {
       echo "<option value='" . $e->id . "'>" . $e->name . "</option>";
@@ -80,7 +80,7 @@ function print_equipment_list() {
   }
 }
 
-function find_all_equipment() {
+function find_all_labs() {
   global $DB;
 
   return $DB->get_records("equipment");
@@ -120,7 +120,7 @@ function find_reservation($id) {
   return $DB->get_record("reservations", array("id" => $id));
 }
 
-function find_equipment($id) {
+function find_lab($id) {
   global $DB;
 
   return $DB->get_record("equipment", array("id" => $id));
@@ -140,7 +140,7 @@ function create_reservation($equipment, $date, $end_date, $duration, $user, $cou
   return $DB->insert_record('reservations', $reservation);
 }
 
-function create_equipment($name, $description, $code) {
+function create_lab($name, $description, $code) {
   global $DB;
 
   $equipment = new object();
@@ -163,7 +163,7 @@ function current_course_id() {
   return $COURSE->id;
 }
 
-function equipment_name($id) {
+function lab_name($id) {
   global $DB;
 
   $e = $DB->get_record("equipment", array("id" => $id));
