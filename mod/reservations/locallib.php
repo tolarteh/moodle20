@@ -1,8 +1,8 @@
 <?php
 
-require_once('./experiment.php');
-require_once('./content.php');
-require_once('./laboratory.php');
+require_once(dirname(__FILE__).'/experiment.php');
+require_once(dirname(__FILE__).'/content.php');
+require_once(dirname(__FILE__).'/laboratory.php');
 
 defined('MOODLE_INTERNAL') || die();
 

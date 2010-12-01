@@ -1,6 +1,6 @@
 <?php
 
-require_once('./experiment.php');
+require_once(dirname(__FILE__).'/experiment.php');
 
 class Laboratory {
   var $id;
