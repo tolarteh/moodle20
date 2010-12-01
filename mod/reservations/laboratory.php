@@ -17,6 +17,12 @@ class Laboratory {
     return new Laboratory($record->id, $record->name, $record->description);
   }
 
+  static function find_all() {
+    global $DB;
+    $labs = $DB->get_records("laboratories");
+    return array_map("Laboratory::db_obj_to_laboratory", $labs);
+  }
+
   function experiments() {
     global $DB;
     $sql = "SELECT * FROM  `mdl_experiments` WHERE `laboratory_id`=" . $this->id;
