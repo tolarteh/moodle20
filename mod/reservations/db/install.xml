@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <XMLDB PATH="mod/assignment/db" VERSION="20100905" COMMENT="XMLDB file for Moodle mod/assignment"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
->
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
   <TABLES>
     <TABLE NAME="reservations" COMMENT="Individual information about reservations" NEXT="equipment">
       <FIELDS>
@@ -20,7 +19,7 @@
         </KEYS>
     </TABLE>
 
-    <TABLE NAME="equipment" COMMENT="Information for pieces of equipment" PREVIOUS="reservations">
+    <TABLE NAME="equipment" COMMENT="Information for pieces of equipment" PREVIOUS="reservations" NEXT="contents">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="true"/>
         <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="description" SEQUENCE="false" />
@@ -31,5 +30,42 @@
           <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         </KEYS>
     </TABLE>
+
+    <TABLE NAME="contents" COMMENT="Experiment contents" PREVIOUS="equipment" NEXT="experiments">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="true"/>
+        <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="filepath" SEQUENCE="false" />
+        <FIELD NAME="filepath" LENGTH="300" TYPE="char" NOTNULL="true" PREVIOUS="name" NEXT="experiment_id" SEQUENCE="false" />
+        <FIELD NAME="experiment_id" TYPE="int" NOTNULL="true" PREVIOUS="filepath" SEQUENCE="false" />
+      </FIELDS>
+        <KEYS>
+          <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        </KEYS>
+    </TABLE>
+
+    <TABLE NAME="experiments" COMMENT="Experiments" PREVIOUS="contents" NEXT="laboratories">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="true"/>
+        <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="html" SEQUENCE="false" />
+        <FIELD NAME="html" LENGTH="500" TYPE="char" NOTNULL="true" PREVIOUS="name" NEXT="laboratory_id" SEQUENCE="false" />
+        <FIELD NAME="laboratory_id" TYPE="int" NOTNULL="true" PREVIOUS="html" SEQUENCE="false" />
+      </FIELDS>
+        <KEYS>
+          <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        </KEYS>
+    </TABLE>
+
+    <TABLE NAME="laboratories" COMMENT="Labs" PREVIOUS="experiments">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="true"/>
+        <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="description" SEQUENCE="false" />
+        <FIELD NAME="description" LENGTH="300" TYPE="char" NOTNULL="true" PREVIOUS="name" SEQUENCE="false" />
+      </FIELDS>
+        <KEYS>
+          <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        </KEYS>
+    </TABLE>
+
+
   </TABLES>
 </XMLDB>
