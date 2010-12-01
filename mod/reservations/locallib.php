@@ -1,5 +1,9 @@
 <?php
 
+require_once('./experiment.php');
+require_once('./content.php');
+require_once('./laboratory.php');
+
 defined('MOODLE_INTERNAL') || die();
 
 function require_logged_user() {
