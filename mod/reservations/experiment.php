@@ -10,24 +10,24 @@ class Experiment {
   var $description;
   var $is_active;
 
-  function Experiment($id, $description, $name, $html, $laboratory_id) {
+  function Experiment($id, $description, $name, $html, $is_active=0, $laboratory_id) {
     $this->id = $id;
     $this->name = (string) $name;
     $this->description = (string) $description;
     $this->html = (string) $html;
     $this->laboratory_id = $laboratory_id;
-    $this->is_active = false;
+    $this->is_active = $is_active;
   }
 
   static function db_obj_to_experiment($record) {
-    return new Experiment($record->id, $record->name, $record->description, $record->html, $record->laboratory_id);
+    return new Experiment($record->id, $record->name, $record->description, $record->html, $record->is_active, $record->laboratory_id);
   }
 
   function activation_link() {
     if ($this->is_active)
-      return '<a href="activate.php?id=' . $this->id . '">Desactivar</a>';
+      return '<a href="activate.php?experiment_id=' . $this->id . '">Desactivar</a>';
     else
-      return '<a href="activate.php?id=' . $this->id . '">Activar</a>';
+      return '<a href="activate.php?experiment_id=' . $this->id . '">Activar</a>';
   }
 
   function contents() {
@@ -65,7 +65,7 @@ class Experiment {
 
   function update() {
     global $DB;
-    return $DB->update_record('experiments', $this);
+    $DB->update_record('experiments', $this);
   }
 
   function delete(){

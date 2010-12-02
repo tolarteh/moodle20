@@ -1,71 +1,69 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/assignment/db" VERSION="20100905" COMMENT="XMLDB file for Moodle mod/assignment"
+<XMLDB PATH="mod/assignment/db" VERSION="20101202" COMMENT="XMLDB file for Moodle mod/assignment"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
   <TABLES>
     <TABLE NAME="reservations" COMMENT="Individual information about reservations" NEXT="equipment">
       <FIELDS>
-        <FIELD NAME="id" TYPE="int" SEQUENCE="true" NOTNULL="true" NEXT="equipment_id"/>
-        <FIELD NAME="equipment_id" TYPE="int" NOTNULL="true" NEXT="date" PREVIOUS="id" SEQUENCE="false"/>
-        <FIELD NAME="date" TYPE="int" NOTNULL="true" NEXT="end_date" PREVIOUS="equipment_id" SEQUENCE="false"/>
-        <FIELD NAME="end_date" TYPE="int" NOTNULL="true" NEXT="duration" PREVIOUS="date" SEQUENCE="false"/>
-        <FIELD NAME="duration" TYPE="int" NOTNULL="true" NEXT="owner_id" PREVIOUS="end_date" SEQUENCE="false"/>
-        <FIELD NAME="owner_id" TYPE="int" NOTNULL="true" NEXT="course" PREVIOUS="duration" SEQUENCE="false"/>
-        <FIELD NAME="course" TYPE="int" NOTNULL="false" NEXT="created_at" PREVIOUS="owner_id" SEQUENCE="false"/>
-        <FIELD NAME="created_at" TYPE="int" NOTNULL="false" PREVIOUS="course" SEQUENCE="false"/>
+        <FIELD NAME="id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="true" NEXT="equipment_id"/>
+        <FIELD NAME="equipment_id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="id" NEXT="date"/>
+        <FIELD NAME="date" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="equipment_id" NEXT="end_date"/>
+        <FIELD NAME="end_date" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="date" NEXT="duration"/>
+        <FIELD NAME="duration" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="end_date" NEXT="owner_id"/>
+        <FIELD NAME="owner_id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="duration" NEXT="course"/>
+        <FIELD NAME="course" TYPE="int" NOTNULL="false" UNSIGNED="false" SEQUENCE="false" PREVIOUS="owner_id" NEXT="created_at"/>
+        <FIELD NAME="created_at" TYPE="int" NOTNULL="false" UNSIGNED="false" SEQUENCE="false" PREVIOUS="course"/>
       </FIELDS>
-        <KEYS>
-          <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        </KEYS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
     </TABLE>
-
     <TABLE NAME="equipment" COMMENT="Information for pieces of equipment" PREVIOUS="reservations" NEXT="contents">
       <FIELDS>
-        <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="true"/>
-        <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="description" SEQUENCE="false" />
-        <FIELD NAME="description" LENGTH="300" TYPE="char" NOTNULL="true" PREVIOUS="name" NEXT="code" SEQUENCE="false" />
-        <FIELD NAME="code" LENGTH="1200" TYPE="char" NOTNULL="true" PREVIOUS="description" SEQUENCE="false" />
+        <FIELD NAME="id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="true" NEXT="name"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" PREVIOUS="id" NEXT="description"/>
+        <FIELD NAME="description" TYPE="char" LENGTH="300" NOTNULL="true" SEQUENCE="false" PREVIOUS="name" NEXT="code"/>
+        <FIELD NAME="code" TYPE="char" LENGTH="1200" NOTNULL="true" SEQUENCE="false" PREVIOUS="description"/>
       </FIELDS>
-        <KEYS>
-          <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        </KEYS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
     </TABLE>
-
     <TABLE NAME="contents" COMMENT="Experiment contents" PREVIOUS="equipment" NEXT="experiments">
       <FIELDS>
-        <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="true"/>
-        <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="filepath" SEQUENCE="false" />
-        <FIELD NAME="filepath" LENGTH="300" TYPE="char" NOTNULL="true" PREVIOUS="name" NEXT="experiment_id" SEQUENCE="false" />
-        <FIELD NAME="experiment_id" TYPE="int" NOTNULL="true" PREVIOUS="filepath" NEXT="type" SEQUENCE="false" />
-        <FIELD NAME="type" TYPE="char" LENGTH="100" NOTNULL="true" PREVIOUS="experiment_id" SEQUENCE="false" />
+        <FIELD NAME="id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="true" NEXT="name"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" PREVIOUS="id" NEXT="filepath"/>
+        <FIELD NAME="filepath" TYPE="char" LENGTH="300" NOTNULL="true" SEQUENCE="false" PREVIOUS="name" NEXT="experiment_id"/>
+        <FIELD NAME="experiment_id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="filepath" NEXT="type"/>
+        <FIELD NAME="type" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" PREVIOUS="experiment_id"/>
       </FIELDS>
-        <KEYS>
-          <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        </KEYS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
     </TABLE>
-
     <TABLE NAME="experiments" COMMENT="Experiments" PREVIOUS="contents" NEXT="laboratories">
       <FIELDS>
-        <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="true"/>
-        <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="html" SEQUENCE="false" />
-        <FIELD NAME="html" LENGTH="500" TYPE="char" NOTNULL="true" PREVIOUS="name" NEXT="laboratory_id" SEQUENCE="false" />
-        <FIELD NAME="laboratory_id" TYPE="int" NOTNULL="true" PREVIOUS="html" NEXT="description" SEQUENCE="false" />
-        <FIELD NAME="description" TYPE="text" LENGTH="big" NOTNULL="false" SEQUENCE="false" PREVIOUS="laboratory_id"/>
+        <FIELD NAME="id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="true" NEXT="name"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" PREVIOUS="id" NEXT="html"/>
+        <FIELD NAME="html" TYPE="char" LENGTH="500" NOTNULL="true" SEQUENCE="false" PREVIOUS="name" NEXT="laboratory_id"/>
+        <FIELD NAME="laboratory_id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="html" NEXT="description"/>
+        <FIELD NAME="description" TYPE="text" LENGTH="big" NOTNULL="false" SEQUENCE="false" PREVIOUS="laboratory_id" NEXT="is_active"/>
+        <FIELD NAME="is_active" TYPE="int" LENGTH="2" NOTNULL="false" UNSIGNED="false" SEQUENCE="false" PREVIOUS="description"/>
       </FIELDS>
-        <KEYS>
-          <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        </KEYS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
     </TABLE>
-
     <TABLE NAME="laboratories" COMMENT="Labs" PREVIOUS="experiments">
       <FIELDS>
-        <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="true"/>
-        <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="description" SEQUENCE="false" />
-        <FIELD NAME="description" LENGTH="300" TYPE="char" NOTNULL="true" PREVIOUS="name" SEQUENCE="false" />
+        <FIELD NAME="id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="true" NEXT="name"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" PREVIOUS="id" NEXT="description"/>
+        <FIELD NAME="description" TYPE="char" LENGTH="300" NOTNULL="true" SEQUENCE="false" PREVIOUS="name"/>
       </FIELDS>
-        <KEYS>
-          <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        </KEYS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
     </TABLE>
   </TABLES>
 </XMLDB>
