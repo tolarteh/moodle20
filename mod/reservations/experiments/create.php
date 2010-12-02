@@ -10,10 +10,18 @@ echo $OUTPUT->header();
 
 require_logged_user();
 
-if ($name = $_POST["name"] && $description = $_POST["description"] &&
-    $html = $_POST["html"] && $laboratory_id = $_POST["laboratory_id"]) {
-  echo "OH SI";
+$name = $_POST["name"];
+$description = $_POST["description"];
+$html = $_POST["html"];
+$laboratory_id = $_REQUEST["laboratory_id"];
 
+if ($name && $description && $html && $laboratory_id) {
+  if ($experiment = Experiment::create($name, $description, $html, $laboratory_id)){
+    echo "El experimento se creó exitosamente.<br/>";
+    echo "<a href='index.php?laboratory_id=" . $laboratory_id . "'>Haga click aquí</a> para regresar.";
+  } else {
+    echo "No se pudo crear el experimento";
+  }
 } else {
   echo "<p class='notice'>Todos los campos son obligatorios</p>";
 ?>
@@ -28,7 +36,7 @@ if ($name = $_POST["name"] && $description = $_POST["description"] &&
     <br/>
     <textarea rows="8" cols="60" name="description" id="foo"></textarea>
   </p>
-  <input type="hidden" name="laboratory_id" value="<?php echo ($_GET['laboratory_id'] || $_POST['laboratory_id']); ?>"/>
+  <input type="hidden" name="laboratory_id" value="<?php echo $laboratory_id; ?>"/>
 <br/>
   <p>
     <em>Código HTML:</em>
@@ -37,7 +45,7 @@ if ($name = $_POST["name"] && $description = $_POST["description"] &&
   </p>
 
   <p>
-    <input type="submit" value="Crear Experimento" />
+    <input type="submit" value="Crear Experimento" onclick="editor.post();"/>
   </p>
 </form>
 
@@ -46,7 +54,7 @@ if ($name = $_POST["name"] && $description = $_POST["description"] &&
 }
 ?>
 <script type="text/javascript">
-new TINY.editor.edit('editor',{
+editor = new TINY.editor.edit('editor',{
 	id:'foo',
 	width:584,
 	height:175,

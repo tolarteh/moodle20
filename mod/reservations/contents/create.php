@@ -10,9 +10,15 @@ echo $OUTPUT->header();
 
 require_logged_user();
 
-if ($name = $_POST["name"] &&
-    $file = $_FILES["attachment"] && $experiment_id = $_POST["experiment_id"]) {
-  echo "OH SI";
+$name = $_POST["name"];
+$file = $_FILES["attachment"];
+$experiment_id = $_REQUEST["experiment_id"];
+
+if ($name && $file){
+  if (Content::create($name, $file, $experiment_id)){
+    echo "El contenido se creó exitosamente.<br/>";
+    echo "<a href='index.php?experiment_id=" . $experiment_id . "'>Haga click aquí</a> para regresar.";
+  }
 
 } else {
   echo "<p class='notice'>Todos los campos son obligatorios</p>";
@@ -23,7 +29,7 @@ if ($name = $_POST["name"] &&
     <em>Nombre del contenido:</em>
     <input type="text" name="name" value="" />
   </p>
-  <input type="hidden" name="experiment_id" value="<?php echo ($_GET['experiment_id'] || $_POST['experiment_id']); ?>" />
+  <input type="hidden" name="experiment_id" value="<?php echo $experiment_id; ?>" />
   <p>
     <em>Seleccione un archivo:</em>
     <input name="attachment" type="file" />

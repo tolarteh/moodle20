@@ -32,7 +32,7 @@ class Laboratory {
 
   static function find_by_id($id) {
     global $DB;
-    $record = $DB->get_record("laboratory", array("id" => $id));
+    $record = $DB->get_record("laboratories", array("id" => $id));
     return Laboratory::db_obj_to_laboratory($record);
   }
 

@@ -7,9 +7,11 @@ class Content {
   var $name;
   var $filepath;
   var $experiment_id;
+  var $type;
 
-  function Content($id, $name, $filepath, $experiment_id) {
+  function Content($id, $name, $filepath, $type, $experiment_id) {
     $this->id = $id;
+    $this->type = $type;
     $this->name = (string) $name;
     $this->filepath = (string) $filepath;
     $this->experiment_id = $experiment_id;
@@ -22,7 +24,7 @@ class Content {
   }
 
   static function db_obj_to_content($record) {
-    return new Content($record->id, $record->name, $record->filepath, $record->experiment_id);
+    return new Content($record->id, $record->name, $record->filepath, $record->type, $record->experiment_id);
   }
 
   function experiment() {
@@ -31,16 +33,26 @@ class Content {
     return Experiment::db_obj_to_experiment($record);
   }
 
-  static function create($name, $filepath, $experiment_id) {
-    global $DB;
+  static function create($name, $file, $experiment_id) {
+    global $DB, $CFG;
 
     /* Dirty hack: Please read the explanation behind this in Laboratory::create. */
     $tmp = new object();
     $tmp->name = $name;
+    $tmp->type = $file["type"];
+    $tmp_location = $file["tmp_name"];
+
+    /* /var/data/moodledata/SomeImportantFile_somefile.doc */
+    $filepath = $CFG->dataroot . "/" . $name . "_" . basename($file["name"]);
+
+    if(!move_uploaded_file($tmp_location, $filepath)) {
+      die("Error subiendo el archivo");
+    }
+
     $tmp->filepath = $filepath;
     $tmp->experiment_id = $experiment_id;
     $id = $DB->insert_record("contents", $tmp);
-    return new Content($id, $name, $filepath, $experiment_id);
+    return new Content($id, $name, $filepath, $type, $experiment_id);
   }
 
   function update() {

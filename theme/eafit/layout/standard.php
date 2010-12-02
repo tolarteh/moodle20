@@ -34,7 +34,7 @@ echo $OUTPUT->doctype(); ?>
       <ul>
         <li><?php link_to("Inicio", "");?></li>
         <li><?php link_to("Información", "");?></li>
-        <li><?php link_to("Laboratorios", "mod/reservations/labs");?></li>
+        <li><?php link_to("Laboratorios", "mod/reservations/laboratories");?></li>
         <li><?php link_to("Reservas", "mod/reservations");?></li>
         <li><?php link_to("Cursos", "course");?></li>
 
