@@ -38,7 +38,6 @@ class Laboratory {
 
   static function create($name, $description) {
     global $DB;
-
     /* Dirty hack: we can't insert a Laboratory object in the first place
        since it contains an ID field. We'll create a tmp object, feed that
        into the DB and then get create a new Laboratory object with the ID

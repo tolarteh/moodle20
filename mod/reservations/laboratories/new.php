@@ -6,6 +6,7 @@ require_once(dirname(__FILE__).'/../lib.php');
 
 $PAGE->set_url('/mod/reservations/laboratories/new.php');
 $PAGE->set_title(get_string("pagetitle", "reservations"));
+ $PAGE->set_context(get_system_context());
 echo $OUTPUT->header();
 
 require_logged_user();

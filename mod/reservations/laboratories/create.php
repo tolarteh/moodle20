@@ -5,13 +5,23 @@ require_once(dirname(__FILE__).'/../locallib.php');
 require_once(dirname(__FILE__).'/../lib.php');
 
 $PAGE->set_url('/mod/reservations/laboratories/create.php');
+
 $PAGE->set_title(get_string("pagetitle", "reservations"));
+$PAGE->set_context(get_system_context());
 echo $OUTPUT->header();
 
 require_logged_user();
 
-if ($name = $_POST["name"] && $description = $_POST["description"]) {
-  echo "OH SI";
+$name = $_POST["name"];
+$description = $_POST["description"];
+
+if ($name && $description) {
+  if ($lab = Laboratory::create($name, $description)){
+    echo "El laboratorio se creó exitosamente.<br/>";
+    echo "<a href='index.php'>Haga click aquí</a> para regresar.";
+  } else {
+    echo "No se pudo crear el laboratorio";
+  }
 
 } else {
   echo "<p class='notice'>Ambos campos son obligatorios</p>";
