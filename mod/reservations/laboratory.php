@@ -30,6 +30,10 @@ class Laboratory {
     return array_map("Experiment::db_obj_to_experiment", $records);
   }
 
+  function active_experiments() {
+    return array_filter($this->experiments(), "Experiment::is_active");
+  }
+
   static function find_by_id($id) {
     global $DB;
     $record = $DB->get_record("laboratories", array("id" => $id));

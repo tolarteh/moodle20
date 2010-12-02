@@ -169,6 +169,7 @@ p { line-height: 1.5em; }
 p + p { margin-top: 1em;}
 h2 { color: #006fbf; font-size: 1.5em; margin: 1em 0px; font-weight: normal; }
 h3 { padding-bottom: 5px; font-size: 0.85em; }
+h4 { padding-bottom: 5px; font-size: 0.75em; margin-top: 20px;}
 
 div.contenido { float: left; width: 65%; min-height: 300px;}
 div.sidebar { float: right; width: 30%; }
@@ -345,3 +346,34 @@ input.long { width: 430px; }
 .toggle:hover {background-color:#fff}
 .resize {float:right; height:32px; width:32px; background:url([[pix:theme|resize]]) 15px 15px no-repeat; cursor:s-resize}
 #editor {cursor:text; margin:10px}
+
+div.lab {
+  width: 270px;
+  float: left;
+  border: 1px solid #FFB921;
+  margin: 5px;
+  height: 250px;
+  padding: 5px;
+position: relative;
+}
+
+a.reservation {
+  font-size: 0.75em;
+  font-family: Verdana, sans;
+  color: #FFB921;
+  font-weight: bold;
+  position: relative;
+  right: -50px;
+  top: -3px;
+}
+
+div.lab .links {
+  position: absolute;
+  bottom: 5px;
+}
+
+div.lab li{
+list-style-type: disc;
+color: #aaa;
+margin-left: 20px;
+}

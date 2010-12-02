@@ -58,8 +58,15 @@ class Experiment {
     $tmp->html = $html;
     $tmp->description = $description;
     $tmp->laboratory_id = $laboratory_id;
+    $tmp->is_active = 0;
+
     $id = $DB->insert_record("experiments", $tmp);
-    return new Experiment($id, $name, $description, $html, $laboratory_id);
+    return new Experiment($id, $name, $description, $html, 0, $laboratory_id);
+  }
+
+  /* PHP hack to be able to access callbacks on objects */
+  static function is_active($exp) {
+    return $exp->is_active == 1;
   }
 
 

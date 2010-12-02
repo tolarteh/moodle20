@@ -13,7 +13,8 @@
         <FIELD NAME="duration" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="end_date" NEXT="owner_id"/>
         <FIELD NAME="owner_id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="duration" NEXT="course"/>
         <FIELD NAME="course" TYPE="int" NOTNULL="false" UNSIGNED="false" SEQUENCE="false" PREVIOUS="owner_id" NEXT="created_at"/>
-        <FIELD NAME="created_at" TYPE="int" NOTNULL="false" UNSIGNED="false" SEQUENCE="false" PREVIOUS="course"/>
+        <FIELD NAME="created_at" TYPE="int" NOTNULL="false" UNSIGNED="false" SEQUENCE="false" PREVIOUS="course" NEXT="experiment_id"/>
+        <FIELD NAME="experiment_id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="created_at"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

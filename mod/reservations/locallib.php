@@ -70,13 +70,34 @@ function select_for_duration() {
 }
 
 
-function print_lab_list() {
-  global $DB;
+function print_experiments_list($laboratory, $selected=null) {
+  if ($experiments = $laboratory->active_experiments()) {
+    echo "<select name='experiment_id' value=''>Laboratorios</option>";
+    foreach ($experiments as $e) {
+      if ($selected && $selected->id == $e->id) {
+        echo "<option SELECTED value='" . $e->id . "'>" . $e->name . "</option>";
+      } else {
+        echo "<option value='" . $e->id . "'>" . $e->name . "</option>";
+      }
 
-  if ($equipment = find_all_labs()) {
+    }
+    echo "</select>";
+  } else {
+    echo "No hay experimentos activos";
+  }
+}
+
+function print_lab_list($selected) {
+
+  if ($equipment = Laboratory::find_all()) {
     echo "<select name='equipment' value=''>Laboratorios</option>";
     foreach ($equipment as $e) {
-      echo "<option value='" . $e->id . "'>" . $e->name . "</option>";
+      if ($selected && $selected->id == $e->id) {
+        echo "<option SELECTED value='" . $e->id . "'>" . $e->name . "</option>";
+      } else {
+        echo "<option value='" . $e->id . "'>" . $e->name . "</option>";
+      }
+
     }
     echo "</select>";
   } else {
@@ -84,11 +105,6 @@ function print_lab_list() {
   }
 }
 
-function find_all_labs() {
-  global $DB;
-
-  return $DB->get_records("equipment");
-}
 
 function find_active_reservations() {
   global $DB;
@@ -124,17 +140,13 @@ function find_reservation($id) {
   return $DB->get_record("reservations", array("id" => $id));
 }
 
-function find_lab($id) {
-  global $DB;
 
-  return $DB->get_record("equipment", array("id" => $id));
-}
-
-function create_reservation($equipment, $date, $end_date, $duration, $user, $course) {
+function create_reservation($lab, $exp, $date, $end_date, $duration, $user, $course) {
   global $DB;
 
   $reservation = new object();
-  $reservation->equipment_id = $equipment;
+  $reservation->equipment_id = $lab;
+  $reservation->experiment_id = $exp;
   $reservation->date = $date;
   $reservation->end_date = $end_date;
   $reservation->duration = $duration;
@@ -144,16 +156,6 @@ function create_reservation($equipment, $date, $end_date, $duration, $user, $cou
   return $DB->insert_record('reservations', $reservation);
 }
 
-function create_lab($name, $description, $code) {
-  global $DB;
-
-  $equipment = new object();
-  $equipment->name = $name;
-  $equipment->description = $description;
-  $equipment->code = $code;
-
-  return $DB->insert_record('equipment', $equipment);
-}
 
 function current_user_id() {
   global $USER;
@@ -170,8 +172,8 @@ function current_course_id() {
 function lab_name($id) {
   global $DB;
 
-  $e = $DB->get_record("equipment", array("id" => $id));
-  return $e->name;
+  $l = Laboratory::find_by_id($id);
+  return $l->name;
 }
 
 function humanize_date($date) {

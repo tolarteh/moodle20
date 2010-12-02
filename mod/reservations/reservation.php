@@ -15,19 +15,15 @@ $duration = $_POST["duration"];
 $end_date = mktime($_POST["hour"] + $duration , 0, 0, $_POST["month"], $_POST["day"], $_POST["year"]);
 
 
-$equipment = $_POST["equipment"];
-
-if ($date < time()) {
-  echo "Fecha de reserva invalida";
-  echo "<br/><a href='index.php'>Volver</a>";
-}
+$lab_id = $_POST["laboratory_id"];
+$experiment = $_POST["experiment_id"];
 
 if (find_reservation_by_date($year, $month, $day, $hour)) {
   echo "Ya existe una reserva en esta hora";
   echo "<br/><a href='index.php'>Volver</a>";
 }
 else {
-  if (create_reservation($equipment, $date, $end_date, $duration, 1, 1)) {
+  if (create_reservation($lab_id, $experiment, $date, $end_date, $duration, 1, 1)) {
     echo "Se creo";
     echo "<br/><a href='index.php'>Volver</a>";
   } else {
