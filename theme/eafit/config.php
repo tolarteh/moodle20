@@ -73,7 +73,7 @@ $THEME->layouts = array(
 );
 
 /** List of javascript files that need to be included on each page */
-$THEME->javascripts = array();
+$THEME->javascripts = array("packed");
 $THEME->javascripts_footer = array();
 
 ?>
