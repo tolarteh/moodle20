@@ -322,5 +322,10 @@ form.reservation div {
   padding: 10px 0px;
 }
 
+p.notice {
+  font-size: 0.85em;
+  color: red;
+  margin-bottom: 2em;
+}
 
-
+input.long { width: 430px; }

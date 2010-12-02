@@ -36,7 +36,7 @@
         <FIELD NAME="id" TYPE="int" NOTNULL="true" NEXT="name" SEQUENCE="true"/>
         <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="filepath" SEQUENCE="false" />
         <FIELD NAME="filepath" LENGTH="300" TYPE="char" NOTNULL="true" PREVIOUS="name" NEXT="experiment_id" SEQUENCE="false" />
-        <FIELD NAME="experiment_id" TYPE="int" NOTNULL="true" PREVIOUS="filepath" SEQUENCE="false" />
+        <FIELD NAME="experiment_id" TYPE="int" NOTNULL="true" PREVIOUS="filepath" NEXT="description" SEQUENCE="false" />
       </FIELDS>
         <KEYS>
           <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -49,6 +49,7 @@
         <FIELD NAME="name" LENGTH="50" TYPE="char" NOTNULL="true" PREVIOUS="id" NEXT="html" SEQUENCE="false" />
         <FIELD NAME="html" LENGTH="500" TYPE="char" NOTNULL="true" PREVIOUS="name" NEXT="laboratory_id" SEQUENCE="false" />
         <FIELD NAME="laboratory_id" TYPE="int" NOTNULL="true" PREVIOUS="html" SEQUENCE="false" />
+        <FIELD NAME="description" TYPE="text" LENGTH="big" NOTNULL="false" SEQUENCE="false" PREVIOUS="laboratory_id"/>
       </FIELDS>
         <KEYS>
           <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
