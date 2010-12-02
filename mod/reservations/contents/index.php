@@ -1,7 +1,6 @@
 <?php
 require_once(dirname(dirname(dirname(__FILE__))).'/../config.php');
 require_once(dirname(__FILE__).'/../locallib.php');
-require_once(dirname(__FILE__).'/../lib.php');
 
 $PAGE->set_url('/mod/reservations/contents/index.php');
 $PAGE->set_title(get_string("pagetitle", "reservations"));
@@ -40,7 +39,8 @@ if (!$experiment){
 </div>
 
 
-<a href="new.php?experiment_id=<?php echo $experiment->id; ?>">Crear un nuevo contenido</a>
+<a href="new.php?experiment_id=<?php echo $experiment->id; ?>">Crear un nuevo contenido</a><br/><br/>
+<a href="../experiments/index.php?laboratory_id=<?php echo $experiment->laboratory_id; ?>">Volver a Experimentos</a>
 <?php
   echo $OUTPUT->footer();
 ?>

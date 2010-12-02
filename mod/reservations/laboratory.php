@@ -50,7 +50,16 @@ class Laboratory {
   }
 
   function update() {
+    global $DB;
     $DB->update_record('laboratories', $this);
+  }
+
+  function delete(){
+    global $DB;
+    if ($DB->delete_records("laboratories", array("id" => $this->id)))
+      return true;
+
+    return false;
   }
 }
 

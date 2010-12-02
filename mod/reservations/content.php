@@ -56,7 +56,16 @@ class Content {
   }
 
   function update() {
+    global $DB;
     $DB->update_record('contents', $this);
+  }
+
+  function delete(){
+    global $DB;
+    if ($DB->delete_records("contents", array("id" => $this->id)))
+      return true;
+
+    return false;
   }
 }
 

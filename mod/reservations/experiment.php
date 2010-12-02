@@ -64,7 +64,16 @@ class Experiment {
 
 
   function update() {
-    $DB->update_record('experiments', $this);
+    global $DB;
+    return $DB->update_record('experiments', $this);
+  }
+
+  function delete(){
+    global $DB;
+    if ($DB->delete_records("experiments", array("id" => $this->id)))
+      return true;
+
+    return false;
   }
 
   static function find_by_id($id) {
