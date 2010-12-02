@@ -38,19 +38,32 @@ $laboratory = Laboratory::find_by_id($_GET["laboratory_id"]);
     </p>
 
   </div>
-  <div>
+
     <h3>¿Qué experimento desea usar?</h3>
     <p>
       <?php print_experiments_list($laboratory, null); ?>
     </p>
-  </div>
-<input type="hidden" name="laboratory_id" value="<?php echo $laboratory->id ?>" />
 
-  <div>
+    <input type="hidden" name="laboratory_id" value="<?php echo $laboratory->id ?>" />
+
     <p>
-      <input type="submit" value="Reservar" /> o <?php link_to("volver a laboratorios", "mod/reservations/laboratories/"); ?>.
+    <?php
+          if (!count($laboratory->active_experiments())) {
+            echo "<br/>Este laboratorio no tiene experimentos activos. Por favor ";
+            link_to("activar", "mod/reservations/experiments/index.php?laboratory_id=" . $laboratory->id);
+            echo " alguno de los experimentos antes de proceder.<br/><br/>";
+
+            echo '<input id="submit" DISABLED type="submit" value="Reservar" /> o ';
+            link_to("volver a laboratorios", "mod/reservations/laboratories/");
+    } else {
+            echo '<input id="submit" type="submit" value="Reservar" /> o ';
+            link_to("volver a laboratorios", "mod/reservations/laboratories/");
+          }
+    ?>
+
+
     </p>
-  </div>
+
 </form>
 
 <?php

@@ -87,10 +87,10 @@ function print_experiments_list($laboratory, $selected=null) {
   }
 }
 
-function print_lab_list($selected) {
+function print_lab_list($selected=null) {
 
   if ($equipment = Laboratory::find_all()) {
-    echo "<select name='equipment' value=''>Laboratorios</option>";
+    echo "<select name='laboratory_id' value=''>Laboratorios</option>";
     foreach ($equipment as $e) {
       if ($selected && $selected->id == $e->id) {
         echo "<option SELECTED value='" . $e->id . "'>" . $e->name . "</option>";

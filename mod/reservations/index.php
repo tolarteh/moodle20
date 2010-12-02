@@ -60,8 +60,11 @@ foreach ($active_reservations as $res) {
   </div>
     <?php } ?>
 <p>
-  Puede <?php link_to("reservar un laboratorio", "mod/reservations/new.php") ?> o puede <?php link_to("ver los laboratorios disponibles", "mod/reservations/labs") ?>.
-</p>
+  También puede reservar un laboratorio:
+  <form action="new.php" method="GET">
+    <?php print_lab_list() ?>
+    <input type="submit" value="Reservar" />
+  </form>
 
 <?php
 echo $OUTPUT->footer();
