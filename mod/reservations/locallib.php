@@ -172,7 +172,7 @@ function current_course_id() {
 function lab_name($id) {
   global $DB;
 
-  $l = Laboratory::find_by_id($id);
+  $l = Experiment::find_by_id($id);
   return $l->name;
 }
 

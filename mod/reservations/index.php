@@ -51,7 +51,7 @@ if ($active_reservations) { ?>
 foreach ($active_reservations as $res) {
   echo "<tr>";
     echo "<td>#" . $res->id . "</td>";
-    echo "<td><a href='" . "show.php?id=" . $res->id . "'>" . lab_name($res->equipment_id) . "</a></td>";
+    echo "<td><a href='" . "show.php?id=" . $res->id . "'>" . lab_name($res->experiment_id) . "</a></td>";
     echo "<td>" . reservation_remaining_time($res) . " minutos</td>";
     echo "</tr>";
 }
