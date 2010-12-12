@@ -13,9 +13,18 @@ $name = $_POST["name"];
 $description = $_POST["description"];
 $html = $_POST["html"];
 $laboratory_id = $_REQUEST["laboratory_id"];
+$introduction = $_POST["introduction"];
+$theory = $_POST["theory"];
+$setup = $_POST["setup"];
+$procedure = $_POST["procedure"];
 
+$texts = array("introduction" => $introduction,
+               "theory" => $theory,
+               "setup" => $setup,
+               "proc" => $procedure);
 if ($name && $description && $html && $laboratory_id) {
-  if ($experiment = Experiment::create($name, $description, $html, $laboratory_id)){
+
+  if ($experiment = Experiment::create($name, $description, $html, $laboratory_id, $texts)){
     echo "El experimento se creó exitosamente.<br/>";
     echo "<a href='index.php?laboratory_id=" . $laboratory_id . "'>Haga click aquí</a> para regresar.";
   } else {
@@ -33,8 +42,32 @@ if ($name && $description && $html && $laboratory_id) {
   <p>
     <em>Descripción del experimento:</em>
     <br/>
-    <textarea rows="8" cols="60" name="description" id="foo"></textarea>
+    <textarea rows="8" cols="60" name="description" id="description"></textarea>
   </p>
+  <p>
+    <em>Introducción:</em>
+    <br/>
+    <textarea id="introduction" rows="8" cols="60" name="introduction"></textarea>
+  </p>
+
+  <p>
+    <em>Teoría:</em>
+    <br/>
+    <textarea id="theory" rows="8" cols="60" name="theory"></textarea>
+  </p>
+
+  <p>
+    <em>Montaje:</em>
+    <br/>
+    <textarea id="setup" rows="8" cols="60" name="setup"></textarea>
+  </p>
+
+  <p>
+    <em>Procedimiento:</em>
+    <br/>
+    <textarea id="procedure" rows="8" cols="60" name="procedure"></textarea>
+  </p>
+
   <input type="hidden" name="laboratory_id" value="<?php echo $laboratory_id; ?>"/>
 <br/>
   <p>
@@ -44,7 +77,7 @@ if ($name && $description && $html && $laboratory_id) {
   </p>
 
   <p>
-    <input type="submit" value="Crear Experimento" onclick="editor.post();"/>
+    <input type="submit" value="Crear Experimento" onclick="post();"/>
   </p>
 </form>
 
@@ -52,29 +85,7 @@ if ($name && $description && $html && $laboratory_id) {
 <?php
 }
 ?>
-<script type="text/javascript">
-editor = new TINY.editor.edit('editor',{
-	id:'foo',
-	width:584,
-	height:175,
-	cssclass:'te',
-	controlclass:'tecontrol',
-	rowclass:'teheader',
-	dividerclass:'tedivider',
-	controls:['bold','italic','underline','strikethrough','|','subscript','superscript','|',
-			  'orderedlist','unorderedlist','|','outdent','indent','|','leftalign',
-			  'centeralign','rightalign','blockjustify','|','unformat','|','undo','redo','n',
-			  'font','size','style','|','image','hr','link','unlink','|','cut','copy','paste','print'],
-	footer:true,
-	fonts:['Verdana','Arial','Georgia','Trebuchet MS'],
-	xhtml:true,
-	cssfile:'style.css',
-	bodyid:'editor',
-	footerclass:'tefooter',
-	toggle:{text:'source',activetext:'wysiwyg',cssclass:'toggle'},
-	resize:{cssclass:'resize'}
-});
-</script>
+<script type="text/javascript" src="areas.js"></script>
 <?php
   echo $OUTPUT->footer();
 ?>

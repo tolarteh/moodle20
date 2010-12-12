@@ -21,7 +21,31 @@ require_logged_user();
   <p>
     <em>Descripción del experimento:</em>
     <br/>
-    <textarea id="foo" rows="8" cols="60" name="description"></textarea>
+    <textarea id="description" rows="8" cols="60" name="description"></textarea>
+  </p>
+
+  <p>
+    <em>Introducción:</em>
+    <br/>
+    <textarea id="introduction" rows="8" cols="60" name="introduction"></textarea>
+  </p>
+
+  <p>
+    <em>Teoría:</em>
+    <br/>
+    <textarea id="theory" rows="8" cols="60" name="theory"></textarea>
+  </p>
+
+  <p>
+    <em>Montaje:</em>
+    <br/>
+    <textarea id="setup" rows="8" cols="60" name="setup"></textarea>
+  </p>
+
+  <p>
+    <em>Procedimiento:</em>
+    <br/>
+    <textarea id="procedure" rows="8" cols="60" name="procedure"></textarea>
   </p>
   <input type="hidden" name="laboratory_id" value="<?php echo $_GET['laboratory_id']; ?>" />
 
@@ -32,33 +56,11 @@ require_logged_user();
   </p>
 
   <p>
-    <input type="submit" value="Crear Experimento" onclick="editor.post();"/>
+    <input type="submit" value="Crear Experimento" onclick="post();"/>
   </p>
 </form>
 
-<script type="text/javascript">
-new TINY.editor.edit('editor',{
-	id:'foo',
-	width:584,
-	height:175,
-	cssclass:'te',
-	controlclass:'tecontrol',
-	rowclass:'teheader',
-	dividerclass:'tedivider',
-	controls:['bold','italic','underline','strikethrough','|','subscript','superscript','|',
-			  'orderedlist','unorderedlist','|','outdent','indent','|','leftalign',
-			  'centeralign','rightalign','blockjustify','|','unformat','|','undo','redo','n',
-			  'font','size','style','|','image','hr','link','unlink','|','cut','copy','paste','print'],
-	footer:true,
-	fonts:['Verdana','Arial','Georgia','Trebuchet MS'],
-	xhtml:true,
-	cssfile:'style.css',
-	bodyid:'editor',
-	footerclass:'tefooter',
-	toggle:{text:'source',activetext:'wysiwyg',cssclass:'toggle'},
-	resize:{cssclass:'resize'}
-});
-</script>
+<script type="text/javascript" src="areas.js"></script>
 <?php
   echo $OUTPUT->footer();
 ?>

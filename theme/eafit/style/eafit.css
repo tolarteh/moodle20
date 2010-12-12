@@ -377,3 +377,13 @@ list-style-type: disc;
 color: #aaa;
 margin-left: 20px;
 }
+
+span.link-horizontal {
+  float: left;
+  margin-right: 20px;
+  text-align: center;
+}
+
+div.exp-div {
+  display: none;
+}

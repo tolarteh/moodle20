@@ -10,17 +10,35 @@ class Experiment {
   var $description;
   var $is_active;
 
-  function Experiment($id, $description, $name, $html, $is_active=0, $laboratory_id) {
+  var $introduction;
+  var $theory;
+  var $setup;
+  var $proc;
+
+  function Experiment($id, $name, $description, $html, $is_active=0, $laboratory_id=0, $texts) {
     $this->id = $id;
     $this->name = (string) $name;
     $this->description = (string) $description;
     $this->html = (string) $html;
     $this->laboratory_id = $laboratory_id;
     $this->is_active = $is_active;
+
+    $default = array("introduction" => "", "theory" => "", "setup" => "", "proc" => "");
+    $texts = array_merge($default, $texts);
+
+    $this->introduction = $texts["introduction"];
+    $this->theory = $texts["theory"];
+    $this->proc = $texts["proc"];
+    $this->setup = $texts["setup"];
   }
 
   static function db_obj_to_experiment($record) {
-    return new Experiment($record->id, $record->name, $record->description, $record->html, $record->is_active, $record->laboratory_id);
+    $texts = array("introduction" => $record->introduction,
+                   "theory" => $record->theory,
+                   "setup" => $record->setup,
+                   "proc" => $record->proc);
+    $exp = new Experiment($record->id, $record->name, $record->description, $record->html, $record->is_active, $record->laboratory_id, $texts);
+    return $exp;
   }
 
   function activation_link() {
@@ -49,7 +67,7 @@ class Experiment {
     return Laboratory::db_obj_to_laboratory($record);
   }
 
-  static function create($name, $description, $html, $laboratory_id) {
+  static function create($name, $description, $html, $laboratory_id, $texts) {
     global $DB;
 
     /* Dirty hack: Please read the explanation behind this in Laboratory::create. */
@@ -59,9 +77,13 @@ class Experiment {
     $tmp->description = $description;
     $tmp->laboratory_id = $laboratory_id;
     $tmp->is_active = 0;
+    $tmp->introduction = $texts["introduction"];
+    $tmp->setup = $texts["setup"];
+    $tmp->proc = $texts["proc"];
+    $tmp->theory = $texts["theory"];
 
     $id = $DB->insert_record("experiments", $tmp);
-    return new Experiment($id, $name, $description, $html, 0, $laboratory_id);
+    return new Experiment($id, $name, $description, $html, 0, $laboratory_id, $texts);
   }
 
   /* PHP hack to be able to access callbacks on objects */

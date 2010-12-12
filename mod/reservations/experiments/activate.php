@@ -10,7 +10,6 @@ echo $OUTPUT->header();
 
 require_logged_user();
 $experiment = Experiment::find_by_id($_GET["experiment_id"]);
-
 if (!$_GET["experiment_id"] || !$experiment){
   die("Error en la activación de experimentos");
 }
