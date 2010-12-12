@@ -43,6 +43,7 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
     </TABLE>
+
     <TABLE NAME="experiments" COMMENT="Experiments" PREVIOUS="contents" NEXT="laboratories">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="true" NEXT="name"/>
@@ -50,11 +51,18 @@
         <FIELD NAME="html" TYPE="char" LENGTH="500" NOTNULL="true" SEQUENCE="false" PREVIOUS="name" NEXT="laboratory_id"/>
         <FIELD NAME="laboratory_id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="html" NEXT="description"/>
         <FIELD NAME="description" TYPE="text" LENGTH="big" NOTNULL="false" SEQUENCE="false" PREVIOUS="laboratory_id" NEXT="is_active"/>
-        <FIELD NAME="is_active" TYPE="int" LENGTH="2" NOTNULL="false" UNSIGNED="false" SEQUENCE="false" PREVIOUS="description"/>
+        <FIELD NAME="is_active" TYPE="int" LENGTH="2" NOTNULL="false" UNSIGNED="false" SEQUENCE="false" NEXT="introduction" PREVIOUS="description"/>
+        <FIELD NAME="introduction" TYPE="char" LENGTH="2000" NOTNULL="false" SEQUENCE="false" NEXT="theory" PREVIOUS="is_active"/>
+        <FIELD NAME="theory" TYPE="char" LENGTH="2000" NOTNULL="false"  SEQUENCE="false" PREVIOUS="introduction" NEXT="setup"/>
+        <FIELD NAME="setup" TYPE="char" LENGTH="2000" NOTNULL="false" SEQUENCE="false" PREVIOUS="theory" NEXT="procedure"/>
+        <FIELD NAME="procedure" TYPE="char" LENGTH="2" NOTNULL="false" UNSIGNED="false" SEQUENCE="false" PREVIOUS="setup"/>
+
       </FIELDS>
+
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
+
     </TABLE>
     <TABLE NAME="laboratories" COMMENT="Labs" PREVIOUS="experiments">
       <FIELDS>

@@ -15,6 +15,7 @@ $experiment = Experiment::find_by_id($reservation->experiment_id);
 ?>
 
 <h2><?php echo $experiment->name; ?></h2>
+<p><?php echo $experiment->description; ?></p>
 <?php echo $experiment->html; ?>
 
 <?php  echo $OUTPUT->footer(); ?>
