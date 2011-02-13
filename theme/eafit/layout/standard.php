@@ -37,6 +37,16 @@ echo $OUTPUT->doctype(); ?>
         <li><?php link_to("Laboratorios", "mod/reservations/laboratories");?></li>
         <li><?php link_to("Reservas", "mod/reservations");?></li>
         <li><?php link_to("Cursos", "course");?></li>
+        <li>
+          <?php
+             if (current_user_id() == 0) {
+               link_to("Login", "/login/");
+             } else {
+               link_to("Logout", "/login/logout.php");
+             }
+          ?>
+        </li>
+
 
       </ul>
     </div>
