@@ -3,6 +3,10 @@
 require_once(dirname(dirname(dirname(__FILE__))).'/config.php');
 require_once(dirname(__FILE__).'/locallib.php');
 
+$PAGE->set_url('/mod/reservations/reservation.php');
+$PAGE->set_title(get_string("pagetitle", "reservations"));
+echo $OUTPUT->header();
+
 require_logged_user();
 
 $hour = $_POST["hour"];
@@ -24,10 +28,10 @@ if (find_reservation_by_date($year, $month, $day, $hour)) {
 }
 else {
   if (create_reservation($lab_id, $experiment, $date, $end_date, $duration, 1, 1)) {
-    echo "Se creo";
-    echo "<br/><a href='index.php'>Volver</a>";
+    echo "Se creó la reserva.";
+    echo "<br/><br/><a href='index.php'>Volver</a>";
   } else {
-    echo "la cagamos";
+    echo "Error creando la reserva";
   }
 }
 
