@@ -23,6 +23,12 @@ class Laboratory {
     return array_map("Laboratory::db_obj_to_laboratory", $labs);
   }
 
+  static function first() {
+    global $DB;
+    $lab = reset($DB->get_records("laboratories"));
+    return Laboratory::db_obj_to_laboratory($lab);
+  }
+
   function experiments() {
     global $DB;
     $sql = "SELECT * FROM  `mdl_experiments` WHERE `laboratory_id`=" . $this->id;

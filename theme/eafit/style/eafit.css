@@ -387,3 +387,78 @@ span.link-horizontal {
 div.exp-div {
   display: none;
 }
+
+div.contenido {
+  width: 760px;
+}
+
+div.contenido h2 {
+  padding-bottom: 10px;
+  border-bottom: 1px solid #006FBF;
+  width: 500px;
+}
+
+div.lab-info {
+  float: left;
+  width: 520px;
+}
+
+div.lab-links {
+  float: right;
+  width: 200px;
+  background-color: #35434A;
+  padding: 5px 20px;
+  margin-top: -5px;
+}
+
+div.lab-links h3 {
+  color: #FFC903;
+  font-size: 16px;
+  padding-bottom: 5px;
+  border-bottom: 2px solid #FFC903;
+  margin-bottom: 15px;
+}
+
+div.lab-links ul li {
+  margin: 10px 0px;
+}
+
+div.lab-links a {
+  font-size: 13px;
+  color: white;
+  text-decoration: none;
+}
+
+div.lab-links a:hover {
+  font-size: 13px;
+  color: #FFC903;
+}
+
+
+div.lab-links hr {
+  color: #FFC903;
+}
+
+span.lab-name {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+  padding-right: 30px;
+}
+
+a.lab-nav {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: bold;
+  padding-right: 20px;
+}
+
+div.lab-body {
+  color: #595959;
+  margin-top: 30px;
+  font-family: Georgia, Times, serif;
+}
+
+a.red {
+  color: red;
+}
