@@ -156,6 +156,14 @@ function create_reservation($lab, $exp, $date, $end_date, $duration, $user, $cou
   return $DB->insert_record('reservations', $reservation);
 }
 
+function delete_reservation($id){
+  global $DB;
+  if ($DB->delete_records("reservations", array("id" => $id)))
+    return true;
+
+  return false;
+}
+
 
 function current_user_id() {
   global $USER;

@@ -27,7 +27,7 @@ require_logged_user();
         echo "<td>" . lab_name($r->equipment_id) . "</td>";
         echo "<td>" . humanize_date($r->date) . "</td>";
         echo "<td>" . $r->duration . " hora(s)</td>";
-        echo "<td><a href=''>Cancelar</a></td>";
+        echo "<td><a href='reservations/delete.php?reservation_id=" . $r->id . "'>Cancelar</a></td>";
         echo "</tr>";
       }
     ?>
