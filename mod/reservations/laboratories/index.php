@@ -2,8 +2,13 @@
    require_once(dirname(dirname(dirname(__FILE__))).'/../config.php');
    require_once(dirname(__FILE__).'/../locallib.php');
 
+   global $COURSE;
+   $context = get_context_instance(CONTEXT_MODULE, $COURSE->id);
+   $PAGE->set_context($context);
    $PAGE->set_url('/mod/reservations/laboratories/index.php');
    $PAGE->set_title(get_string("pagetitle", "reservations"));
+
+
 
 
 echo $OUTPUT->header();
@@ -17,8 +22,6 @@ if (isset($_GET["laboratory_id"])) {
   $lab = Laboratory::first();
 }
 
-$course_id = $COURSE->id
-
 
 ?>
 
@@ -31,8 +34,9 @@ $course_id = $COURSE->id
       <a class="lab-nav" href="../new.php?laboratory_id=<?php echo $lab->id ?>">Reservar</a>
       <a class="lab-nav" href="../experiments/index.php?laboratory_id=<?php echo $lab->id ?>">Ver Experimentos</a>
       <?php
-         if (has_capability("mod/reservations:delete_reservation", get_context_instance(CONTEXT_MODULE))) {
-           echo "<a class='lab-nav red' href='delete.php?laboratory_id=" . $lab->id . ">Eliminar</a>";
+         if (has_capability("mod/reservations:delete_reservation", $context)) { ?>
+           <a class='lab-nav red' href='delete.php?laboratory_id=<?php echo $lab->id ?>'>Eliminar</a>
+      <?
       } ?>
 
     </div>
