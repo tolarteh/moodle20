@@ -58,11 +58,6 @@ echo $OUTPUT->doctype(); ?>
       </div>
 
       <div class="sidebar">
-        <p>
-          <?php if (current_user_id() == 0) {
-            link_to("Login", "login");
-            }?>
-        </p>
         <?php if ($hassidepre) { ?>
         <?php echo $OUTPUT->blocks_for_region('side-pre') ?>
         <?php } ?>
