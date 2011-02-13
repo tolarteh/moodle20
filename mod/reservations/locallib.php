@@ -171,6 +171,15 @@ function current_user_id() {
   return $USER->id;
 }
 
+function auth_user($username, $hash) {
+  global $DB;
+
+  if (!$user = $DB->get_record("user", array("username" => $username)))
+    return false;
+
+  return $user->password == $hash;
+}
+
 function current_course_id() {
   global $COURSE;
 
