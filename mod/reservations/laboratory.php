@@ -26,6 +26,8 @@ class Laboratory {
   static function first() {
     global $DB;
     $lab = reset($DB->get_records("laboratories"));
+    if ($lab == null)
+      return null;
     return Laboratory::db_obj_to_laboratory($lab);
   }
 

@@ -10,9 +10,12 @@ echo $OUTPUT->header();
 
 require_logged_user();
 
-$lab = Laboratory::first();
-if (!$lab){
-die("Laboratorio Inválido");
+$id = $_GET["laboratory_id"];
+
+if ($id) {
+  $lab = Laboratory::find_by_id($id);
+} else {
+  $lab = Laboratory::first();
 }
 ?>
 
@@ -39,7 +42,7 @@ die("Laboratorio Inválido");
          $labs = Laboratory::find_all();
          foreach ($labs as $lab) {
          ?>
-          <li><a href=""><?php echo $lab->name; ?></a></li>
+          <li><a href="index.php?laboratory_id=<?php echo $lab->id ?>"><?php echo $lab->name; ?></a></li>
           <?php } ?>
 
     </ul>
