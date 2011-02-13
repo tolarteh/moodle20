@@ -375,14 +375,14 @@ class quiz {
         $this->pagequestionids = array();
 
         // Get the appropriate layout string (from quiz or attempt).
-        $layout = $this->get_layout_string();
+        $layout = quiz_clean_layout($this->get_layout_string(), true);
         if (empty($layout)) {
             // Nothing to do.
             return;
         }
 
         // Break up the layout string into pages.
-        $pagelayouts = explode(',0', quiz_clean_layout($layout, true));
+        $pagelayouts = explode(',0', $layout);
 
         // Strip off any empty last page (normally there is one).
         if (end($pagelayouts) == '') {
@@ -536,7 +536,7 @@ class quiz_attempt extends quiz {
     public function load_specific_question_state($questionid, $stateid) {
         global $DB;
         $state = question_load_specific_state($this->questions[$questionid],
-                $this->quiz, $this->attempt, $stateid);
+                $this->quiz, $this->attempt->uniqueid, $stateid);
         if ($state === false) {
             throw new moodle_quiz_exception($this, 'invalidstateid');
         }
@@ -895,7 +895,7 @@ class quiz_attempt extends quiz {
      * @return mixed true on success, a string error message if a problem is detected
      *         (for example score out of range).
      */
-    public function process_comment($questionid, $comment, $grade) {
+    public function process_comment($questionid, $comment, $commentformat, $grade) {
         // I am not sure it is a good idea to have update methods here - this
         // class is only about getting data out of the question engine, and
         // helping to display it, apart from this.
@@ -904,7 +904,7 @@ class quiz_attempt extends quiz {
         $state = $this->states[$questionid];
 
         $error = question_process_comment($this->questions[$questionid],
-                $state, $this->attempt, $comment, $grade);
+                $state, $this->attempt, $comment, $commentformat, $grade);
 
         // If the state was update (successfully), save the changes.
         if (!is_string($error) && $state->changed) {

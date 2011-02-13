@@ -32,7 +32,7 @@ abstract class base_task implements checksumable, executable, loggable {
     protected $name;      // One simple name for identification purposes
     protected $plan;      // Plan this is part of
     protected $settings;  // One array of base_setting elements to define this task
-    protected $steps;     // One array of base_task elements
+    protected $steps;     // One array of base_step elements
 
     protected $built;     // Flag to know if one task has been built
     protected $executed;  // Flag to know if one task has been executed
@@ -85,6 +85,10 @@ abstract class base_task implements checksumable, executable, loggable {
             // Fallback to plan settings
             return $this->plan->get_setting($name);
         }
+    }
+
+    public function setting_exists($name) {
+        return $this->plan->setting_exists($name);
     }
 
     public function get_setting_value($name) {
@@ -157,6 +161,23 @@ abstract class base_task implements checksumable, executable, loggable {
         if (!empty($this->steps)) {
             $this->executed = true;
         }
+    }
+
+    /**
+     * Destroy all circular references. It helps PHP 5.2 a lot!
+     */
+    public function destroy() {
+        // Before reseting anything, call destroy recursively
+        foreach ($this->steps as $step) {
+            $step->destroy();
+        }
+        foreach ($this->settings as $setting) {
+            $setting->destroy();
+        }
+        // Everything has been destroyed recursively, now we can reset safely
+        $this->steps = array();
+        $this->setting = array();
+        $this->plan = null;
     }
 
     public function is_checksum_correct($checksum) {

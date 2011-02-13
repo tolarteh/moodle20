@@ -31,7 +31,8 @@
     if ($perpage) {
         $urlparams['perpage'] = $perpage;
     }
-    $PAGE->set_url('/course/category.php', $urlparams);
+    $PAGE->set_url(new moodle_url('/course/category.php', array('id' => $id)));
+    navigation_node::override_active_url($PAGE->url);
     $context = $PAGE->context;
     $category = $PAGE->category;
 
@@ -161,22 +162,20 @@
         require_once($CFG->libdir . '/adminlib.php');
         admin_externalpage_setup('coursemgmt', '', $urlparams, $CFG->wwwroot . '/course/category.php');
         $PAGE->set_context($context);   // Ensure that we are actually showing blocks etc for the cat context
+
+        $settingsnode = $PAGE->settingsnav->find_active_node();
+        if ($settingsnode) {
+            $settingsnode->make_inactive();
+            $settingsnode->force_open();
+            $PAGE->navbar->add($settingsnode->text, $settingsnode->action);
+        }
         echo $OUTPUT->header();
     } else {
-        $PAGE->navbar->add($strcategories, new moodle_url('/course/index.php'));
-        $PAGE->navbar->add($category->name);
-        $PAGE->navbar->add($strcourses);
         $PAGE->set_title("$site->shortname: $category->name");
         $PAGE->set_heading($site->fullname);
         $PAGE->set_button(print_course_search('', true, 'navbar'));
         $PAGE->set_pagelayout('coursecategory');
         echo $OUTPUT->header();
-    }
-
-/// Print link to roles
-    if (has_capability('moodle/role:assign', $context)) {
-        echo '<div class="rolelink"><a href="'.$CFG->wwwroot.'/'.$CFG->admin.'/roles/assign.php?contextid='.
-         $context->id.'">'.get_string('assignroles','role').'</a></div>';
     }
 
 /// Print the category selector
@@ -434,7 +433,7 @@
         echo $OUTPUT->single_button(new moodle_url('edit.php', $options), get_string('addnewcourse'), 'get');
     }
 
-    if (!empty($CFG->enablecourserequests) && $category->id == $CFG->enablecourserequests) {
+    if (!empty($CFG->enablecourserequests) && $category->id == $CFG->defaultrequestcategory) {
         print_course_request_buttons(get_context_instance(CONTEXT_SYSTEM));
     }
     echo '</div>';

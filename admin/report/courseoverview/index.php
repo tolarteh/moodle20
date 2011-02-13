@@ -8,9 +8,6 @@
     $time       = optional_param('time', 0, PARAM_INT);
     $numcourses = optional_param('numcourses', 20, PARAM_INT);
 
-    admin_externalpage_setup('reportcourseoverview');
-    echo $OUTPUT->header();
-
     if (empty($CFG->enablestats)) {
         if (has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM))) {
             redirect("$CFG->wwwroot/$CFG->admin/settings.php?section=stats", get_string('mustenablestats', 'admin'), 3);
@@ -18,6 +15,9 @@
             print_error('statsdisable');
         }
     }
+
+    admin_externalpage_setup('reportcourseoverview');
+    echo $OUTPUT->header();
 
     $course = get_site();
     stats_check_uptodate($course->id);
@@ -27,9 +27,9 @@
 
     $reportoptions = stats_get_report_options($course->id,STATS_MODE_RANKED);
 
-    $earliestday = $DB->get_field_sql('SELECT timeend FROM {stats_daily} ORDER BY timeend');
-    $earliestweek = $DB->get_field_sql('SELECT timeend FROM {stats_weekly} ORDER BY timeend');
-    $earliestmonth = $DB->get_field_sql('SELECT timeend FROM {stats_monthly} ORDER BY timeend');
+    $earliestday = $DB->get_field_sql('SELECT MIN(timeend) FROM {stats_daily}');
+    $earliestweek = $DB->get_field_sql('SELECT MIN(timeend) FROM {stats_weekly}');
+    $earliestmonth = $DB->get_field_sql('SELECT MIN(timeend) FROM {stats_monthly}');
 
     if (empty($earliestday)) $earliestday = time();
     if (empty($earliestweek)) $earliestweek = time();

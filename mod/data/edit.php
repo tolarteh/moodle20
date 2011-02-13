@@ -198,6 +198,7 @@ if ($datarecord = data_submitted() and confirm_sesskey()) {
     /// Of course, you can't be stopped if you are an editting teacher! =)
 
         if (data_atmaxentries($data) and !has_capability('mod/data:manageentries',$context)){
+            echo $OUTPUT->header();
             echo $OUTPUT->notification(get_string('atmaxentry','data'));
             echo $OUTPUT->footer();
             exit;
@@ -310,8 +311,7 @@ if ($data->addtemplate){
     $newtext = '';
 }
 
-$formatoptions = (object)array('noclean'=>true, 'para'=>false, 'filter'=>true);
-echo format_text($newtext, FORMAT_HTML, $formatoptions);
+echo $newtext;
 
 echo '<div class="mdl-align"><input type="submit" name="saveandview" value="'.get_string('saveandview','data').'" />';
 if ($rid) {

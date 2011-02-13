@@ -4,6 +4,7 @@
 
     require_once('../config.php');
     require_once($CFG->libdir.'/tablelib.php');
+    require_once($CFG->libdir.'/filelib.php');
 
     define('USER_SMALL_CLASS', 20);   // Below this is considered small
     define('USER_LARGE_CLASS', 200);  // Above this is considered large
@@ -594,7 +595,7 @@
                     $row->cells[0] = new html_table_cell();
                     $row->cells[0]->attributes['class'] = 'left side';
 
-                    $row->cells[0]->text = $OUTPUT->user_picture($user, array('courseid'=>$course->id));
+                    $row->cells[0]->text = $OUTPUT->user_picture($user, array('size' => 100, 'courseid'=>$course->id));
                     $row->cells[1] = new html_table_cell();
                     $row->cells[1]->attributes['class'] = 'content';
 
@@ -713,7 +714,7 @@
                     $profilelink = '<strong>'.fullname($user).'</strong>';
                 }
 
-                $data = array ($OUTPUT->user_picture($user, array('courseid'=>$course->id)), $profilelink);
+                $data = array ($OUTPUT->user_picture($user, array('size' => 35, 'courseid'=>$course->id)), $profilelink);
 
                 if ($mode === MODE_BRIEF && !isset($hiddenfields['city'])) {
                     $data[] = $user->city;

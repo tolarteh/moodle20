@@ -183,6 +183,11 @@ define('PARAM_PERMISSION',   'permission');
 define('PARAM_RAW', 'raw');
 
 /**
+ * PARAM_RAW_TRIMMED like PARAM_RAW but leading and trailing whitespace is stripped.
+ */
+define('PARAM_RAW_TRIMMED', 'raw_trimmed');
+
+/**
  * PARAM_SAFEDIR - safe directory name, suitable for include() and require()
  */
 define('PARAM_SAFEDIR',  'safedir');
@@ -347,6 +352,8 @@ define('FEATURE_COMPLETION_TRACKS_VIEWS', 'completion_tracks_views');
 /** True if module has custom completion rules */
 define('FEATURE_COMPLETION_HAS_RULES', 'completion_has_rules');
 
+/** True if module has no 'view' page (like label) */
+define('FEATURE_NO_VIEW_LINK', 'viewlink');
 /** True if module supports outcomes */
 define('FEATURE_IDNUMBER', 'idnumber');
 /** True if module supports groups */
@@ -552,6 +559,9 @@ function clean_param($param, $type) {
     switch ($type) {
         case PARAM_RAW:          // no cleaning at all
             return $param;
+
+        case PARAM_RAW_TRIMMED:         // no cleaning, but strip leading and trailing whitespace.
+            return trim($param);
 
         case PARAM_CLEAN:        // General HTML cleaning, try to use more specific type if possible
             // this is deprecated!, please use more specific type instead
@@ -784,17 +794,15 @@ function clean_param($param, $type) {
             }
 
         case PARAM_TAG:
-            //as long as magic_quotes_gpc is used, a backslash will be a
-            //problem, so remove *all* backslash.
-            //$param = str_replace('\\', '', $param);
-            //remove some nasties
+            // Please note it is not safe to use the tag name directly anywhere,
+            // it must be processed with s(), urlencode() before embedding anywhere.
+            // remove some nasties
             $param = preg_replace('~[[:cntrl:]]|[<>`]~u', '', $param);
             //convert many whitespace chars into one
             $param = preg_replace('/\s+/', ' ', $param);
             $textlib = textlib_get_instance();
             $param = $textlib->substr(trim($param), 0, TAG_MAX_LENGTH);
             return $param;
-
 
         case PARAM_TAGLIST:
             $tags = explode(',', $param);
@@ -2306,6 +2314,14 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
             if ($cm->course != $course->id) {
                 throw new coding_exception('course and cm parameters in require_login() call do not match!!');
             }
+            // make sure we have a $cm from get_fast_modinfo as this contains activity access details
+            if (!($cm instanceof cm_info)) {
+                // note: nearly all pages call get_fast_modinfo anyway and it does not make any
+                // db queries so this is not really a performance concern, however it is obviously
+                // better if you use get_fast_modinfo to get the cm before calling this.
+                $modinfo = get_fast_modinfo($course);
+                $cm = $modinfo->get_cm($cm->id);
+            }
             $PAGE->set_cm($cm, $course); // set's up global $COURSE
             $PAGE->set_pagelayout('incourse');
         } else {
@@ -2330,6 +2346,7 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
             }
             $lang = isset($SESSION->lang) ? $SESSION->lang : $CFG->lang;
             complete_user_login($guest, false);
+            $USER->autologinguest = true;
             $SESSION->lang = $lang;
         } else {
             //NOTE: $USER->site check was obsoleted by session test cookie,
@@ -2540,6 +2557,7 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
                     if (!isset($enrols[$instance->enrol])) {
                         continue;
                     }
+                    // Get a duration for the guestaccess, a timestamp in the future or false.
                     $until = $enrols[$instance->enrol]->try_autoenrol($instance);
                     if ($until !== false) {
                         $USER->enrol['enrolled'][$course->id] = $until;
@@ -2554,6 +2572,7 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
                         if (!isset($enrols[$instance->enrol])) {
                             continue;
                         }
+                        // Get a duration for the guestaccess, a timestamp in the future or false.
                         $until = $enrols[$instance->enrol]->try_guestaccess($instance);
                         if ($until !== false) {
                             $USER->enrol['tempguest'][$course->id] = $until;
@@ -2574,45 +2593,13 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
         }
     }
 
-    // test visibility
-    if ($cm && !$cm->visible && !has_capability('moodle/course:viewhiddenactivities', $cmcontext)) {
+    // Check visibility of activity to current user; includes visible flag, groupmembersonly,
+    // conditional availability, etc
+    if ($cm && !$cm->uservisible) {
         if ($preventredirect) {
             throw new require_login_exception('Activity is hidden');
         }
         redirect($CFG->wwwroot, get_string('activityiscurrentlyhidden'));
-    }
-
-    // groupmembersonly access control
-    if (!empty($CFG->enablegroupmembersonly) and $cm and $cm->groupmembersonly and !has_capability('moodle/site:accessallgroups', get_context_instance(CONTEXT_MODULE, $cm->id))) {
-        if (isguestuser() or !groups_has_membership($cm)) {
-            if ($preventredirect) {
-                throw new require_login_exception('Not member of a group');
-            }
-            print_error('groupmembersonlyerror', 'group', $CFG->wwwroot.'/course/view.php?id='.$cm->course);
-        }
-    }
-
-    // Conditional activity access control
-    if (!empty($CFG->enableavailability) and $cm) {
-        // TODO: this is going to work with login-as-user, sorry!
-        // We cache conditional access in session
-        if (!isset($SESSION->conditionaccessok)) {
-            $SESSION->conditionaccessok = array();
-        }
-        // If you have been allowed into the module once then you are allowed
-        // in for rest of session, no need to do conditional checks
-        if (!array_key_exists($cm->id, $SESSION->conditionaccessok)) {
-            // Get condition info (does a query for the availability table)
-            require_once($CFG->libdir.'/conditionlib.php');
-            $ci = new condition_info($cm, CONDITION_MISSING_EXTRATABLE);
-            // Check condition for user (this will do a query if the availability
-            // information depends on grade or completion information)
-            if ($ci->is_available($junk) || has_capability('moodle/course:viewhiddenactivities', $cmcontext)) {
-                $SESSION->conditionaccessok[$cm->id] = true;
-            } else {
-                print_error('activityiscurrentlyhidden');
-            }
-        }
     }
 
     // Finally access granted, update lastaccess times
@@ -2628,6 +2615,8 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
 function require_logout() {
     global $USER;
 
+    $params = $USER;
+
     if (isloggedin()) {
         add_to_log(SITEID, "user", "logout", "view.php?id=$USER->id&course=".SITEID, $USER->id, 0, $USER->id);
 
@@ -2638,7 +2627,9 @@ function require_logout() {
         }
     }
 
+    events_trigger('user_logout', $params);
     session_get_instance()->terminate_current();
+    unset($params);
 }
 
 /**
@@ -2661,16 +2652,29 @@ function require_logout() {
  */
 function require_course_login($courseorid, $autologinguest = true, $cm = NULL, $setwantsurltome = true, $preventredirect = false) {
     global $CFG, $PAGE, $SITE;
+    $issite = (is_object($courseorid) and $courseorid->id == SITEID)
+          or (!is_object($courseorid) and $courseorid == SITEID);
+    if ($issite && !empty($cm) && !($cm instanceof cm_info)) {
+        // note: nearly all pages call get_fast_modinfo anyway and it does not make any
+        // db queries so this is not really a performance concern, however it is obviously
+        // better if you use get_fast_modinfo to get the cm before calling this.
+        if (is_object($courseorid)) {
+            $course = $courseorid;
+        } else {
+            $course = clone($SITE);
+        }
+        $modinfo = get_fast_modinfo($course);
+        $cm = $modinfo->get_cm($cm->id);
+    }
     if (!empty($CFG->forcelogin)) {
         // login required for both SITE and courses
         require_login($courseorid, $autologinguest, $cm, $setwantsurltome, $preventredirect);
 
-    } else if (!empty($cm) and !$cm->visible) {
+    } else if ($issite && !empty($cm) and !$cm->uservisible) {
         // always login for hidden activities
         require_login($courseorid, $autologinguest, $cm, $setwantsurltome, $preventredirect);
 
-    } else if ((is_object($courseorid) and $courseorid->id == SITEID)
-          or (!is_object($courseorid) and $courseorid == SITEID)) {
+    } else if ($issite) {
               //login for SITE not required
         if ($cm and empty($cm->visible)) {
             // hidden activities are not accessible without login
@@ -2994,203 +2998,6 @@ function reset_login_count() {
 }
 
 /**
- * Returns reference to full info about modules in course (including visibility).
- * Cached and as fast as possible (0 or 1 db query).
- *
- * @global object
- * @global object
- * @global object
- * @uses CONTEXT_MODULE
- * @uses MAX_MODINFO_CACHE_SIZE
- * @param mixed $course object or 'reset' string to reset caches, modinfo may be updated in db
- * @param int $userid Defaults to current user id
- * @return mixed courseinfo object or nothing if resetting
- */
-function &get_fast_modinfo(&$course, $userid=0) {
-    global $CFG, $USER, $DB;
-    require_once($CFG->dirroot.'/course/lib.php');
-
-    if (!empty($CFG->enableavailability)) {
-        require_once($CFG->libdir.'/conditionlib.php');
-    }
-
-    static $cache = array();
-
-    if ($course === 'reset') {
-        $cache = array();
-        $nothing = null;
-        return $nothing; // we must return some reference
-    }
-
-    if (empty($userid)) {
-        $userid = $USER->id;
-    }
-
-    if (array_key_exists($course->id, $cache) and $cache[$course->id]->userid == $userid) {
-        return $cache[$course->id];
-    }
-
-    if (empty($course->modinfo)) {
-        // no modinfo yet - load it
-        rebuild_course_cache($course->id);
-        $course->modinfo = $DB->get_field('course', 'modinfo', array('id'=>$course->id));
-    }
-
-    $modinfo = new stdClass();
-    $modinfo->courseid  = $course->id;
-    $modinfo->userid    = $userid;
-    $modinfo->sections  = array();
-    $modinfo->cms       = array();
-    $modinfo->instances = array();
-    $modinfo->groups    = null; // loaded only when really needed - the only one db query
-
-    $info = unserialize($course->modinfo);
-    if (!is_array($info)) {
-        // hmm, something is wrong - lets try to fix it
-        rebuild_course_cache($course->id);
-        $course->modinfo = $DB->get_field('course', 'modinfo', array('id'=>$course->id));
-        $info = unserialize($course->modinfo);
-        if (!is_array($info)) {
-            return $modinfo;
-        }
-    }
-
-    if ($info) {
-        // detect if upgrade required
-        $first = reset($info);
-        if (!isset($first->id)) {
-            rebuild_course_cache($course->id);
-            $course->modinfo = $DB->get_field('course', 'modinfo', array('id'=>$course->id));
-            $info = unserialize($course->modinfo);
-            if (!is_array($info)) {
-                return $modinfo;
-            }
-        }
-    }
-
-    $modlurals = array();
-
-    // If we haven't already preloaded contexts for the course, do it now
-    preload_course_contexts($course->id);
-
-    foreach ($info as $mod) {
-        if (empty($mod->name)) {
-            // something is wrong here
-            continue;
-        }
-        // reconstruct minimalistic $cm
-        $cm = new stdClass();
-        $cm->id               = $mod->cm;
-        $cm->instance         = $mod->id;
-        $cm->course           = $course->id;
-        $cm->modname          = $mod->mod;
-        $cm->idnumber         = $mod->idnumber;
-        $cm->name             = $mod->name;
-        $cm->visible          = $mod->visible;
-        $cm->sectionnum       = $mod->section;
-        $cm->groupmode        = $mod->groupmode;
-        $cm->groupingid       = $mod->groupingid;
-        $cm->groupmembersonly = $mod->groupmembersonly;
-        $cm->indent           = $mod->indent;
-        $cm->completion       = $mod->completion;
-        $cm->extra            = isset($mod->extra) ? $mod->extra : '';
-        $cm->icon             = isset($mod->icon) ? $mod->icon : '';
-        $cm->iconcomponent    = isset($mod->iconcomponent) ? $mod->iconcomponent : '';
-        $cm->uservisible      = true;
-        if (!empty($CFG->enableavailability)) {
-            // We must have completion information from modinfo. If it's not
-            // there, cache needs rebuilding
-            if(!isset($mod->availablefrom)) {
-                debugging('enableavailability option was changed; rebuilding '.
-                    'cache for course '.$course->id);
-                rebuild_course_cache($course->id,true);
-                // Re-enter this routine to do it all properly
-                return get_fast_modinfo($course, $userid);
-            }
-            $cm->availablefrom    = $mod->availablefrom;
-            $cm->availableuntil   = $mod->availableuntil;
-            $cm->showavailability = $mod->showavailability;
-            $cm->conditionscompletion = $mod->conditionscompletion;
-            $cm->conditionsgrade  = $mod->conditionsgrade;
-        }
-
-        // preload long names plurals and also check module is installed properly
-        if (!isset($modlurals[$cm->modname])) {
-            if (!file_exists("$CFG->dirroot/mod/$cm->modname/lib.php")) {
-                continue;
-            }
-            $modlurals[$cm->modname] = get_string('modulenameplural', $cm->modname);
-        }
-        $cm->modplural = $modlurals[$cm->modname];
-        $modcontext = get_context_instance(CONTEXT_MODULE,$cm->id);
-
-        if (!empty($CFG->enableavailability)) {
-            // Unfortunately the next call really wants to call
-            // get_fast_modinfo, but that would be recursive, so we fake up a
-            // modinfo for it already
-            if (empty($minimalmodinfo)) { //TODO: this is suspicious (skodak)
-                $minimalmodinfo = new stdClass();
-                $minimalmodinfo->cms = array();
-                foreach($info as $mod) {
-                    if (empty($mod->name)) {
-                        // something is wrong here
-                        continue;
-                    }
-                    $minimalcm = new stdClass();
-                    $minimalcm->id = $mod->cm;
-                    $minimalcm->name = $mod->name;
-                    $minimalmodinfo->cms[$minimalcm->id]=$minimalcm;
-                }
-            }
-
-            // Get availability information
-            $ci = new condition_info($cm);
-            $cm->available = $ci->is_available($cm->availableinfo, true, $userid, $minimalmodinfo);
-        } else {
-            $cm->available = true;
-        }
-        if ((!$cm->visible or !$cm->available) and !has_capability('moodle/course:viewhiddenactivities', $modcontext, $userid)) {
-            $cm->uservisible = false;
-
-        } else if (!empty($CFG->enablegroupmembersonly) and !empty($cm->groupmembersonly)
-                and !has_capability('moodle/site:accessallgroups', $modcontext, $userid)) {
-            if (is_null($modinfo->groups)) {
-                $modinfo->groups = groups_get_user_groups($course->id, $userid);
-            }
-            if (empty($modinfo->groups[$cm->groupingid])) {
-                $cm->uservisible = false;
-            }
-        }
-
-        if (!isset($modinfo->instances[$cm->modname])) {
-            $modinfo->instances[$cm->modname] = array();
-        }
-        $modinfo->instances[$cm->modname][$cm->instance] =& $cm;
-        $modinfo->cms[$cm->id] =& $cm;
-
-        // reconstruct sections
-        if (!isset($modinfo->sections[$cm->sectionnum])) {
-            $modinfo->sections[$cm->sectionnum] = array();
-        }
-        $modinfo->sections[$cm->sectionnum][] = $cm->id;
-
-        unset($cm);
-    }
-
-    unset($cache[$course->id]); // prevent potential reference problems when switching users
-    $cache[$course->id] = $modinfo;
-
-    // Ensure cache does not use too much RAM
-    if (count($cache) > MAX_MODINFO_CACHE_SIZE) {
-        reset($cache);
-        $key = key($cache);
-        unset($cache[$key]);
-    }
-
-    return $cache[$course->id];
-}
-
-/**
  * Determines if the currently logged in user is in editing mode.
  * Note: originally this function had $userid parameter - it was not usable anyway
  *
@@ -3412,14 +3219,12 @@ function get_user_fieldnames() {
  *
  * @todo Outline auth types and provide code example
  *
- * @global object
- * @global object
  * @param string $username New user's username to add to record
  * @param string $password New user's password to add to record
  * @param string $auth Form of authentication required
- * @return object A {@link $USER} object
+ * @return stdClass A complete user object
  */
-function create_user_record($username, $password, $auth='manual') {
+function create_user_record($username, $password, $auth = 'manual') {
     global $CFG, $DB;
 
     //just in case check text case
@@ -3460,36 +3265,43 @@ function create_user_record($username, $password, $auth='manual') {
     $newuser->timemodified = time();
     $newuser->mnethostid = $CFG->mnet_localhost_id;
 
-    $DB->insert_record('user', $newuser);
-    $user = get_complete_user_data('username', $newuser->username);
+    $newuser->id = $DB->insert_record('user', $newuser);
+    $user = get_complete_user_data('id', $newuser->id);
     if (!empty($CFG->{'auth_'.$newuser->auth.'_forcechangepassword'})){
-        set_user_preference('auth_forcepasswordchange', 1, $user->id);
+        set_user_preference('auth_forcepasswordchange', 1, $user);
     }
     update_internal_user_password($user, $password);
+
+    // fetch full user record for the event, the complete user data contains too much info
+    // and we want to be consistent with other places that trigger this event
+    events_trigger('user_created', $DB->get_record('user', array('id'=>$user->id)));
+
     return $user;
 }
 
 /**
- * Will update a local user record from an external source
+ * Will update a local user record from an external source.
+ * (MNET users can not be updated using this method!)
  *
- * @global object
- * @param string $username New user's username to add to record
- * @param string $authplugin Unused
- * @return user A {@link $USER} object
+ * @param string $username user's username to update the record
+ * @return stdClass A complete user object
  */
-function update_user_record($username, $authplugin) {
-    global $DB;
+function update_user_record($username) {
+    global $DB, $CFG;
 
     $username = trim(moodle_strtolower($username)); /// just in case check text case
 
-    $oldinfo = $DB->get_record('user', array('username'=>$username), 'username, auth');
+    $oldinfo = $DB->get_record('user', array('username'=>$username, 'mnethostid'=>$CFG->mnet_localhost_id), '*', MUST_EXIST);
+    $newuser = array();
     $userauth = get_auth_plugin($oldinfo->auth);
 
     if ($newinfo = $userauth->get_userinfo($username)) {
         $newinfo = truncate_userinfo($newinfo);
         foreach ($newinfo as $key => $value){
-            if ($key === 'username') {
-                // 'username' is not a mapped updateable/lockable field, so skip it.
+            $key = strtolower($key);
+            if (!property_exists($oldinfo, $key) or $key === 'username' or $key === 'id'
+                    or $key === 'auth' or $key === 'mnethostid' or $key === 'deleted') {
+                // unknown or must not be changed
                 continue;
             }
             $confval = $userauth->config->{'field_updatelocal_' . $key};
@@ -3505,13 +3317,22 @@ function update_user_record($username, $authplugin) {
                 // nothing_ for this field. Thus it makes sense to let this value
                 // stand in until LDAP is giving a value for this field.
                 if (!(empty($value) && $lockval === 'unlockedifempty')) {
-                    $DB->set_field('user', $key, $value, array('username'=>$username));
+                    if ((string)$oldinfo->$key !== (string)$value) {
+                        $newuser[$key] = (string)$value;
+                    }
                 }
             }
         }
+        if ($newuser) {
+            $newuser['id'] = $oldinfo->id;
+            $DB->update_record('user', $newuser);
+            // fetch full user record for the event, the complete user data contains too much info
+            // and we want to be consistent with other places that trigger this event
+            events_trigger('user_updated', $DB->get_record('user', array('id'=>$oldinfo->id)));
+        }
     }
 
-    return get_complete_user_data('username', $username);
+    return get_complete_user_data('id', $oldinfo->id);
 }
 
 /**
@@ -3728,8 +3549,8 @@ function authenticate_user_login($username, $password) {
 
             update_internal_user_password($user, $password); // just in case salt or encoding were changed (magic quotes too one day)
 
-            if (!$authplugin->is_internal()) {            // update user record from external DB
-                $user = update_user_record($username, get_auth_plugin($user->auth));
+            if ($authplugin->is_synchronised_with_external()) { // update user record from external DB
+                $user = update_user_record($username);
             }
         } else {
             // if user not found, create him
@@ -3835,12 +3656,11 @@ function complete_user_login($user, $setcookie=true) {
  * Compare password against hash stored in internal user table.
  * If necessary it also updates the stored hash to new format.
  *
- * @global object
- * @param object $user
+ * @param stdClass $user (password property may be updated)
  * @param string $password plain text password
  * @return bool is password valid?
  */
-function validate_internal_user_password(&$user, $password) {
+function validate_internal_user_password($user, $password) {
     global $CFG;
 
     if (!isset($CFG->passwordsaltmain)) {
@@ -3849,13 +3669,22 @@ function validate_internal_user_password(&$user, $password) {
 
     $validated = false;
 
-    if ($user->password == md5($password.$CFG->passwordsaltmain) or $user->password == md5($password)) {
+    if ($user->password === 'not cached') {
+        // internal password is not used at all, it can not validate
+
+    } else if ($user->password === md5($password.$CFG->passwordsaltmain)
+            or $user->password === md5($password)
+            or $user->password === md5(addslashes($password).$CFG->passwordsaltmain)
+            or $user->password === md5(addslashes($password))) {
+        // note: we are intentionally using the addslashes() here because we
+        //       need to accept old password hashes of passwords with magic quotes
         $validated = true;
+
     } else {
         for ($i=1; $i<=20; $i++) { //20 alternative salts should be enough, right?
             $alt = 'passwordsaltalt'.$i;
             if (!empty($CFG->$alt)) {
-                if ($user->password == md5($password.$CFG->$alt)) {
+                if ($user->password === md5($password.$CFG->$alt) or $user->password === md5(addslashes($password).$CFG->$alt)) {
                     $validated = true;
                     break;
                 }
@@ -3874,7 +3703,6 @@ function validate_internal_user_password(&$user, $password) {
 /**
  * Calculate hashed value from password using current hash mechanism.
  *
- * @global object
  * @param string $password
  * @return string password hash
  */
@@ -3891,12 +3719,12 @@ function hash_internal_user_password($password) {
 /**
  * Update password hash in user object.
  *
- * @param object $user
+ * @param stdClass $user (password property may be updated)
  * @param string $password plain text password
  * @return bool always returns true
  */
-function update_internal_user_password(&$user, $password) {
-    global $CFG, $DB;
+function update_internal_user_password($user, $password) {
+    global $DB;
 
     $authplugin = get_auth_plugin($user->auth);
     if ($authplugin->prevent_local_passwords()) {
@@ -4137,6 +3965,7 @@ function delete_course($courseorid, $showfeedback = true) {
  */
 function remove_course_contents($courseid, $showfeedback = true) {
     global $CFG, $DB, $OUTPUT;
+    require_once($CFG->libdir.'/completionlib.php');
     require_once($CFG->libdir.'/questionlib.php');
     require_once($CFG->libdir.'/gradelib.php');
     require_once($CFG->dirroot.'/group/lib.php');
@@ -4329,6 +4158,7 @@ function shift_course_mod_dates($modname, $fields, $timeshift, $courseid) {
 function reset_course_userdata($data) {
     global $CFG, $USER, $DB;
     require_once($CFG->libdir.'/gradelib.php');
+    require_once($CFG->libdir.'/completionlib.php');
     require_once($CFG->dirroot.'/group/lib.php');
 
     $data->courseid = $data->id;
@@ -4775,7 +4605,7 @@ function email_to_user($user, $from, $subject, $messagetext, $messagehtml='', $a
         require_once($CFG->dirroot.'/mnet/lib.php');
 
         $jumpurl = mnet_get_idp_jump_url($user);
-        $callback = partial('mnet_sso_apply_redirection', $jumpurl);
+        $callback = partial('mnet_sso_apply_indirection', $jumpurl);
 
         $messagetext = preg_replace_callback("%($CFG->wwwroot[^[:space:]]*)%",
                 $callback,
@@ -4994,6 +4824,7 @@ function setnew_password_and_mail($user) {
 
     $subject = format_string($site->fullname) .': '. get_string('newusernewpasswordsubj');
 
+    //directly email rather than using the messaging system to ensure its not routed to a popup or jabber
     return email_to_user($user, $supportuser, $subject, $message);
 
 }
@@ -5036,6 +4867,7 @@ function reset_password_and_mail($user) {
 
     $subject  = format_string($site->fullname) .': '. get_string('changedpassword');
 
+    //directly email rather than using the messaging system to ensure its not routed to a popup or jabber
     return email_to_user($user, $supportuser, $subject, $message);
 
 }
@@ -5066,6 +4898,7 @@ function reset_password_and_mail($user) {
 
     $user->mailformat = 1;  // Always send HTML version as well
 
+    //directly email rather than using the messaging system to ensure its not routed to a popup or jabber
     return email_to_user($user, $supportuser, $subject, $message, $messagehtml);
 
 }
@@ -5093,6 +4926,7 @@ function send_password_change_confirmation_email($user) {
     $message = get_string('emailpasswordconfirmation', '', $data);
     $subject = get_string('emailpasswordconfirmationsubject', '', format_string($site->fullname));
 
+    //directly email rather than using the messaging system to ensure its not routed to a popup or jabber
     return email_to_user($user, $supportuser, $subject, $message);
 
 }
@@ -5122,6 +4956,7 @@ function send_password_change_info($user) {
     if (!is_enabled_auth($user->auth) or $user->auth == 'nologin') {
         $message = get_string('emailpasswordchangeinfodisabled', '', $data);
         $subject = get_string('emailpasswordchangeinfosubject', '', format_string($site->fullname));
+        //directly email rather than using the messaging system to ensure its not routed to a popup or jabber
         return email_to_user($user, $supportuser, $subject, $message);
     }
 
@@ -5142,6 +4977,7 @@ function send_password_change_info($user) {
         $subject = get_string('emailpasswordchangeinfosubject', '', format_string($site->fullname));
     }
 
+    //directly email rather than using the messaging system to ensure its not routed to a popup or jabber
     return email_to_user($user, $supportuser, $subject, $message);
 
 }
@@ -7175,7 +7011,6 @@ function get_plugin_types($fullpaths=true) {
                       'filter'        => 'filter',
                       'editor'        => 'lib/editor',
                       'format'        => 'course/format',
-                      'import'        => 'course/import',
                       'profilefield'  => 'user/profile/field',
                       'report'        => $CFG->admin.'/report',
                       'coursereport'  => 'course/report', // must be after system reports
@@ -7287,6 +7122,48 @@ function get_plugin_list($plugintype) {
 
     //TODO: implement better sorting once we migrated all plugin names to 'pluginname', ksort does not work for unicode, that is why we have to sort by the dir name, not the strings!
     ksort($result);
+    return $result;
+}
+
+/**
+ * Gets a list of all plugin API functions for given plugin type, function
+ * name, and filename.
+ * @param string $plugintype Plugin type, e.g. 'mod' or 'report'
+ * @param string $function Name of function after the frankenstyle prefix;
+ *   e.g. if the function is called report_courselist_hook then this value
+ *   would be 'hook'
+ * @param string $file Name of file that includes function within plugin,
+ *   default 'lib.php'
+ * @return Array of plugin frankenstyle (e.g. 'report_courselist', 'mod_forum')
+ *   to valid, existing plugin function name (e.g. 'report_courselist_hook',
+ *   'forum_hook')
+ */
+function get_plugin_list_with_function($plugintype, $function, $file='lib.php') {
+    global $CFG; // mandatory in case it is referenced by include()d PHP script
+
+    $result = array();
+    // Loop through list of plugins with given type
+    $list = get_plugin_list($plugintype);
+    foreach($list as $plugin => $dir) {
+        $path = $dir . '/' . $file;
+        // If file exists, require it and look for function
+        if (file_exists($path)) {
+            include_once($path);
+            $fullfunction = $plugintype . '_' . $plugin . '_' . $function;
+            if (function_exists($fullfunction)) {
+                // Function exists with standard name. Store, indexed by
+                // frankenstyle name of plugin
+                $result[$plugintype . '_' . $plugin] = $fullfunction;
+            } else if ($plugintype === 'mod') {
+                // For modules, we also allow plugin without full frankenstyle
+                // but just starting with the module name
+                $shortfunction = $plugin . '_' . $function;
+                if (function_exists($shortfunction)) {
+                    $result[$plugintype . '_' . $plugin] = $shortfunction;
+                }
+            }
+        }
+    }
     return $result;
 }
 
@@ -7468,10 +7345,10 @@ function check_php_version($version='5.2.4') {
  *
  * @uses $_SERVER
  * @param string $brand The browser identifier being tested
- * @param int $version The version of the browser
+ * @param int $version The version of the browser, if not specified any version (except 5.5 for IE for BC reasons)
  * @return bool true if the given version is below that of the detected browser
  */
- function check_browser_version($brand='MSIE', $version=5.5) {
+ function check_browser_version($brand, $version = null) {
     if (empty($_SERVER['HTTP_USER_AGENT'])) {
         return false;
     }
@@ -7480,8 +7357,13 @@ function check_php_version($version='5.2.4') {
 
     switch ($brand) {
 
-      case 'Camino':   /// Mozilla Firefox browsers
-
+      case 'Camino':   /// OSX browser using Gecke engine
+          if (strpos($agent, 'Camino') === false) {
+              return false;
+          }
+          if (empty($version)) {
+              return true; // no version specified
+          }
           if (preg_match("/Camino\/([0-9\.]+)/i", $agent, $match)) {
               if (version_compare($match[1], $version) >= 0) {
                   return true;
@@ -7491,7 +7373,12 @@ function check_php_version($version='5.2.4') {
 
 
       case 'Firefox':   /// Mozilla Firefox browsers
-
+          if (strpos($agent, 'Iceweasel') === false and strpos($agent, 'Firefox') === false) {
+              return false;
+          }
+          if (empty($version)) {
+              return true; // no version specified
+          }
           if (preg_match("/(Iceweasel|Firefox)\/([0-9\.]+)/i", $agent, $match)) {
               if (version_compare($match[2], $version) >= 0) {
                   return true;
@@ -7501,8 +7388,7 @@ function check_php_version($version='5.2.4') {
 
 
       case 'Gecko':   /// Gecko based browsers
-
-          if (substr_count($agent, 'Camino')) {
+          if (empty($version) and substr_count($agent, 'Camino')) {
               // MacOS X Camino support
               $version = 20041110;
           }
@@ -7518,25 +7404,30 @@ function check_php_version($version='5.2.4') {
 
 
       case 'MSIE':   /// Internet Explorer
+          if (strpos($agent, 'Opera') !== false) {     // Reject Opera
+              return false;
+          }
+          // in case of IE we have to deal with BC of the version parameter
+          if (is_null($version)) {
+              $version = 5.5; // anything older is not considered a browser at all!
+          }
 
-          if (strpos($agent, 'Opera')) {     // Reject Opera
-              return false;
-          }
-          $string = explode(';', $agent);
-          if (!isset($string[1])) {
-              return false;
-          }
-          $string = explode(' ', trim($string[1]));
-          if (!isset($string[0]) and !isset($string[1])) {
-              return false;
-          }
-          if ($string[0] == $brand and (float)$string[1] >= $version ) {
-              return true;
+          //see: http://www.useragentstring.com/pages/Internet%20Explorer/
+          if (preg_match("/MSIE ([0-9\.]+)/", $agent, $match)) {
+              if (version_compare($match[1], $version) >= 0) {
+                  return true;
+              }
           }
           break;
 
-      case 'Opera':  /// Opera
 
+      case 'Opera':  /// Opera
+          if (strpos($agent, 'Opera') === false) {
+              return false;
+          }
+          if (empty($version)) {
+              return true; // no version specified
+          }
           if (preg_match("/Opera\/([0-9\.]+)/i", $agent, $match)) {
               if (version_compare($match[1], $version) >= 0) {
                   return true;
@@ -7544,25 +7435,65 @@ function check_php_version($version='5.2.4') {
           }
           break;
 
-      case 'Safari':  /// Safari
-          // Look for AppleWebKit, excluding strings with OmniWeb, Shiira and SimbianOS
-          if (strpos($agent, 'OmniWeb')) { // Reject OmniWeb
-              return false;
-          } elseif (strpos($agent, 'Shiira')) { // Reject Shiira
-              return false;
-          } elseif (strpos($agent, 'SimbianOS')) { // Reject SimbianOS
+
+      case 'WebKit':  /// WebKit based browser - everything derived from it (Safari, Chrome, iOS, Android and other mobiles)
+          if (strpos($agent, 'AppleWebKit') === false) {
               return false;
           }
-
+          if (empty($version)) {
+              return true; // no version specified
+          }
           if (preg_match("/AppleWebKit\/([0-9]+)/i", $agent, $match)) {
               if (version_compare($match[1], $version) >= 0) {
                   return true;
               }
           }
-
           break;
 
+
+      case 'Safari':  /// Desktop version of Apple Safari browser - no mobile or touch devices
+          if (strpos($agent, 'AppleWebKit') === false) {
+              return false;
+          }
+          // Look for AppleWebKit, excluding strings with OmniWeb, Shiira and SimbianOS and any other mobile devices
+          if (strpos($agent, 'OmniWeb')) { // Reject OmniWeb
+              return false;
+          }
+          if (strpos($agent, 'Shiira')) { // Reject Shiira
+              return false;
+          }
+          if (strpos($agent, 'SimbianOS')) { // Reject SimbianOS
+              return false;
+          }
+          if (strpos($agent, 'Android')) { // Reject Androids too
+              return false;
+          }
+          if (strpos($agent, 'iPhone') or strpos($agent, 'iPad') or strpos($agent, 'iPod')) {
+              // No Apple mobile devices here - editor does not work, course ajax is not touch compatible, etc.
+              return false;
+          }
+          if (strpos($agent, 'Chrome')) { // Reject chrome browsers - it needs to be tested explicitly
+              return false;
+          }
+
+          if (empty($version)) {
+              return true; // no version specified
+          }
+          if (preg_match("/AppleWebKit\/([0-9]+)/i", $agent, $match)) {
+              if (version_compare($match[1], $version) >= 0) {
+                  return true;
+              }
+          }
+          break;
+
+
       case 'Chrome':
+          if (strpos($agent, 'Chrome') === false) {
+              return false;
+          }
+          if (empty($version)) {
+              return true; // no version specified
+          }
           if (preg_match("/Chrome\/(.*)[ ]+/i", $agent, $match)) {
               if (version_compare($match[1], $version) >= 0) {
                   return true;
@@ -7570,12 +7501,36 @@ function check_php_version($version='5.2.4') {
           }
           break;
 
-      case 'Safari iOS':  /// Safari on iPhone and iPad
-          if (strpos($agent, 'iPhone')) {
-              return true;
+
+      case 'Safari iOS':  /// Safari on iPhone, iPad and iPod touch
+          if (strpos($agent, 'AppleWebKit') === false or strpos($agent, 'Safari') === false) {
+              return false;
           }
-          if (strpos($agent, 'iPad')) {
-              return true;
+          if (!strpos($agent, 'iPhone') and !strpos($agent, 'iPad') and !strpos($agent, 'iPod')) {
+              return false;
+          }
+          if (empty($version)) {
+              return true; // no version specified
+          }
+          if (preg_match("/AppleWebKit\/([0-9]+)/i", $agent, $match)) {
+              if (version_compare($match[1], $version) >= 0) {
+                  return true;
+              }
+          }
+          break;
+
+
+      case 'WebKit Android':  /// WebKit browser on Android
+          if (strpos($agent, 'Linux; U; Android') === false) {
+              return false;
+          }
+          if (empty($version)) {
+              return true; // no version specified
+          }
+          if (preg_match("/AppleWebKit\/([0-9]+)/i", $agent, $match)) {
+              if (version_compare($match[1], $version) >= 0) {
+                  return true;
+              }
           }
           break;
 
@@ -7595,7 +7550,9 @@ function get_browser_version_classes() {
 
     if (check_browser_version("MSIE", "0")) {
         $classes[] = 'ie';
-        if (check_browser_version("MSIE", 8)) {
+        if (check_browser_version("MSIE", 9)) {
+            $classes[] = 'ie9';
+        } else if (check_browser_version("MSIE", 8)) {
             $classes[] = 'ie8';
         } elseif (check_browser_version("MSIE", 7)) {
             $classes[] = 'ie7';
@@ -7603,43 +7560,27 @@ function get_browser_version_classes() {
             $classes[] = 'ie6';
         }
 
-    } elseif (check_browser_version("Firefox", 0) || check_browser_version("Gecko", 0) || check_browser_version("Camino", 0)) {
+    } else if (check_browser_version("Firefox") || check_browser_version("Gecko") || check_browser_version("Camino")) {
         $classes[] = 'gecko';
         if (preg_match('/rv\:([1-2])\.([0-9])/', $_SERVER['HTTP_USER_AGENT'], $matches)) {
             $classes[] = "gecko{$matches[1]}{$matches[2]}";
         }
 
-    } elseif (check_browser_version("Safari", 0)) {
+    } else if (check_browser_version("WebKit")) {
         $classes[] = 'safari';
+        if (check_browser_version("Safari iOS")) {
+            $classes[] = 'ios';
 
-    } elseif (check_browser_version("Opera", 0)) {
+        } else if (check_browser_version("WebKit Android")) {
+            $classes[] = 'android';
+        }
+
+    } else if (check_browser_version("Opera")) {
         $classes[] = 'opera';
 
     }
 
     return $classes;
-}
-
-/**
- * This function makes the return value of ini_get consistent if you are
- * setting server directives through the .htaccess file in apache.
- *
- * Current behavior for value set from php.ini On = 1, Off = [blank]
- * Current behavior for value set from .htaccess On = On, Off = Off
- * Contributed by jdell @ unr.edu
- *
- * @todo Finish documenting this function
- *
- * @param string $ini_get_arg The argument to get
- * @return bool True for on false for not
- */
-function ini_get_bool($ini_get_arg) {
-    $temp = ini_get($ini_get_arg);
-
-    if ($temp == '1' or strtolower($temp) == 'on') {
-        return true;
-    }
-    return false;
 }
 
 /**
@@ -7861,14 +7802,13 @@ function notify_login_failures() {
           GROUP BY ip
             HAVING COUNT(*) >= ?";
     $params = array($CFG->lastnotifyfailure, $CFG->notifyloginthreshold);
-    if ($rs = $DB->get_recordset_sql($sql, $params)) {
-        foreach ($rs as $iprec) {
-            if (!empty($iprec->ip)) {
-                set_cache_flag('login_failure_by_ip', $iprec->ip, '1', 0);
-            }
+    $rs = $DB->get_recordset_sql($sql, $params);
+    foreach ($rs as $iprec) {
+        if (!empty($iprec->ip)) {
+            set_cache_flag('login_failure_by_ip', $iprec->ip, '1', 0);
         }
-        $rs->close();
     }
+    $rs->close();
 
 /// Get all the INFOs with more than notifyloginthreshold failures since lastnotifyfailure
 /// and insert them into the cache_flags temp table
@@ -7879,14 +7819,13 @@ function notify_login_failures() {
           GROUP BY info
             HAVING count(*) >= ?";
     $params = array($CFG->lastnotifyfailure, $CFG->notifyloginthreshold);
-    if ($rs = $DB->get_recordset_sql($sql, $params)) {
-        foreach ($rs as $inforec) {
-            if (!empty($inforec->info)) {
-                set_cache_flag('login_failure_by_info', $inforec->info, '1', 0);
-            }
+    $rs = $DB->get_recordset_sql($sql, $params);
+    foreach ($rs as $inforec) {
+        if (!empty($inforec->info)) {
+            set_cache_flag('login_failure_by_info', $inforec->info, '1', 0);
         }
-        $rs->close();
     }
+    $rs->close();
 
 /// Now, select all the login error logged records belonging to the ips and infos
 /// since lastnotifyfailure, that we have stored in the cache_flags table
@@ -7912,14 +7851,13 @@ function notify_login_failures() {
     $count = 0;
     $messages = '';
 /// Iterate over the logs recordset
-    if ($rs = $DB->get_recordset_sql($sql, $params)) {
-        foreach ($rs as $log) {
-            $log->time = userdate($log->time);
-            $messages .= get_string('notifyloginfailuresmessage','',$log)."\n";
-            $count++;
-        }
-        $rs->close();
+    $rs = $DB->get_recordset_sql($sql, $params);
+    foreach ($rs as $log) {
+        $log->time = userdate($log->time);
+        $messages .= get_string('notifyloginfailuresmessage','',$log)."\n";
+        $count++;
     }
+    $rs->close();
 
 /// If we haven't run in the last hour and
 /// we have something useful to report and we
@@ -7936,6 +7874,7 @@ function notify_login_failures() {
     /// For each destination, send mail
         mtrace('Emailing admins about '. $count .' failed login attempts');
         foreach ($recip as $admin) {
+            //emailing the admins directly rather than putting these through the messaging system
             email_to_user($admin,get_admin(), $subject, $body);
         }
 
@@ -9102,7 +9041,7 @@ function moodle_request_shutdown() {
 function message_popup_window() {
     global $USER, $DB, $PAGE, $CFG, $SITE;
 
-    if (defined('MESSAGE_WINDOW') || empty($CFG->messaging)) {
+    if (!$PAGE->get_popup_notification_allowed() || empty($CFG->messaging)) {
         return;
     }
 
@@ -9114,7 +9053,7 @@ function message_popup_window() {
         $USER->message_lastpopup = 0;
     } else if ($USER->message_lastpopup > (time()-120)) {
         //dont run the query to check whether to display a popup if its been run in the last 2 minutes
-        //return;
+        return;
     }
 
     //a quick query to check whether the user has new messages
@@ -9147,10 +9086,14 @@ WHERE m.useridto = :userid AND p.name='popup'";
             $strmessages = get_string('unreadnewmessages', 'message', count($message_users));
         } else {
             $message_users = reset($message_users);
+
+            //show who the message is from if its not a notification
             if (!$message_users->notification) {
-            $strmessages = get_string('unreadnewmessage', 'message', fullname($message_users) );
+                $strmessages = get_string('unreadnewmessage', 'message', fullname($message_users) );
             }
 
+            //try to display the small version of the message
+            $smallmessage = null;
             if (!empty($message_users->smallmessage)) {
                 //display the first 200 chars of the message in the popup
                 $smallmessage = null;
@@ -9159,6 +9102,11 @@ WHERE m.useridto = :userid AND p.name='popup'";
                 } else {
                     $smallmessage = $message_users->smallmessage;
                 }
+            } else if ($message_users->notification) {
+                //its a notification with no smallmessage so just say they have a notification
+                $smallmessage = get_string('unreadnewnotification', 'message');
+            }
+            if (!empty($smallmessage)) {
                 $strmessages .= '<div id="usermessage">'.$smallmessage.'</div>';
             }
         }
@@ -9230,7 +9178,7 @@ function array_is_nested($array) {
  * @return array
  */
 function get_performance_info() {
-    global $CFG, $PERF, $DB;
+    global $CFG, $PERF, $DB, $PAGE;
 
     $info = array();
     $info['html'] = '';         // holds userfriendly HTML representation
@@ -9279,6 +9227,33 @@ function get_performance_info() {
             $info['txt'] .= "$key: $value ";
         }
     }
+
+     $jsmodules = $PAGE->requires->get_loaded_modules();
+     if ($jsmodules) {
+         $yuicount = 0;
+         $othercount = 0;
+         $details = '';
+         foreach ($jsmodules as $module => $backtraces) {
+             if (strpos($module, 'yui') === 0) {
+                 $yuicount += 1;
+             } else {
+                 $othercount += 1;
+             }
+             $details .= "<div class='yui-module'><p>$module</p>";
+             foreach ($backtraces as $backtrace) {
+                 $details .= "<div class='backtrace'>$backtrace</div>";
+             }
+             $details .= '</div>';
+         }
+         $info['html'] .= "<span class='includedyuimodules'>Included YUI modules: $yuicount</span> ";
+         $info['txt'] .= "includedyuimodules: $yuicount ";
+         $info['html'] .= "<span class='includedjsmodules'>Other JavaScript modules: $othercount</span> ";
+         $info['txt'] .= "includedjsmodules: $othercount ";
+         // Slightly odd to output the details in a display: none div. The point
+         // Is that it takes a lot of space, and if you care you can reveal it
+         // using firebug.
+         $info['html'] .= '<div id="yui-module-debug" class="notifytiny">'.$details.'</div>';
+     }
 
     if (!empty($PERF->logwrites)) {
         $info['logwrites'] = $PERF->logwrites;

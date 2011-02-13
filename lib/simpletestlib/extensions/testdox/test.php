@@ -1,5 +1,5 @@
 <?php
-// $Id: test.php 1641 2008-01-22 20:13:52Z pp11 $
+// $Id$
 require_once dirname(__FILE__) . '/../../autorun.php';
 require_once dirname(__FILE__) . '/../testdox.php';
 

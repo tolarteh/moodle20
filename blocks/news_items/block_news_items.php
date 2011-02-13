@@ -37,6 +37,10 @@ class block_news_items extends block_base {
             }
             $cm = $modinfo->instances['forum'][$forum->id];
 
+            if (!$cm->uservisible) {
+                return '';
+            }
+
             $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
         /// User must have perms to view discussions in that forum
@@ -106,7 +110,8 @@ class block_news_items extends block_base {
                 } else {
                     $userid = $USER->id;
                 }
-                $this->content->footer .= '<br />'.rss_get_link($this->page->context->id, $userid, 'mod_forum', $forum->id, $tooltiptext);
+
+                $this->content->footer .= '<br />'.rss_get_link($context->id, $userid, 'mod_forum', $forum->id, $tooltiptext);
             }
 
         }

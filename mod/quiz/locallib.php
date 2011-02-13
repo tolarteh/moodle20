@@ -48,6 +48,7 @@ require_once($CFG->dirroot . '/mod/quiz/accessrules.php');
 require_once($CFG->dirroot . '/mod/quiz/attemptlib.php');
 require_once($CFG->dirroot . '/question/editlib.php');
 require_once($CFG->libdir  . '/eventslib.php');
+require_once($CFG->libdir . '/filelib.php');
 
 /// Constants ///////////////////////////////////////////////////////////////////
 
@@ -916,7 +917,7 @@ function quiz_get_reviewoptions($quiz, $attempt, $context) {
 
     // Show a link to the comment box only for closed attempts
     if ($attempt->timefinish && has_capability('mod/quiz:grade', $context)) {
-        $options->questioncommentlink = '/mod/quiz/comment.php';
+        $options->questioncommentlink = new moodle_url('/mod/quiz/comment.php', array('attempt' => $attempt->id));
     }
 
     // Whether to display a response history.
@@ -1017,19 +1018,26 @@ function quiz_send_confirmation($a) {
 
     // send email and analyse result
     $eventdata = new stdClass();
-    $eventdata->modulename        = 'quiz';
+    $eventdata->component        = 'mod_quiz';
+    $eventdata->name             = 'confirmation';
+    $eventdata->notification      = 1;
+
     $eventdata->userfrom          = get_admin();
     $eventdata->userto            = $USER;
     $eventdata->subject           = $subject;
     $eventdata->fullmessage       = $body;
     $eventdata->fullmessageformat = FORMAT_PLAIN;
     $eventdata->fullmessagehtml   = '';
-    $eventdata->smallmessage      = '';
+
+    $eventdata->smallmessage      = get_string('emailconfirmsmall', 'quiz', $a);
+    $eventdata->contexturl        = $a->quizurl;
+    $eventdata->contexturlname    = $a->quizname;
+
     return message_send($eventdata);
 }
 
 /**
- * Sends notification email to the interested parties that assign the role capability
+ * Sends notification messages to the interested parties that assign the role capability
  *
  * @param object $recipient user object of the intended recipient
  * @param stdClass $a associative array of replaceable fields for the templates
@@ -1043,7 +1051,7 @@ function quiz_send_notification($recipient, $a) {
     // recipient info for template
     $a->username = fullname($recipient);
     $a->userusername = $recipient->username;
-    $a->userusername = $recipient->username;
+    //$a->userusername = $recipient->username;
 
     // fetch the subject and body from strings
     $subject = get_string('emailnotifysubject', 'quiz', $a);
@@ -1051,14 +1059,21 @@ function quiz_send_notification($recipient, $a) {
 
     // send email and analyse result
     $eventdata = new stdClass();
-    $eventdata->modulename        = 'quiz';
+    $eventdata->component        = 'mod_quiz';
+    $eventdata->name             = 'submission';
+    $eventdata->notification      = 1;
+
     $eventdata->userfrom          = $USER;
     $eventdata->userto            = $recipient;
     $eventdata->subject           = $subject;
     $eventdata->fullmessage       = $body;
     $eventdata->fullmessageformat = FORMAT_PLAIN;
     $eventdata->fullmessagehtml   = '';
-    $eventdata->smallmessage      = '';
+
+    $eventdata->smallmessage      = get_string('emailnotifysmall', 'quiz', $a);
+    $eventdata->contexturl        = $a->quizreviewurl;
+    $eventdata->contexturlname    = $a->quizname;
+
     return message_send($eventdata);
 }
 
@@ -1247,7 +1262,6 @@ function quiz_check_safe_browser() {
 
 function quiz_get_js_module() {
     global $PAGE;
-    $PAGE->requires->js_module('core_question_engine');
     return array(
         'name' => 'mod_quiz',
         'fullpath' => '/mod/quiz/module.js',

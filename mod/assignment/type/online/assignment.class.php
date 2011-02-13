@@ -2,6 +2,8 @@
 require_once($CFG->libdir.'/formslib.php');
 require_once($CFG->libdir . '/portfoliolib.php');
 require_once($CFG->dirroot . '/mod/assignment/lib.php');
+require_once($CFG->libdir . '/filelib.php');
+
 /**
  * Extend the base assignment class for assignments where you upload a single file
  *
@@ -272,7 +274,7 @@ class assignment_online extends assignment_base {
     }
 
     function portfolio_exportable() {
-        return false; // not until MDL-22001 is fixed :(
+        return true;
     }
 
     function portfolio_load_data($caller) {
@@ -295,7 +297,8 @@ class assignment_online extends assignment_base {
 
     function portfolio_prepare_package($exporter, $user) {
         $submission = $this->get_submission($user->id);
-        $html = format_text($submission->data1, $submission->data2);
+        $options = portfolio_format_text_options();
+        $html = format_text($submission->data1, $submission->data2, $options);
         $html = portfolio_rewrite_pluginfile_urls($html, $this->context->id, 'mod_assignment', $this->filearea, $submission->id, $exporter->get('format'));
         if (in_array($exporter->get('formatclass'), array(PORTFOLIO_FORMAT_PLAINHTML, PORTFOLIO_FORMAT_RICHHTML))) {
             if ($files = $exporter->get('caller')->get('multifiles')) {

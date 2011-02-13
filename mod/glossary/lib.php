@@ -24,6 +24,7 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 require_once($CFG->dirroot . '/rating/lib.php');
+require_once($CFG->libdir . '/completionlib.php');
 
 define("GLOSSARY_SHOW_ALL_CATEGORIES", 0);
 define("GLOSSARY_SHOW_NOT_CATEGORISED", -1);
@@ -194,6 +195,7 @@ function glossary_delete_instance($id) {
     $category_select = "SELECT id FROM {glossary_categories} WHERE glossaryid = ?";
     $DB->delete_records_select('glossary_entries_categories', "categoryid IN ($category_select)", array($id));
     $DB->delete_records('glossary_categories', array('glossaryid'=>$id));
+    $DB->delete_records('glossary_entries', array('glossaryid'=>$id));
 
     // delete all files
     $fs->delete_area_files($context->id);
@@ -414,20 +416,6 @@ function glossary_cron () {
  * @return array array of grades, false if none
  */
 function glossary_get_user_grades($glossary, $userid=0) {
-    /*global $DB;
-
-    $params = array('userid'=>$userid, 'gid'=>$glossary->id);
-
-    $user = $userid ? "AND u.id = :userid" : "";
-
-    $sql = "SELECT u.id, u.id AS userid, avg(gr.rating) AS rawgrade
-              FROM {user} u, {glossary_entries} ge, {glossary_ratings} gr
-             WHERE u.id = ge.userid AND ge.id = gr.entryid
-                   AND gr.userid != u.id AND ge.glossaryid = :gid
-                   $user
-          GROUP BY u.id";
-
-    return $DB->get_records_sql($sql, $params);*/
     global $CFG;
 
     require_once($CFG->dirroot.'/rating/lib.php');
@@ -518,7 +506,8 @@ function glossary_upgrade_grades() {
     $sql = "SELECT g.*, cm.idnumber AS cmidnumber, g.course AS courseid
               FROM {glossary} g, {course_modules} cm, {modules} m
              WHERE m.name='glossary' AND m.id=cm.module AND cm.instance=g.id";
-    if ($rs = $DB->get_recordset_sql($sql)) {
+    $rs = $DB->get_recordset_sql($sql);
+    if ($rs->valid()) {
         $pbar = new progress_bar('glossaryupgradegrades', 500, true);
         $i=0;
         foreach ($rs as $glossary) {
@@ -527,8 +516,8 @@ function glossary_upgrade_grades() {
             glossary_update_grades($glossary, 0, false);
             $pbar->update($i, $count, "Updating Glossary grades ($i/$count).");
         }
-        $rs->close();
     }
+    $rs->close();
 }
 
 /**
@@ -833,6 +822,10 @@ function glossary_print_entry($course, $cm, $glossary, $entry, $mode='',$hook=''
  * @return void Output is echo'd
  */
 function glossary_print_entry_default ($entry, $glossary, $cm) {
+    global $CFG;
+
+    require_once($CFG->libdir . '/filelib.php');
+
     echo '<h3>'. strip_tags($entry->concept) . ': </h3>';
 
     $definition = $entry->definition;
@@ -2470,7 +2463,8 @@ function glossary_reset_userdata($data) {
 
         $course_context = get_context_instance(CONTEXT_COURSE, $data->courseid);
         $notenrolled = array();
-        if ($rs = $DB->get_recordset_sql($entriessql, $params)) {
+        $rs = $DB->get_recordset_sql($entriessql, $params);
+        if ($rs->valid()) {
             foreach ($rs as $entry) {
                 if (array_key_exists($entry->userid, $notenrolled) or !$entry->userexists or $entry->userdeleted
                   or !is_enrolled($course_context , $entry->userid)) {
@@ -2487,9 +2481,9 @@ function glossary_reset_userdata($data) {
                     }
                 }
             }
-            $rs->close();
             $status[] = array('component'=>$componentstr, 'item'=>get_string('deletenotenrolled', 'glossary'), 'error'=>false);
         }
+        $rs->close();
     }
 
     // remove all ratings
@@ -2550,6 +2544,7 @@ function glossary_supports($feature) {
         case FEATURE_GROUPMEMBERSONLY:        return true;
         case FEATURE_MOD_INTRO:               return true;
         case FEATURE_COMPLETION_TRACKS_VIEWS: return true;
+        case FEATURE_COMPLETION_HAS_RULES:    return true;
         case FEATURE_GRADE_HAS_GRADE:         return true;
         case FEATURE_GRADE_OUTCOMES:          return true;
         case FEATURE_RATE:                    return true;
@@ -2557,6 +2552,42 @@ function glossary_supports($feature) {
 
         default: return null;
     }
+}
+
+/**
+ * Obtains the automatic completion state for this glossary based on any conditions
+ * in glossary settings.
+ *
+ * @global object
+ * @global object
+ * @param object $course Course
+ * @param object $cm Course-module
+ * @param int $userid User ID
+ * @param bool $type Type of comparison (or/and; can be used as return value if no conditions)
+ * @return bool True if completed, false if not. (If no conditions, then return
+ *   value depends on comparison type)
+ */
+function glossary_get_completion_state($course,$cm,$userid,$type) {
+    global $CFG, $DB;
+
+    // Get glossary details
+    if (!($glossary=$DB->get_record('glossary',array('id'=>$cm->instance)))) {
+        throw new Exception("Can't find glossary {$cm->instance}");
+    }
+
+    $result=$type; // Default return value
+
+    if ($glossary->completionentries) {
+        $value = $glossary->completionentries <=
+                 $DB->count_records('glossary_entries',array('glossaryid'=>$glossary->id, 'userid'=>$userid, 'approved'=>1));
+        if ($type == COMPLETION_AND) {
+            $result = $result && $value;
+        } else {
+            $result = $result || $value;
+        }
+    }
+
+    return $result;
 }
 
 function glossary_extend_navigation($navigation, $course, $module, $cm) {

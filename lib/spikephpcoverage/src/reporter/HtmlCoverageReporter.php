@@ -1,6 +1,6 @@
 <?php
     /*
-    *  $Id: HtmlCoverageReporter.php,v 1.2 2009/06/23 16:50:03 stronk7 Exp $
+    *  $Id: HtmlCoverageReporter.php,v 1.3 2010/12/14 17:35:59 moodlerobot Exp $
     *  
     *  Copyright(c) 2004-2006, SpikeSource Inc. All Rights Reserved.
     *  Licensed under the Open Software License version 2.1
@@ -20,7 +20,7 @@
     * Class that implements HTML Coverage Reporter. 
     * 
     * @author Nimish Pachapurkar <npac@spikesource.com>
-    * @version $Revision: 1.2 $
+    * @version $Revision: 1.3 $
     * @package SpikePHPCoverage_Reporter
     */
     class HtmlCoverageReporter extends CoverageReporter {

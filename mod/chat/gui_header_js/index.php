@@ -28,12 +28,12 @@ $context = get_context_instance(CONTEXT_MODULE, $cm->id);
 
 require_login($course->id, false, $cm);
 
-require_capability('mod/chat:chat',$context);
+require_capability('mod/chat:chat', $context);
 
 /// Check to see if groups are being used here
  if ($groupmode = groups_get_activity_groupmode($cm)) {   // Groups are being used
     if ($groupid = groups_get_activity_group($cm)) {
-        if (!$group = groups_get_group($groupid, false)) {
+        if (!$group = groups_get_group($groupid)) {
             print_error('invalidgroupid');
         }
         $groupname = ': '.$group->name;

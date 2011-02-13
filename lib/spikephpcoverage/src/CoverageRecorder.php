@@ -1,6 +1,6 @@
 <?php
     /*
-    *  $Id: CoverageRecorder.php,v 1.1 2009/06/23 09:23:06 stronk7 Exp $
+    *  $Id: CoverageRecorder.php,v 1.2 2010/12/14 17:35:58 moodlerobot Exp $
     *  
     *  Copyright(c) 2004-2006, SpikeSource Inc. All Rights Reserved.
     *  Licensed under the Open Software License version 2.1
@@ -32,7 +32,7 @@
     * information.
     *
     * @author		Nimish Pachapurkar <npac@spikesource.com>
-    * @version		$Revision: 1.1 $
+    * @version		$Revision: 1.2 $
     */
     class CoverageRecorder {
 

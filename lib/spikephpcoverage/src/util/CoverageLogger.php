@@ -1,6 +1,6 @@
 <?php
 /*
- *  $Id: CoverageLogger.php,v 1.1 2009/06/23 09:23:09 stronk7 Exp $
+ *  $Id: CoverageLogger.php,v 1.2 2010/12/14 17:36:05 moodlerobot Exp $
  *  
  *  Copyright(c) 2004-2006, SpikeSource Inc. All Rights Reserved.
  *  Licensed under the Open Software License version 2.1

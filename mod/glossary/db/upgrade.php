@@ -45,7 +45,8 @@ function xmldb_glossary_upgrade($oldversion) {
 
         $count = $DB->count_records_sql("SELECT COUNT('x') $sqlfrom");
 
-        if ($rs = $DB->get_recordset_sql("SELECT ge.id, ge.userid, ge.attachment, ge.glossaryid, ge.sourceglossaryid, g.course, cm.id AS cmid $sqlfrom ORDER BY g.course, g.id")) {
+        $rs = $DB->get_recordset_sql("SELECT ge.id, ge.userid, ge.attachment, ge.glossaryid, ge.sourceglossaryid, g.course, cm.id AS cmid $sqlfrom ORDER BY g.course, g.id");
+        if ($rs->valid()) {
 
             $pbar = new progress_bar('migrateglossaryfiles', 500, true);
 
@@ -92,8 +93,8 @@ function xmldb_glossary_upgrade($oldversion) {
                 @rmdir("$CFG->dataroot/$entry->course/$CFG->moddata/glossary/$entry->glossaryid");
                 @rmdir("$CFG->dataroot/$entry->course/$CFG->moddata/glossary");
             }
-            $rs->close();
         }
+        $rs->close();
 
         upgrade_mod_savepoint(true, 2008081900, 'glossary');
     }
@@ -240,30 +241,30 @@ function xmldb_glossary_upgrade($oldversion) {
             $modcontext     = null;
 
         /// move glossary comments to comments table
-            if ($rs = $DB->get_recordset_sql($sql)) {
-                foreach($rs as $res) {
-                    if ($res->glossaryid != $lastglossaryid || $res->courseid != $lastcourseid) {
-                        $cm = get_coursemodule_from_instance('glossary', $res->glossaryid, $res->courseid);
-                        if ($cm) {
-                            $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
-                        }
-                        $lastglossaryid = $res->glossaryid;
-                        $lastcourseid   = $res->courseid;
+            $rs = $DB->get_recordset_sql($sql);
+            foreach($rs as $res) {
+                if ($res->glossaryid != $lastglossaryid || $res->courseid != $lastcourseid) {
+                    $cm = get_coursemodule_from_instance('glossary', $res->glossaryid, $res->courseid);
+                    if ($cm) {
+                        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
                     }
-                    $cmt = new stdClass();
-                    $cmt->contextid     = $modcontext->id;
-                    $cmt->commentarea   = 'glossary_entry';
-                    $cmt->itemid        = $res->itemid;
-                    $cmt->content       = $res->commentcontent;
-                    $cmt->format        = $res->format;
-                    $cmt->userid        = $res->userid;
-                    $cmt->timecreated    = $res->timemodified;
-                    $cmt_id = $DB->insert_record('comments', $cmt);
-                    if (!empty($cmt_id)) {
-                        $DB->delete_records('glossary_comments', array('id'=>$res->old_id));
-                    }
+                    $lastglossaryid = $res->glossaryid;
+                    $lastcourseid   = $res->courseid;
+                }
+                $cmt = new stdClass();
+                $cmt->contextid     = $modcontext->id;
+                $cmt->commentarea   = 'glossary_entry';
+                $cmt->itemid        = $res->itemid;
+                $cmt->content       = $res->commentcontent;
+                $cmt->format        = $res->format;
+                $cmt->userid        = $res->userid;
+                $cmt->timecreated    = $res->timemodified;
+                $cmt_id = $DB->insert_record('comments', $cmt);
+                if (!empty($cmt_id)) {
+                    $DB->delete_records('glossary_comments', array('id'=>$res->old_id));
                 }
             }
+            $rs->close();
             $dbman->drop_table($table);
         }
 
@@ -297,6 +298,32 @@ function xmldb_glossary_upgrade($oldversion) {
         }
 
         upgrade_mod_savepoint(true, 2010042800, 'glossary');
+    }
+
+    if ($oldversion < 2010111500) {
+        // Delete orphaned glossary_entries not belonging to any glossary (MDL-25227)
+        $sql = "DELETE FROM {glossary_entries}
+                WHERE NOT EXISTS (
+                    SELECT 'x' FROM {glossary} g
+                    WHERE g.id = glossaryid)";
+        $DB->execute($sql);
+
+        upgrade_mod_savepoint(true, 2010111500, 'glossary');
+    }
+
+    if ($oldversion < 2010111501) {
+
+        // Define field completionentries to be added to glossary
+        $table = new xmldb_table('glossary');
+        $field = new xmldb_field('completionentries', XMLDB_TYPE_INTEGER, '9', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0', 'timemodified');
+
+        // Conditionally launch add field completionentries
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // glossary savepoint reached
+        upgrade_mod_savepoint(true, 2010111501, 'glossary');
     }
 
     return true;

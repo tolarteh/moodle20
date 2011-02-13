@@ -17,7 +17,7 @@
 // |          Bertrand Mansion <bmansion@mamasam.com>                     |
 // +----------------------------------------------------------------------+
 //
-// $Id: QuickForm.php,v 1.6 2010/09/02 12:47:59 skodak Exp $
+// $Id: QuickForm.php,v 1.7 2010/12/14 17:36:06 moodlerobot Exp $
 
 require_once('PEAR.php');
 require_once('HTML/Common.php');

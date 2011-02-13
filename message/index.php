@@ -16,7 +16,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * A page displaying the user's contacts. Similar to index.php but not a popup.
+ * A page displaying the user's contacts and messages
  *
  * @package   moodlecore
  * @copyright 2010 Andrew Davis
@@ -156,7 +156,7 @@ if ($currentuser && !empty($user2) && has_capability('moodle/site:sendmessage', 
                 print_error('invalidsesskey');
             }
 
-            $messageid = message_post_message($user1, $user2, $data->message, FORMAT_PLAIN, 'direct');
+            $messageid = message_post_message($user1, $user2, $data->message, FORMAT_MOODLE, 'direct');
             if (!empty($messageid)) {
                 redirect($CFG->wwwroot . '/message/index.php?usergroup='.$usergroup.'&id='.$user2->id);
             }

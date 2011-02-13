@@ -29,7 +29,8 @@ require_once('lib.php');
 $id    = optional_param('id', 0, PARAM_INT);  // course module id
 $d     = optional_param('d', 0, PARAM_INT);   // database id
 $mode  = optional_param('mode', 'singletemplate', PARAM_ALPHA);
-$disableeditor  = optional_param('switcheditor', false, PARAM_ALPHA);
+$disableeditor = optional_param('switcheditor', false, PARAM_RAW);
+$enableeditor = optional_param('useeditor', false, PARAM_RAW);
 
 $url = new moodle_url('/mod/data/templates.php');
 if ($mode !== 'singletemplate') {
@@ -82,13 +83,6 @@ $strdata = get_string('modulenameplural','data');
 // For the javascript for inserting template tags: initialise the default textarea to
 // 'edit_template' - it is always present in all different possible views.
 
-$editorobj = 'editor_'.md5('template');
-
-$bodytag = 'onload="';
-$bodytag .= 'if (typeof('.$editorobj.') != \'undefined\') { currEditor = '.$editorobj.'; } ';
-$bodytag .= 'currTextarea = document.getElementById(\'tempform\').template;';
-$bodytag .= '" ';
-
 if ($mode == 'singletemplate') {
     $PAGE->navbar->add(get_string($mode,'data'));
 }
@@ -137,10 +131,13 @@ if (($mytemplate = data_submitted()) && confirm_sesskey()) {
 
         // Check for multiple tags, only need to check for add template.
         if ($mode != 'addtemplate' or data_tags_check($data->id, $newtemplate->{$mode})) {
-            $DB->update_record('data', $newtemplate);
-            echo $OUTPUT->notification(get_string('templatesaved', 'data'), 'notifysuccess');
+            // if disableeditor or enableeditor buttons click, don't save instance
+            if (empty($disableeditor) && empty($enableeditor)) {
+                $DB->update_record('data', $newtemplate);
+                echo $OUTPUT->notification(get_string('templatesaved', 'data'), 'notifysuccess');
+                add_to_log($course->id, 'data', 'templates saved', "templates.php?id=$cm->id&amp;d=$data->id", $data->id, $cm->id);
+            }
         }
-        add_to_log($course->id, 'data', 'templates saved', "templates.php?id=$cm->id&amp;d=$data->id", $data->id, $cm->id);
     }
 } else {
     echo '<div class="littleintro" style="text-align:center">'.get_string('header'.$mode,'data').'</div>';
@@ -158,6 +155,11 @@ if (empty($data->addtemplate) and empty($data->singletemplate) and
 
 editors_head_setup();
 $format = FORMAT_HTML;
+
+if ($mode === 'csstemplate' or $mode === 'jstemplate') {
+    $disableeditor = true;
+}
+
 if ($disableeditor) {
     $format = FORMAT_PLAIN;
 }

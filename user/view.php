@@ -26,11 +26,10 @@
 require_once("../config.php");
 require_once($CFG->dirroot.'/user/profile/lib.php');
 require_once($CFG->dirroot.'/tag/lib.php');
+require_once($CFG->libdir . '/filelib.php');
 
 $id        = optional_param('id', 0, PARAM_INT);   // user id
 $courseid  = optional_param('course', SITEID, PARAM_INT);   // course id (defaults to Site)
-$enable    = optional_param('enable', 0, PARAM_BOOL);       // enable email
-$disable   = optional_param('disable', 0, PARAM_BOOL);      // disable email
 
 if (empty($id)) {            // See your own profile by default
     require_login();
@@ -303,6 +302,14 @@ if (!isset($hiddenfields['mycourses'])) {
 }
 
 echo "</table></div></div>";
+
+// Print messaging link if allowed
+if (isloggedin() && has_capability('moodle/site:sendmessage', $usercontext)
+    && !empty($CFG->messaging) && !isguestuser() && !isguestuser($user) && ($USER->id != $user->id)) {
+    echo '<div class="messagebox">';
+    echo '<a href="'.$CFG->wwwroot.'/message/index.php?id='.$user->id.'">'.get_string('messageselectadd').'</a>';
+    echo '</div>';
+}
 
 if ($currentuser || has_capability('moodle/user:viewdetails', $usercontext) || has_coursecontact_role($id)) {
     echo '<div class="fullprofilelink">';

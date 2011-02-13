@@ -48,7 +48,7 @@ require_once 'Zend/Server/Reflection/Prototype.php';
  * @subpackage Reflection
  * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
- * @version $Id: Abstract.php 20637 2010-01-25 22:33:22Z matthew $
+ * @version $Id$
  */
 abstract class Zend_Server_Reflection_Function_Abstract
 {

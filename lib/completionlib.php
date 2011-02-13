@@ -207,17 +207,29 @@ class completion_info {
     }
 
     /**
-     * Print the Your progress help icon if the completion tracking is enabled.
-     * @global object
+     * Displays the 'Your progress' help icon, if completion tracking is enabled.
+     * Just prints the result of display_help_icon().
+     * @deprecated Use display_help_icon instead.
      * @return void
      */
     public function print_help_icon() {
+        print $this->display_help_icon();
+    }
+
+    /**
+     * Returns the 'Your progress' help icon, if completion tracking is enabled.
+     * @global object
+     * @return string HTML code for help icon, or blank if not needed
+     */
+    public function display_help_icon() {
         global $PAGE, $OUTPUT;
+        $result = '';
         if ($this->is_enabled() && !$PAGE->user_is_editing() && isloggedin() && !isguestuser()) {
-            echo '<span id = "completionprogressid" class="completionprogress">'.get_string('yourprogress','completion').' ';
-            echo $OUTPUT->help_icon('completionicons', 'completion');
-            echo '</span>';
+            $result .= '<span id = "completionprogressid" class="completionprogress">'.get_string('yourprogress','completion').' ';
+            $result .= $OUTPUT->help_icon('completionicons', 'completion');
+            $result .= '</span>';
         }
+        return $result;
     }
 
     /**
@@ -1073,8 +1085,8 @@ class completion_info {
         $return->sql = '';
         $return->data = array();
 
-        if (!empty($CFG->progresstrackedroles)) {
-            $roles = ' AND ra.roleid IN ('.$CFG->progresstrackedroles.')';
+        if (!empty($CFG->gradebookroles)) {
+            $roles = ' AND ra.roleid IN ('.$CFG->gradebookroles.')';
         } else {
             // This causes it to default to everyone (if there is no student role)
             $roles = '';
@@ -1142,7 +1154,7 @@ class completion_info {
      * for all users in a specific group. Intended for use when displaying progress.
      *
      * This includes only users who, in course context, have one of the roles for
-     * which progress is tracked (the progresstrackedroles admin option).
+     * which progress is tracked (the gradebookroles admin option) and are enrolled in course.
      *
      * Users are included (in the first array) even if they do not have
      * completion progress for any course-module.

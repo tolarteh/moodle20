@@ -47,6 +47,8 @@ try {
     // Create a global nav object
     $navigation = new global_navigation_for_ajax($PAGE, $branchtype, $branchid);
 
+    $linkcategories = false;
+
     if ($instanceid!==null) {
         // Get the db record for the block instance
         $blockrecord = $DB->get_record('block_instances', array('id'=>$instanceid,'blockname'=>'navigation'));
@@ -66,11 +68,14 @@ try {
             if (!empty($block->config->trimlength)) {
                 $trimlength = (int)$block->config->trimlength;
             }
+            if (!empty($block->config->linkcategories) && $block->config->linkcategories == 'yes') {
+                $linkcategories = true;
+            }
         }
     }
 
     // Create a navigation object to use, we can't guarantee PAGE will be complete
-    if (!isloggedin() || isguestuser()) {
+    if (!isloggedin()) {
         $navigation->set_expansion_limit(navigation_node::TYPE_COURSE);
     } else {
         if (isset($block) && !empty($block->config->expansionlimit)) {
@@ -81,10 +86,17 @@ try {
         $block->trim($navigation, $trimmode, $trimlength, ceil($trimlength/2));
     }
     $converter = new navigation_json();
-    
+
     // Find the actuall branch we are looking for
     $branch = $navigation->find($branchid, $branchtype);
-    
+
+    // Remove links to categories if required.
+    if (!$linkcategories) {
+        foreach ($branch->find_all_of_type(navigation_node::TYPE_CATEGORY) as $category) {
+            $category->action = null;
+        }
+    }
+
     // Stop buffering errors at this point
     $html = ob_get_contents();
     ob_end_clean();
@@ -104,6 +116,6 @@ if (empty($branch) || $branch->nodetype !== navigation_node::NODETYPE_BRANCH) {
 // Prepare an XML converter for the branch
 $converter->set_expandable($navigation->get_expandable());
 // Set XML headers
-header('Content-type: text/plain');
+header('Content-type: text/plain; charset=utf-8');
 // Convert and output the branch as XML
 echo $converter->convert($branch);

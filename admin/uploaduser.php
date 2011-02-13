@@ -7,6 +7,7 @@ require('../config.php');
 require_once($CFG->libdir.'/adminlib.php');
 require_once($CFG->libdir.'/csvlib.class.php');
 require_once($CFG->dirroot.'/user/profile/lib.php');
+require_once($CFG->dirroot.'/group/lib.php');
 require_once('uploaduser_form.php');
 
 $iid         = optional_param('iid', '', PARAM_INT);
@@ -294,7 +295,13 @@ if ($formdata = $mform->is_cancelled()) {
             }
             if (isset($formdata->$field)) {
                 // process templates
-                $user->$field = process_template($formdata->$field, $user);
+                if (is_array($formdata->$field)) {
+                    foreach ($formdata->$field as $k=>$v) {
+                        $user->$field[$k] = process_template($v, $user);
+                    }
+                } else {
+                    $user->$field = process_template($formdata->$field, $user);
+                }
             }
         }
 
@@ -528,7 +535,7 @@ if ($formdata = $mform->is_cancelled()) {
                 $DB->update_record('user', $existinguser);
 
                 //remove user preference
-                
+
                 if (get_user_preferences('create_password', false, $existinguser)) {
                     unset_user_preference('create_password', $existinguser);
                 }
@@ -667,10 +674,16 @@ if ($formdata = $mform->is_cancelled()) {
             $courseid      = $ccache[$shortname]->id;
             $coursecontext = get_context_instance(CONTEXT_COURSE, $courseid);
             if (!isset($manualcache[$courseid])) {
-                if ($instances = enrol_get_instances($courseid, false)) {
-                    $manualcache[$courseid] = reset($instances);
-                } else {
-                    $manualcache[$courseid] = false;
+                $manualcache[$courseid] = false;
+                if ($manual) {
+                    if ($instances = enrol_get_instances($courseid, false)) {
+                        foreach ($instances as $instance) {
+                            if ($instance->enrol === 'manual') {
+                                $manualcache[$courseid] = $instance;
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 

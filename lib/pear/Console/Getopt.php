@@ -16,7 +16,7 @@
 // | Author: Andrei Zmievski <andrei@php.net>                             |
 // +----------------------------------------------------------------------+
 //
-// $Id: Getopt.php,v 1.1 2008/01/07 01:54:29 mjollnir_ Exp $
+// $Id: Getopt.php,v 1.2 2010/12/14 17:35:59 moodlerobot Exp $
 
 require_once 'PEAR.php';
 

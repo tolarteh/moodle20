@@ -130,8 +130,7 @@ class embedded_cloze_qtype extends default_questiontype {
             $wrapped->parent = $question->id;
             $previousid = $wrapped->id ;
             $wrapped->category = $question->category . ',1'; // save_question strips this extra bit off again.
-            $wrapped = $QTYPES[$wrapped->qtype]->save_question($wrapped,
-                    clone($wrapped), $question->course);
+            $wrapped = $QTYPES[$wrapped->qtype]->save_question($wrapped, clone($wrapped));
             $sequence[] = $wrapped->id;
             if ($previousid != 0 && $previousid != $wrapped->id ) {
                 // for some reasons a new question has been created
@@ -160,7 +159,7 @@ class embedded_cloze_qtype extends default_questiontype {
         }
     }
 
-    function save_question($authorizedquestion, $form, $course) {
+    function save_question($authorizedquestion, $form) {
         $question = qtype_multianswer_extract_question($form->questiontext);
         if (isset($authorizedquestion->id)) {
             $question->id = $authorizedquestion->id;
@@ -176,7 +175,7 @@ class embedded_cloze_qtype extends default_questiontype {
         $form->questiontextformat = 0;
         $form->options = clone($question->options);
         unset($question->options);
-        return parent::save_question($question, $form, $course);
+        return parent::save_question($question, $form);
     }
 
     function create_session_and_responses(&$question, &$state, $cmoptions, $attempt) {
@@ -214,16 +213,11 @@ class embedded_cloze_qtype extends default_questiontype {
         return true;
     }
 
-    /**
-    * Deletes question from the question-type specific tables
-    *
-    * @return boolean Success/Failure
-    * @param object $question  The question being deleted
-    */
-    function delete_question($questionid) {
+    function delete_question($questionid, $contextid) {
         global $DB;
         $DB->delete_records("question_multianswer", array("question" => $questionid));
-        return true;
+
+        parent::delete_question($questionid, $contextid);
     }
 
     function get_correct_responses(&$question, &$state) {
@@ -283,12 +277,6 @@ class embedded_cloze_qtype extends default_questiontype {
 
     function print_question_formulation_and_controls(&$question, &$state, $cmoptions, $options) {
         global $QTYPES, $CFG, $USER, $OUTPUT, $PAGE;
-
-        static $overlibdivoutput = false;
-        if (!$overlibdivoutput) {
-            echo '<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>'; // for overlib
-            $overlibdivoutput = true;
-        }
 
         $readonly = empty($options->readonly) ? '' : 'readonly="readonly"';
         $disabled = empty($options->readonly) ? '' : 'disabled="disabled"';
@@ -527,11 +515,11 @@ class embedded_cloze_qtype extends default_questiontype {
 
                 // Print the answer text: no automatic numbering
 
-                $a->text =format_text($mcanswer->answer, FORMAT_MOODLE, $formatoptions, $cmoptions->course);
+                $a->text = format_text($mcanswer->answer, $mcanswer->answerformat, $formatoptions, $cmoptions->course);
 
                 // Print feedback if feedback is on
                 if (($options->feedback || $options->correct_responses) && ($checked )) { //|| $options->readonly
-                    $a->feedback = format_text($mcanswer->feedback, true, $formatoptions, $cmoptions->course);
+                    $a->feedback = format_text($mcanswer->feedback, $mcanswer->feedbackformat, $formatoptions, $cmoptions->course);
                 } else {
                     $a->feedback = '';
                 }
@@ -699,7 +687,7 @@ Good luck!
             $course = $DB->get_record('course', array('id' => $courseid));
         }
 
-        return $this->save_question($question, $form, $course);
+        return $this->save_question($question, $form);
     }
 
 }

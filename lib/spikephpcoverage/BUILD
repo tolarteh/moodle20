@@ -1,5 +1,5 @@
 ################################################################################
-#  $Id: license.txt 13981 2005-03-16 08:09:28Z eespino $
+#  $Id$
 #  
 #  Copyright(c) 2004-2006, SpikeSource Inc. All Rights Reserved.
 #  Licensed under the Open Software License version 2.1

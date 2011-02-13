@@ -1,6 +1,6 @@
 <?php
     /*
-    *  $Id: Utility.php,v 1.2 2010/07/19 08:47:57 skodak Exp $
+    *  $Id: Utility.php,v 1.3 2010/12/14 17:36:05 moodlerobot Exp $
     *  
     *  Copyright(c) 2004-2006, SpikeSource Inc. All Rights Reserved.
     *  Licensed under the Open Software License version 2.1
@@ -22,7 +22,7 @@
     * Utility functions 
     * 
     * @author Nimish Pachapurkar <npac@spikesource.com>
-    * @version $Revision: 1.2 $
+    * @version $Revision: 1.3 $
     * @package SpikePHPCoverage_Util
     */
     class Utility {

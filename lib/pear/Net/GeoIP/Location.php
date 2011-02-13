@@ -29,7 +29,7 @@
  * @author   Hans Lellelid <hans@xmpl.org>
  * @license  LGPL http://www.gnu.org/licenses/lgpl.txt
  * @link     http://pear.php.net/package/Net_GeoIp
- * $Id: Location.php 296763 2010-03-25 00:53:44Z clockwerx $
+ * $Id$
  */
 
 /**
@@ -43,7 +43,7 @@
  * @author   Hans Lellelid <hans@xmpl.org>
  * @author   Dmitri Snytkine <d.snytkine@gmail.com>
  * @license  LGPL http://www.gnu.org/licenses/lgpl.txt
- * @version  $Revision: 296763 $
+ * @version  $Revision$
  * @link     http://pear.php.net/package/Net_GeoIp
  * @see      Net_GeoIP::lookupLocation()
  */

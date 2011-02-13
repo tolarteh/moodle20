@@ -177,9 +177,10 @@ class user_picture implements renderable {
      * @param string $tableprefix name of database table prefix in query
      * @param array $extrafields extra fields to be included in result (do not include TEXT columns because it would break SELECT DISTINCT in MSSQL and ORACLE)
      * @param string $idalias alias of id field
+     * @param string $fieldprefix prefix to add to all columns in their aliases, does not apply to 'id'
      * @return string
      */
-    public static function fields($tableprefix = '', array $extrafields = NULL, $idalias = 'id') {
+    public static function fields($tableprefix = '', array $extrafields = NULL, $idalias = 'id', $fieldprefix = '') {
         if (!$tableprefix and !$extrafields and !$idalias) {
             return implode(',', self::$fields);
         }
@@ -191,7 +192,11 @@ class user_picture implements renderable {
             if ($field === 'id' and $idalias and $idalias !== 'id') {
                 $fields[$field] = "$tableprefix$field AS $idalias";
             } else {
-                $fields[$field] = $tableprefix.$field;
+                if ($fieldprefix and $field !== 'id') {
+                    $fields[$field] = "$tableprefix$field AS $fieldprefix$field";
+                } else {
+                    $fields[$field] = "$tableprefix$field";
+                }
             }
         }
         // add extra fields if not already there
@@ -200,13 +205,60 @@ class user_picture implements renderable {
                 if ($e === 'id' or isset($fields[$e])) {
                     continue;
                 }
-                $fields[$e] = $tableprefix.$e;
+                if ($fieldprefix) {
+                    $fields[$e] = "$tableprefix$e AS $fieldprefix$e";
+                } else {
+                    $fields[$e] = "$tableprefix$e";
+                }
             }
         }
         return implode(',', $fields);
     }
-}
 
+    /**
+     * Extract the aliased user fields from a given record
+     *
+     * Given a record that was previously obtained using {@link self::fields()} with aliases,
+     * this method extracts user related unaliased fields.
+     *
+     * @param stdClass $record containing user picture fields
+     * @param array $extrafields extra fields included in the $record
+     * @param string $idalias alias of the id field
+     * @param string $fieldprefix prefix added to all columns in their aliases, does not apply to 'id'
+     * @return stdClass object with unaliased user fields
+     */
+    public static function unalias(stdClass $record, array $extrafields=null, $idalias='id', $fieldprefix='') {
+
+        if (empty($idalias)) {
+            $idalias = 'id';
+        }
+
+        $return = new stdClass();
+
+        foreach (self::$fields as $field) {
+            if ($field === 'id') {
+                if (property_exists($record, $idalias)) {
+                    $return->id = $record->{$idalias};
+                }
+            } else {
+                if (property_exists($record, $fieldprefix.$field)) {
+                    $return->{$field} = $record->{$fieldprefix.$field};
+                }
+            }
+        }
+        // add extra fields if not already there
+        if ($extrafields) {
+            foreach ($extrafields as $e) {
+                if ($e === 'id' or property_exists($return, $e)) {
+                    continue;
+                }
+                $return->{$e} = $record->{$fieldprefix.$e};
+            }
+        }
+
+        return $return;
+    }
+}
 
 /**
  * Data structure representing a help icon.
@@ -651,17 +703,25 @@ class url_select implements renderable {
      */
     var $helpicon = null;
     /**
+     * @var string If set, makes button visible with given name for button
+     */
+    var $showbutton = null;
+    /**
      * Constructor
      * @param array $urls list of options
      * @param string $selected selected element
      * @param array $nothing
      * @param string $formid
+     * @param string $showbutton Set to text of button if it should be visible
+     *   or null if it should be hidden (hidden version always has text 'go')
      */
-    public function __construct(array $urls, $selected='', $nothing=array(''=>'choosedots'), $formid=null) {
-        $this->urls     = $urls;
-        $this->selected = $selected;
-        $this->nothing  = $nothing;
-        $this->formid   = $formid;
+    public function __construct(array $urls, $selected='', $nothing=array(''=>'choosedots'),
+            $formid=null, $showbutton=null) {
+        $this->urls       = $urls;
+        $this->selected   = $selected;
+        $this->nothing    = $nothing;
+        $this->formid     = $formid;
+        $this->showbutton = $showbutton;
     }
 
     /**
@@ -977,6 +1037,12 @@ class html_writer {
         $attributes['class'] = 'select ' . $attributes['class']; /// Add 'select' selector always
 
         $attributes['name'] = $name;
+
+        if (!empty($attributes['disabled'])) {
+            $attributes['disabled'] = 'disabled';
+        } else {
+            unset($attributes['disabled']);
+        }
 
         $output = '';
         foreach ($options as $value=>$label) {
@@ -2334,9 +2400,13 @@ class custom_menu extends custom_menu_item {
             if (preg_match('/^(\-*)/', $line, $match) && $lastchild != null && $lastdepth !== null) {
                 $depth = strlen($match[1]);
                 if ($depth < $lastdepth) {
-                    if ($lastdepth > 1) {
-                        $depth = $lastdepth - 1;
-                        $lastchild = $lastchild->get_parent()->get_parent()->add($bits[0], $bits[1], $bits[2], $bits[3]);
+                    $difference = $lastdepth - $depth;
+                    if ($lastdepth > 1 && $lastdepth != $difference) {
+                        $tempchild = $lastchild->get_parent();
+                        for ($i =0; $i < $difference; $i++) {
+                            $tempchild = $tempchild->get_parent();
+                        }
+                        $lastchild = $tempchild->add($bits[0], $bits[1], $bits[2], $bits[3]);
                     } else {
                         $depth = 0;
                         $lastchild = new custom_menu_item($bits[0], $bits[1], $bits[2], $bits[3]);

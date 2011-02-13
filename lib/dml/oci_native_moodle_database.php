@@ -968,15 +968,14 @@ class oci_native_moodle_database extends moodle_database {
         $strictness = (int)$strictness;
         if ($strictness == IGNORE_MULTIPLE) {
             // do not limit here - ORA does not like that
-            if (!$rs = $this->get_recordset_sql($sql, $params)) {
-                return false;
-            }
-            foreach ($rs as $result) {
-                $rs->close();
-                return $result;
+            $rs = $this->get_recordset_sql($sql, $params);
+            $result = false;
+            foreach ($rs as $rec) {
+                $result = $rec;
+                break;
             }
             $rs->close();
-            return false;
+            return $result;
         }
         return parent::get_record_sql($sql, $params, $strictness);
     }
@@ -1444,6 +1443,14 @@ class oci_native_moodle_database extends moodle_database {
             return ' CAST(' . $fieldname . ' AS INT) ';
         } else {
             return ' CAST(' . $this->sql_compare_text($fieldname) . ' AS INT) ';
+        }
+    }
+
+    public function sql_cast_char2real($fieldname, $text=false) {
+        if (!$text) {
+            return ' CAST(' . $fieldname . ' AS FLOAT) ';
+        } else {
+            return ' CAST(' . $this->sql_compare_text($fieldname) . ' AS FLOAT) ';
         }
     }
 

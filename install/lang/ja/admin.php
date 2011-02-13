@@ -39,4 +39,4 @@ $string['cliunknowoption'] = '不明なオプション:
 「--help」オプションを使用してください。';
 $string['cliyesnoprompt'] = 'y (yes) または n (no) を入力してください。';
 $string['environmentrequireinstall'] = '必ずインストールおよび有効化してください。';
-$string['environmentrequireversion'] = 'バージョン {$a->needed} 以上が必須です。あなたは、現在 {$a->current} を使用しています。';
+$string['environmentrequireversion'] = 'バージョン {$a->needed} 以上が必須です。あなたは現在 {$a->current} を使用しています。';

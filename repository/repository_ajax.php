@@ -57,6 +57,13 @@ require_login($course, false, $cm);
 $PAGE->set_context($context);
 
 echo $OUTPUT->header(); // send headers
+@header('Content-type: text/html; charset=utf-8');
+
+// if uploaded file is larger than post_max_size (php.ini) setting, $_POST content will lost
+if (empty($_POST) && !empty($action)) {
+    $err->error = get_string('errorpostmaxsize', 'repository');
+    die(json_encode($err));
+}
 
 if (!confirm_sesskey()) {
     $err->error = get_string('invalidsesskey');

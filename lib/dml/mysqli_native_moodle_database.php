@@ -56,8 +56,17 @@ class mysqli_native_moodle_database extends moodle_database {
             throw new dml_exception('dbdriverproblem', $driverstatus);
         }
 
+        if (empty($this->dboptions['dbport'])) {
+            $dbport = (int)ini_get('mysqli.default_port');
+        } else {
+            $dbport = (int)$this->dboptions['dbport'];
+        }
+        // verify ini.get does not return nonsense
+        if (empty($dbport)) {
+            $dbport = 3306;
+        }
         ob_start();
-        $conn = new mysqli($dbhost, $dbuser, $dbpass); /// Connect without db
+        $conn = new mysqli($dbhost, $dbuser, $dbpass, '', $dbport); /// Connect without db
         $dberr = ob_get_contents();
         ob_end_clean();
         $errorno = @$conn->connect_errno;
@@ -259,10 +268,26 @@ class mysqli_native_moodle_database extends moodle_database {
         }
 
         $this->store_settings($dbhost, $dbuser, $dbpass, $dbname, $prefix, $dboptions);
-        unset($this->dboptions['dbsocket']);
 
+        // dbsocket is used ONLY if host is NULL or 'localhost',
+        // you can not disable it because it is always tried if dbhost is 'localhost'
+        if (!empty($this->dboptions['dbsocket'])
+                and (strpos($this->dboptions['dbsocket'], '/') !== false or strpos($this->dboptions['dbsocket'], '\\') !== false)) {
+            $dbsocket = $this->dboptions['dbsocket'];
+        } else {
+            $dbsocket = ini_get('mysqli.default_socket');
+        }
+        if (empty($this->dboptions['dbport'])) {
+            $dbport = (int)ini_get('mysqli.default_port');
+        } else {
+            $dbport = (int)$this->dboptions['dbport'];
+        }
+        // verify ini.get does not return nonsense
+        if (empty($dbport)) {
+            $dbport = 3306;
+        }
         ob_start();
-        $this->mysqli = new mysqli($dbhost, $dbuser, $dbpass, $dbname);
+        $this->mysqli = new mysqli($dbhost, $dbuser, $dbpass, $dbname, $dbport, $dbsocket);
         $dberr = ob_get_contents();
         ob_end_clean();
         $errorno = @$this->mysqli->connect_errno;
@@ -572,11 +597,38 @@ class mysqli_native_moodle_database extends moodle_database {
         $result = $this->mysqli->query($sql);
         $this->query_end($result);
 
+        $return = false;
         if ($result) {
+            while($row = $result->fetch_assoc()) {
+                if (isset($row['Value'])) {
+                    $return = (strtoupper($row['Value']) === 'UTF8' or strtoupper($row['Value']) === 'UTF-8');
+                }
+                break;
+            }
             $result->close();
-            return true;
         }
-        return false;
+
+        if (!$return) {
+            return false;
+        }
+
+        $sql = "SHOW LOCAL VARIABLES LIKE 'collation_database'";
+        $this->query_start($sql, null, SQL_QUERY_AUX);
+        $result = $this->mysqli->query($sql);
+        $this->query_end($result);
+
+        $return = false;
+        if ($result) {
+            while($row = $result->fetch_assoc()) {
+                if (isset($row['Value'])) {
+                    $return = (strpos($row['Value'], 'latin1') !== 0);
+                }
+                break;
+            }
+            $result->close();
+        }
+
+        return $return;
     }
 
     /**
@@ -1025,6 +1077,10 @@ class mysqli_native_moodle_database extends moodle_database {
         return ' CAST(' . $fieldname . ' AS SIGNED) ';
     }
 
+    public function sql_cast_char2real($fieldname, $text=false) {
+        return ' CAST(' . $fieldname . ' AS DECIMAL) ';
+    }
+
     /**
      * Returns 'LIKE' part of a query.
      *
@@ -1054,6 +1110,14 @@ class mysqli_native_moodle_database extends moodle_database {
         }
     }
 
+    /**
+     * Returns the proper SQL to do CONCAT between the elements passed
+     * Can take many parameters
+     *
+     * @param string $str,... 1 or more fields/strings to concat
+     *
+     * @return string The concat sql
+     */
     public function sql_concat() {
         $arr = func_get_args();
         $s = implode(', ', $arr);
@@ -1063,6 +1127,14 @@ class mysqli_native_moodle_database extends moodle_database {
         return "CONCAT($s)";
     }
 
+    /**
+     * Returns the proper SQL to do CONCAT between the elements passed
+     * with a given separator
+     *
+     * @param string $separator The string to use as the separator
+     * @param array $elements An array of items to concatenate
+     * @return string The concat SQL
+     */
     public function sql_concat_join($separator="' '", $elements=array()) {
         $s = implode(', ', $elements);
 

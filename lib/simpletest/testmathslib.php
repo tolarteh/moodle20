@@ -10,6 +10,7 @@ require_once($CFG->libdir . '/mathslib.php');
  * Unit tests of mathslib wrapper and underlying EvalMath library.
  *
  * @author Petr Skoda (skodak)
+ * @version $Id: testmathslib.php,v 1.12 2010/12/14 17:36:06 moodlerobot Exp $
  */
 class mathsslib_test extends UnitTestCase {
 

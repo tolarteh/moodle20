@@ -101,6 +101,7 @@ class mnetservice_enrol {
                       JOIN {mnet_service} s ON hs.serviceid = s.id
                       JOIN {mnet_application} a ON h.applicationid = a.id
                      WHERE s.name = 'mnet_enrol'
+                           AND h.deleted = 0
                            AND hs.publish = 1";
             $this->cachesubscribers = $DB->get_records_sql($sql);
         }
@@ -129,6 +130,7 @@ class mnetservice_enrol {
                       JOIN {mnet_service} s ON hs.serviceid = s.id
                       JOIN {mnet_application} a ON h.applicationid = a.id
                      WHERE s.name = 'mnet_enrol'
+                           AND h.deleted = 0
                            AND hs.subscribe = 1";
             $this->cachepublishers = $DB->get_records_sql($sql);
         }
@@ -332,11 +334,12 @@ class mnetservice_enrol {
 
             // prune stale enrolment records
             if (empty($list)) {
-                $DB->delete_records('mnetservice_enrol_enrolments', array('hostid'=>$mnethostid));
+                $DB->delete_records('mnetservice_enrol_enrolments', array('hostid'=>$mnethostid, 'remotecourseid'=>$remotecourseid));
             } else {
                 list($isql, $params) = $DB->get_in_or_equal(array_keys($list), SQL_PARAMS_NAMED, 'param0000', false);
                 $params['hostid'] = $mnethostid;
-                $select = "hostid = :hostid AND id $isql";
+                $params['remotecourseid'] = $remotecourseid;
+                $select = "hostid = :hostid AND remotecourseid = :remotecourseid AND id $isql";
                 $DB->delete_records_select('mnetservice_enrol_enrolments', $select, $params);
             }
 
@@ -548,6 +551,10 @@ class mnetservice_enrol_potential_users_selector extends user_selector_base {
 
         $systemcontext = get_system_context();
         $userids = get_users_by_capability($systemcontext, 'moodle/site:mnetlogintoremote', 'u.id');
+
+        if (empty($userids)) {
+            return array();
+        }
 
         list($usql, $uparams) = $DB->get_in_or_equal(array_keys($userids), SQL_PARAMS_NAMED, 'uid0000');
 

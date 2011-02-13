@@ -45,11 +45,11 @@ class description_qtype extends default_questiontype {
         return false;
     }
 
-    function save_question($question, $form, $course) {
+    function save_question($question, $form) {
         // Make very sure that descriptions can'e be created with a grade of
         // anything other than 0.
         $form->defaultgrade = 0;
-        return parent::save_question($question, $form, $course);
+        return parent::save_question($question, $form);
     }
 
     function get_question_options(&$question) {
@@ -67,12 +67,15 @@ class description_qtype extends default_questiontype {
         // For editing teachers print a link to an editing popup window
         $editlink = $this->get_question_edit_link($question, $cmoptions, $options);
 
+        $context = $this->get_context_by_category_id($question->category);
+        $question->questiontext = quiz_rewrite_question_urls($question->questiontext, 'pluginfile.php', $context->id, 'question', 'questiontext', array($state->attempt, $state->question), $question->id);
         $questiontext = $this->format_text($question->questiontext, $question->questiontextformat, $cmoptions);
 
         $generalfeedback = '';
         if ($isfinished && $options->generalfeedback) {
+            $question->generalfeedback = quiz_rewrite_question_urls($question->generalfeedback, 'pluginfile.php', $context->id, 'question', 'generalfeedback', array($state->attempt, $state->question), $question->id);
             $generalfeedback = $this->format_text($question->generalfeedback,
-                    $question->questiontextformat, $cmoptions);
+                    $question->generalfeedbackformat, $cmoptions);
         }
 
         include "$CFG->dirroot/question/type/description/question.html";

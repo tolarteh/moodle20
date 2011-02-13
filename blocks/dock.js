@@ -268,6 +268,43 @@ M.core_dock.getPanel = function() {
                 }
                 return;
             };
+            /**
+             * Increases the width of the panel to avoid horizontal scrolling
+             * if possible.
+             */
+            dockpanel.correctWidth = function() {
+                var bd = this.one('.dockeditempanel_bd');
+
+                // Width of content
+                var w = bd.get('clientWidth');
+                // Scrollable width of content
+                var s = bd.get('scrollWidth');
+                // Width of content container with overflow
+                var ow = this.get('offsetWidth');
+                // The new width
+                var nw = w;
+                // The max width (80% of screen)
+                var mw = Math.round(this.get('winWidth') * 0.8);
+
+                // If the scrollable width is more than the visible width
+                if (s > w) {
+                    //   Content width
+                    // + the difference
+                    // + any rendering difference (borders, padding)
+                    // + 10px to make it look nice.
+                    nw = w + (s-w) + ((ow-w)*2) + 10;
+                }
+
+                // Make sure its not more then the maxwidth
+                if (nw > mw) {
+                    nw = mw;
+                }
+
+                // Set the new width if its more than the old width.
+                if (nw > ow) {
+                    this.setStyle('width', nw+'px');
+                }
+            }
             // Put the dockpanel in the body
             parent.append(dockpanel);
             // Return it
@@ -520,7 +557,7 @@ M.core_dock.init_genericblock = function(Y, id) {
     if (!this.initialised) {
         this.init(Y);
     }
-    new this.genericblock(id).init(Y, Y.one('#inst'+id));
+    new this.genericblock(id).initialise_block(Y, Y.one('#inst'+id));
 };
 /**
  * Removes the node at the given index and puts it back into conventional page sturcture
@@ -627,6 +664,7 @@ M.core_dock.resize = function() {
         var titletop = item.nodes.docktitle.getY()-docky-buffer;
         var containery = this.nodes.container.getY();
         var containerheight = containery-docky+this.nodes.buttons.get('offsetHeight');
+        var scrolltop = panel.contentBody.get('scrollTop');
         panel.contentBody.setStyle('height', 'auto');
         panel.removeClass('oversized_content');
         var panelheight = panel.get('offsetHeight');
@@ -642,6 +680,10 @@ M.core_dock.resize = function() {
             panel.setTop(titletop-containerheight-difference+buffer);
         } else {
             panel.setTop(titletop-containerheight+buffer);
+        }
+
+        if (scrolltop) {
+            panel.contentBody.set('scrollTop', scrolltop);
         }
     }
 
@@ -695,7 +737,7 @@ M.core_dock.genericblock.prototype = {
      * @param {YUI.Node} node The node that contains all of the block's content
      * @return {M.core_dock.genericblock}
      */
-    init : function(Y, node) {
+    initialise_block : function(Y, node) {
         M.core_dock.init(Y);
         
         this.Y = Y;
@@ -934,6 +976,7 @@ M.core_dock.item.prototype = {
         panel.setHeader(this.titlestring, this.commands);
         panel.setBody(Y.Node.create('<div class="'+this.blockclass+' block_docked"></div>').append(this.contents));
         panel.show();
+        panel.correctWidth();
 
         this.active = true;
         // Add active item class first up

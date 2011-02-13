@@ -38,7 +38,7 @@ require_once 'Zend/Server/Reflection/Parameter.php';
  * @subpackage Reflection
  * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
- * @version $Id: Prototype.php 20096 2010-01-06 02:05:09Z bkarwin $
+ * @version $Id$
  */
 class Zend_Server_Reflection_Prototype
 {

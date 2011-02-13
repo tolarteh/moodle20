@@ -74,6 +74,7 @@ function xmldb_main_upgrade($oldversion) {
         $table->add_field('type', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
         $table->add_field('plugin', XMLDB_TYPE_CHAR, '100', null, null, null, null);
         $table->add_field('version', XMLDB_TYPE_CHAR, '100', null, null, null, null);
+        $table->add_field('targetversion', XMLDB_TYPE_CHAR, '100', null, null, null, null);
         $table->add_field('info', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null);
         $table->add_field('details', XMLDB_TYPE_TEXT, 'small', null, null, null, null);
         $table->add_field('backtrace', XMLDB_TYPE_TEXT, 'small', null, null, null, null);
@@ -645,49 +646,49 @@ function xmldb_main_upgrade($oldversion) {
     if ($oldversion < 2008081500) {
     /// Changing the type of all the columns that the question bank uses to store grades to be NUMBER(12, 7).
         $table = new xmldb_table('question');
-        $field = new xmldb_field('defaultgrade', XMLDB_TYPE_NUMBER, '12, 7', null, null, null, null, 'generalfeedback');
+        $field = new xmldb_field('defaultgrade', XMLDB_TYPE_NUMBER, '12, 7', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '1.0000000', 'generalfeedback');
         $dbman->change_field_type($table, $field);
         upgrade_main_savepoint(true, 2008081500);
     }
 
     if ($oldversion < 2008081501) {
         $table = new xmldb_table('question');
-        $field = new xmldb_field('penalty', XMLDB_TYPE_NUMBER, '12, 7', null, null, null, null, 'defaultgrade');
+        $field = new xmldb_field('penalty', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0.1000000', 'defaultgrade');
         $dbman->change_field_type($table, $field);
         upgrade_main_savepoint(true, 2008081501);
     }
 
     if ($oldversion < 2008081502) {
         $table = new xmldb_table('question_answers');
-        $field = new xmldb_field('fraction', XMLDB_TYPE_NUMBER, '12, 7', null, null, null, null, 'answer');
+        $field = new xmldb_field('fraction', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0', 'answer');
         $dbman->change_field_type($table, $field);
         upgrade_main_savepoint(true, 2008081502);
     }
 
     if ($oldversion < 2008081503) {
         $table = new xmldb_table('question_sessions');
-        $field = new xmldb_field('sumpenalty', XMLDB_TYPE_NUMBER, '12, 7', null, null, null, null, 'newgraded');
+        $field = new xmldb_field('sumpenalty', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0', 'newgraded');
         $dbman->change_field_type($table, $field);
         upgrade_main_savepoint(true, 2008081503);
     }
 
     if ($oldversion < 2008081504) {
         $table = new xmldb_table('question_states');
-        $field = new xmldb_field('grade', XMLDB_TYPE_NUMBER, '12, 7', null, null, null, null, 'event');
+        $field = new xmldb_field('grade', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0', 'event');
         $dbman->change_field_type($table, $field);
         upgrade_main_savepoint(true, 2008081504);
     }
 
     if ($oldversion < 2008081505) {
         $table = new xmldb_table('question_states');
-        $field = new xmldb_field('raw_grade', XMLDB_TYPE_NUMBER, '12, 7', null, null, null, null, 'grade');
+        $field = new xmldb_field('raw_grade', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0', 'grade');
         $dbman->change_field_type($table, $field);
         upgrade_main_savepoint(true, 2008081505);
     }
 
     if ($oldversion < 2008081506) {
         $table = new xmldb_table('question_states');
-        $field = new xmldb_field('penalty', XMLDB_TYPE_NUMBER, '12, 7', null, null, null, null, 'raw_grade');
+        $field = new xmldb_field('penalty', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0', 'raw_grade');
         $dbman->change_field_type($table, $field);
         upgrade_main_savepoint(true, 2008081506);
     }
@@ -1552,7 +1553,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
         $table = new xmldb_table('block_instances');
 
     /// Rename field weight on table block_instances to defaultweight
-        $field = new xmldb_field('weight', XMLDB_TYPE_INTEGER, '3', null, XMLDB_NOTNULL, null, '0', 'position');
+        $field = new xmldb_field('weight', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null, 'position');
         $dbman->rename_field($table, $field, 'defaultweight');
 
     /// Rename field position on table block_instances to defaultregion
@@ -1817,11 +1818,11 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
 
     /// Adding fields to table block_positions
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
-        $table->add_field('blockinstanceid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('blockinstanceid', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null);
         $table->add_field('contextid', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null);
         $table->add_field('pagetype', XMLDB_TYPE_CHAR, '64', null, XMLDB_NOTNULL, null, null);
         $table->add_field('subpage', XMLDB_TYPE_CHAR, '16', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('visible', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, '1');
+        $table->add_field('visible', XMLDB_TYPE_INTEGER, '4', null, XMLDB_NOTNULL, null, null);
         $table->add_field('region', XMLDB_TYPE_CHAR, '16', null, XMLDB_NOTNULL, null, null);
         $table->add_field('weight', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
 
@@ -1845,17 +1846,21 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
     if ($oldversion < 2009050618) {
     /// And block instances with visible = 0, copy that information to block_positions
         $DB->execute("INSERT INTO {block_positions} (blockinstanceid, contextid, pagetype, subpage, visible, region, weight)
-                SELECT id, contextid,
-                CASE WHEN pagetypepattern = 'course-view-*' THEN
-                        (SELECT " . $DB->sql_concat("'course-view-'", 'format') . "
-                        FROM {course}
-                        JOIN {context} ON {course}.id = {context}.instanceid
-                        WHERE {context}.id = contextid)
-                    ELSE pagetypepattern END,
-                CASE WHEN subpagepattern IS NULL THEN ''
-                    ELSE subpagepattern END,
-                0, defaultregion, defaultweight
-                FROM {block_instances} WHERE visible = 0 AND pagetypepattern <> 'admin-*'");
+                SELECT bi.id, bi.contextid,
+                       CASE WHEN bi.pagetypepattern = 'course-view-*'
+                           THEN (SELECT " . $DB->sql_concat("'course-view-'", 'c.format') . "
+                                   FROM {course} c
+                                   JOIN {context} ctx ON c.id = ctx.instanceid
+                                  WHERE ctx.id = bi.contextid)
+                           ELSE bi.pagetypepattern END,
+                       CASE WHEN bi.subpagepattern IS NULL
+                           THEN ''
+                           ELSE bi.subpagepattern END,
+                       0, bi.defaultregion, bi.defaultweight
+                  FROM {block_instances} bi
+                 WHERE bi.visible = 0 AND bi.pagetypepattern <> 'admin-*' AND bi.pagetypepattern IS NOT NULL");
+        // note: MDL-25031 all block instances should have a pagetype pattern, NULL is not allowed,
+        //       if we manage to find out how NULLs get there we should fix them before this step
 
     /// Main savepoint reached
         upgrade_main_savepoint(true, 2009050618);
@@ -2347,19 +2352,19 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
 
     if ($oldversion < 2009110400) {
         // list of tables where we need to add new format field and convert texts
-        $extendtables = array('course' => 'summary',
-                              'course_categories' => 'description',
-                              'course_categories' => 'description',
-                              'course_request' => 'summary',
-                              'grade_outcomes' => 'description',
-                              'groups' => 'description',
-                              'groupings' => 'description',
-                              'scale' => 'description',
-                              'user_info_field' => 'description',
-                              'user_info_field' => 'defaultdata',
-                              'user_info_data' => 'data');
+        $extendtables = array('course'              => 'summary',
+                              'course_categories'   => 'description',
+                              'course_categories'   => 'description',
+                              'course_request'      => 'summary',
+                              'grade_outcomes'      => 'description',
+                              'groups'              => 'description',
+                              'groupings'           => 'description',
+                              'scale'               => 'description',
+                              'user_info_field'     => 'description',
+                              'user_info_field'     => 'defaultdata',
+                              'user_info_data'      => 'data');
 
-        foreach ($extendtables as $tablestr=>$fieldstr) {
+        foreach ($extendtables as $tablestr => $fieldstr) {
             $formatfieldstr = $fieldstr.'format';
 
             $table = new xmldb_table($tablestr);
@@ -2370,7 +2375,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
                 $dbman->add_field($table, $field);
             }
             if ($CFG->texteditors !== 'textarea') {
-                $rs = $DB->get_recordset($tablestr, array($formatfieldstr=>FORMAT_MOODLE), '', "id,$fieldstr,$formatfieldstr");
+                $rs = $DB->get_recordset($tablestr, array($formatfieldstr => FORMAT_MOODLE), '', "id,$fieldstr,$formatfieldstr");
                 foreach ($rs as $rec) {
                     $rec->$fieldstr       = text_to_html($rec->$fieldstr, false, false, true);
                     $rec->$formatfieldstr = FORMAT_HTML;
@@ -2378,6 +2383,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
                     upgrade_set_timeout();
                 }
                 $rs->close();
+                unset($rs);
             }
         }
 
@@ -2426,7 +2432,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
 
     if ($oldversion < 2010011200) {
         $table = new xmldb_table('grade_categories');
-        $field = new xmldb_field('hidden', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0);
+        $field = new xmldb_field('hidden', XMLDB_TYPE_INTEGER, '1', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'timemodified');
 
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
@@ -2820,10 +2826,10 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
 
     if ($oldversion < 2010033102.00) {
         // rename course view capability to participate
-        $params = array('view'=>'moodle/course:view', 'participate'=>'moodle/course:participate');
-        $sql = "UPDATE {role_capabilities} SET capability = :participate WHERE capability = :view";
+        $params = array('viewcap'=>'moodle/course:view', 'participatecap'=>'moodle/course:participate');
+        $sql = "UPDATE {role_capabilities} SET capability = :participatecap WHERE capability = :viewcap";
         $DB->execute($sql, $params);
-        $sql = "UPDATE {capabilities} SET name = :participate WHERE name = :view";
+        $sql = "UPDATE {capabilities} SET name = :participatecap WHERE name = :viewcap";
         $DB->execute($sql, $params);
         // note: the view capability is readded again at the end of upgrade, but with different meaning
         upgrade_main_savepoint(true, 2010033102.00);
@@ -3590,8 +3596,8 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, null, null, 0);
         $table->add_field('name', XMLDB_TYPE_CHAR, '200', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('private', XMLDB_TYPE_INTEGER, '1', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0);
-        $table->add_field('sortorder', XMLDB_TYPE_INTEGER, '6', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
+        $table->add_field('private', XMLDB_TYPE_INTEGER, '1', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '1');
+        $table->add_field('sortorder', XMLDB_TYPE_INTEGER, '6', null, XMLDB_NOTNULL, null, '0');
 
 
     /// Adding keys to table my_pages
@@ -3928,8 +3934,8 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
     if ($oldversion < 2010061900.04) {
         // there is no default course role any more, each enrol plugin has to handle it separately
         if (!empty($CFG->defaultcourseroleid)) {
-            $sql = "UPDATE {course} SET defaultrole = :default WHERE defaultrole = 0";
-            $params = array('default' => $CFG->defaultcourseroleid);
+            $sql = "UPDATE {course} SET defaultrole = :defaultrole WHERE defaultrole = 0";
+            $params = array('defaultrole' => $CFG->defaultcourseroleid);
             $DB->execute($sql, $params);
         }
         unset_config('defaultcourseroleid');
@@ -4925,6 +4931,19 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
             $dbman->add_field($table, $field);
         }
 
+    /// Upgrading the text formats in some question types depends on the
+    /// questiontextformat field, but the question type upgrade only runs
+    /// after the code below has messed around with the questiontextformat
+    /// value. Therefore, we need to create a new column to store the old value.
+    /// The column should be dropped in Moodle 2.1.
+    /// Define field oldquestiontextformat to be added to question
+        $field = new xmldb_field('oldquestiontextformat', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'generalfeedback');
+
+    /// Conditionally launch add field oldquestiontextformat
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
     /// Define field infoformat to be added to question_categories
         $table = new xmldb_table('question_categories');
         $field = new xmldb_field('infoformat', XMLDB_TYPE_INTEGER, '2', null, XMLDB_NOTNULL, null, '0', 'info');
@@ -4967,66 +4986,6 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
     /// updating question image
     if ($oldversion < 2010080901) {
         $fs = get_file_storage();
-        $rs = $DB->get_recordset('question');
-        $textlib = textlib_get_instance();
-        foreach ($rs as $question) {
-            if (empty($question->image)) {
-                continue;
-            }
-            if (!$category = $DB->get_record('question_categories', array('id'=>$question->category))) {
-                continue;
-            }
-            $categorycontext = get_context_instance_by_id($category->contextid);
-            // question files are stored in course level
-            // so we have to find course context
-            switch ($categorycontext->contextlevel){
-                case CONTEXT_COURSE :
-                    $context = $categorycontext;
-                    break;
-                case CONTEXT_MODULE :
-                    $courseid = $DB->get_field('course_modules', 'course', array('id'=>$categorycontext->instanceid));
-                    $context = get_context_instance(CONTEXT_COURSE, $courseid);
-                    break;
-                case CONTEXT_COURSECAT :
-                case CONTEXT_SYSTEM :
-                    $context = get_system_context();
-                    break;
-                default :
-                    continue;
-            }
-            if ($textlib->substr($textlib->strtolower($question->image), 0, 7) == 'http://') {
-                // it is a link, appending to existing question text
-                $question->questiontext .= ' <img src="' . $question->image . '" />';
-                // update question record
-                $DB->update_record('question', $question);
-            } else {
-                $filename = basename($question->image);
-                $filepath = dirname($question->image);
-                if (empty($filepath) or $filepath == '.' or $filepath == '/') {
-                    $filepath = '/';
-                } else {
-                    // append /
-                    $filepath = '/'.trim($filepath, './@#$ ').'/';
-                }
-
-                // course files already moved to file pool by previous upgrade block
-                // so we just create copy from course_legacy area
-                if ($image = $fs->get_file($context->id, 'course', 'legacy', 0, $filepath, $filename)) {
-                    // move files to file pool
-                    $file_record = array(
-                        'contextid'=>$category->contextid,
-                        'component'=>'question',
-                        'filearea'=>'questiontext',
-                        'itemid'=>$question->id
-                    );
-                    $fs->create_file_from_storedfile($file_record, $image);
-                    $question->questiontext .= ' <img src="@@PLUGINFILE@@' . $filepath . $filename . '" />';
-                    // update question record
-                    $DB->update_record('question', $question);
-                }
-            }
-        }
-        $rs->close();
 
         // Define field image to be dropped from question
         $table = new xmldb_table('question');
@@ -5034,47 +4993,140 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
 
         // Conditionally launch drop field image
         if ($dbman->field_exists($table, $field)) {
+
+            $rs = $DB->get_recordset('question');
+            $textlib = textlib_get_instance();
+
+            foreach ($rs as $question) {
+                if (empty($question->image)) {
+                    continue;
+                }
+                if (!$category = $DB->get_record('question_categories', array('id'=>$question->category))) {
+                    continue;
+                }
+                $categorycontext = get_context_instance_by_id($category->contextid);
+                // question files are stored in course level
+                // so we have to find course context
+                switch ($categorycontext->contextlevel){
+                    case CONTEXT_COURSE :
+                        $context = $categorycontext;
+                        break;
+                    case CONTEXT_MODULE :
+                        $courseid = $DB->get_field('course_modules', 'course', array('id'=>$categorycontext->instanceid));
+                        $context = get_context_instance(CONTEXT_COURSE, $courseid);
+                        break;
+                    case CONTEXT_COURSECAT :
+                    case CONTEXT_SYSTEM :
+                        $context = get_system_context();
+                        break;
+                    default :
+                        continue;
+                }
+                if ($textlib->substr($textlib->strtolower($question->image), 0, 7) == 'http://') {
+                    // it is a link, appending to existing question text
+                    $question->questiontext .= ' <img src="' . $question->image . '" />';
+                    $question->image = '';
+                    // update question record
+                    $DB->update_record('question', $question);
+                } else {
+                    $filename = basename($question->image);
+                    $filepath = dirname($question->image);
+                    if (empty($filepath) or $filepath == '.' or $filepath == '/') {
+                        $filepath = '/';
+                    } else {
+                        // append /
+                        $filepath = '/'.trim($filepath, './@#$ ').'/';
+                    }
+
+                    // course files already moved to file pool by previous upgrade block
+                    // so we just create copy from course_legacy area
+                    if ($image = $fs->get_file($context->id, 'course', 'legacy', 0, $filepath, $filename)) {
+                        // move files to file pool
+                        $file_record = array(
+                            'contextid'=>$category->contextid,
+                            'component'=>'question',
+                            'filearea'=>'questiontext',
+                            'itemid'=>$question->id
+                        );
+                        $fs->create_file_from_storedfile($file_record, $image);
+                        $question->questiontext .= ' <img src="@@PLUGINFILE@@' . $filepath . $filename . '" />';
+                        $question->image = '';
+                        // update question record
+                        $DB->update_record('question', $question);
+                    }
+                }
+            }
+            $rs->close();
+
             $dbman->drop_field($table, $field);
         }
 
-        // fix fieldformat
-        $sql = 'SELECT a.*, q.qtype FROM {question_answers} a, {question} q WHERE a.question = q.id';
-        $rs = $DB->get_recordset_sql($sql);
+        // Update question_answers.
+        // In question_answers.feedback was previously always treated as
+        // FORMAT_HTML in calculated, multianswer, multichoice, numerical,
+        // shortanswer and truefalse; and
+        // FORMAT_MOODLE in essay (despite being edited using the HTML editor)
+        // So essay feedback needs to be converted to HTML unless $CFG->texteditors == 'textarea'.
+        // For all question types except multichoice,
+        // question_answers.answer is FORMAT_PLAIN and does not need to be changed.
+        // For multichoice, question_answers.answer is FORMAT_MOODLE, and should
+        // stay that way, at least for now.
+        $rs = $DB->get_recordset_sql('
+                SELECT qa.*, q.qtype
+                FROM {question_answers} qa
+                JOIN {question} q ON qa.question = q.id');
         foreach ($rs as $record) {
-            // generalfeedback should use questiontext format
+            // Convert question_answers.answer
+            if ($record->qtype !== 'multichoice') {
+                $record->answerformat = FORMAT_PLAIN;
+            } else {
+                $record->answerformat = FORMAT_MOODLE;
+            }
+
+            // Convert question_answers.feedback
             if ($CFG->texteditors !== 'textarea') {
-                if (!empty($record->feedback)) {
-                    $record->feedback = text_to_html($record->feedback);
+                if ($record->qtype == 'essay') {
+                    $record->feedback = text_to_html($record->feedback, false, false, true);
                 }
                 $record->feedbackformat = FORMAT_HTML;
             } else {
                 $record->feedbackformat = FORMAT_MOODLE;
-                $record->answerformat = FORMAT_MOODLE;
             }
-            unset($record->qtype);
+
             $DB->update_record('question_answers', $record);
         }
         $rs->close();
 
-        $rs = $DB->get_recordset('question');
-        foreach ($rs as $record) {
-            if ($CFG->texteditors !== 'textarea') {
-                if (!empty($record->questiontext)) {
-                    $record->questiontext = text_to_html($record->questiontext);
-                }
+        // In the question table, the code previously used questiontextformat
+        // for both question text and general feedback. We need to copy the
+        // values into the new column.
+        // Then we need to convert FORMAT_MOODLE to FORMAT_HTML (depending on
+        // $CFG->texteditors).
+        $DB->execute('
+                UPDATE {question}
+                SET generalfeedbackformat = questiontextformat');
+        // Also save the old questiontextformat, so that plugins that need it
+        // can access it.
+        $DB->execute('
+                UPDATE {question}
+                SET oldquestiontextformat = questiontextformat');
+        // Now covert FORMAT_MOODLE content, if necssary.
+        if ($CFG->texteditors !== 'textarea') {
+            $rs = $DB->get_recordset('question', array('questiontextformat'=>FORMAT_MOODLE));
+            foreach ($rs as $record) {
+                $record->questiontext = text_to_html($record->questiontext, false, false, true);
                 $record->questiontextformat = FORMAT_HTML;
-                // conver generalfeedback text to html
-                if (!empty($record->generalfeedback)) {
-                    $record->generalfeedback = text_to_html($record->generalfeedback);
-                }
-            } else {
-                $record->questiontextformat = FORMAT_MOODLE;
+                $record->generalfeedback = text_to_html($record->generalfeedback, false, false, true);
+                $record->generalfeedbackformat = FORMAT_HTML;
+                $DB->update_record('question', $record);
             }
-            // generalfeedbackformat should be the save as questiontext format
-            $record->generalfeedbackformat = $record->questiontextformat;
-            $DB->update_record('question', $record);
+            $rs->close();
         }
-        $rs->close();
+
+        // In the past, question_sessions.manualcommentformat was always treated
+        // as FORMAT_HTML.
+        $DB->set_field('question_sessions', 'manualcommentformat', FORMAT_HTML);
+
         // Main savepoint reached
         upgrade_main_savepoint(true, 2010080901);
     }
@@ -5301,7 +5353,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
     //install.xml so there are 2.0 sites that are missing it.
     if ($oldversion < 2010101900) {
         $table = new xmldb_table('grade_categories');
-        $field = new xmldb_field('hidden', XMLDB_TYPE_INTEGER, '1', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0);
+        $field = new xmldb_field('hidden', XMLDB_TYPE_INTEGER, '1', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'timemodified');
 
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
@@ -5321,9 +5373,9 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
     //MDL-24771
     if ($oldversion < 2010102601) {
 
-        $fieldnotification = new xmldb_field('notification', XMLDB_TYPE_INTEGER, '1', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'smallmessage');
-        $fieldcontexturl = new xmldb_field('contexturl', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'notification');
-        $fieldcontexturlname = new xmldb_field('contexturlname', XMLDB_TYPE_CHAR, '255', null, null, null, null, 'contexturl');
+        $fieldnotification = new xmldb_field('notification', XMLDB_TYPE_INTEGER, '1', XMLDB_UNSIGNED, null, null, 0, 'smallmessage');
+        $fieldcontexturl = new xmldb_field('contexturl', XMLDB_TYPE_TEXT, 'small', null, null, null, null, 'notification');
+        $fieldcontexturlname = new xmldb_field('contexturlname', XMLDB_TYPE_TEXT, 'small', null, null, null, null, 'contexturl');
         $fieldstoadd = array($fieldnotification, $fieldcontexturl, $fieldcontexturlname);
 
         $tablestomodify = array(new xmldb_table('message'), new xmldb_table('message_read'));
@@ -5371,7 +5423,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
     if ($oldversion < 2010102700) {
 
         $table = new xmldb_table('post');
-        $field = new xmldb_field('uniquehash', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null, 'content');
+        $field = new xmldb_field('uniquehash', XMLDB_TYPE_CHAR, '128', null, XMLDB_NOTNULL, null, null, 'content');
         // Launch change of precision for field name
         $dbman->change_field_precision($table, $field);
 
@@ -5398,6 +5450,577 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
         unset_config('forum_logblocked');
         upgrade_main_savepoint(true, 2010110500);
     }
+
+    if ($oldversion < 2010110800) {
+        // convert $CFG->disablecourseajax to $CFG->enablecourseajax
+        $disabledcourseajax = get_config('disablecourseajax', 0);
+        if ($disabledcourseajax) {
+            set_config('enablecourseajax', 0);
+        } else {
+            set_config('enablecourseajax', 1);
+        }
+        unset_config('disablecourseajax');
+
+        upgrade_main_savepoint(true, 2010110800);
+    }
+
+    if ($oldversion < 2010111000) {
+
+        // Clean up the old scheduled backup settings that are no longer relevant
+        update_fix_automated_backup_config();
+        upgrade_main_savepoint(true, 2010111000);
+    }
+
+    if ($oldversion < 2010111702) {
+
+        // Clean up the old experimental split restore no loger used
+        unset_config('experimentalsplitrestore');
+
+        upgrade_main_savepoint(true, 2010111702);
+    }
+
+    if ($oldversion < 2010121401) {
+
+        // Define table profiling to be created
+        $table = new xmldb_table('profiling');
+
+        // Adding fields to table profiling
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('runid', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('url', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('data', XMLDB_TYPE_TEXT, 'big', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('totalexecutiontime', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null);
+        $table->add_field('totalcputime', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null);
+        $table->add_field('totalcalls', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null);
+        $table->add_field('totalmemory', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null);
+        $table->add_field('runreference', XMLDB_TYPE_INTEGER, '2', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
+        $table->add_field('runcomment', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null);
+
+        // Adding keys to table profiling
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $table->add_key('runid_uk', XMLDB_KEY_UNIQUE, array('runid'));
+
+        // Adding indexes to table profiling
+        $table->add_index('url_runreference_ix', XMLDB_INDEX_NOTUNIQUE, array('url', 'runreference'));
+        $table->add_index('timecreated_runreference_ix', XMLDB_INDEX_NOTUNIQUE, array('timecreated', 'runreference'));
+
+        // Conditionally launch create table for profiling
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Main savepoint reached
+        upgrade_main_savepoint(true, 2010121401);
+    }
+
+    if ($oldversion < 2011011401) {
+        $columns = $DB->get_columns('block_instances');
+
+        // Check if we need to fix the default weight column
+        if (array_key_exists('defaultweight', $columns) && $columns['defaultweight']->max_length != 10) {
+            // Fix discrepancies in the block_instances table after upgrade from 1.9
+            $table = new xmldb_table('block_instances');
+
+            // defaultweight is smallint(3) after upgrade should be bigint 10
+            // Also fixed in earlier upgrade code
+            $field = new xmldb_field('defaultweight', XMLDB_TYPE_INTEGER, 10, null, XMLDB_NOTNULL, null, null, 'defaultregion');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_type($table, $field);
+            }
+
+            // add missing key `blocinst_par_ix` (`parentcontextid`)
+            $index = new xmldb_index('parentcontextid', XMLDB_INDEX_NOTUNIQUE, array('parentcontextid'));
+            if (!$dbman->index_exists($table, $index)) {
+                $dbman->add_index($table, $index);
+            }
+        }
+
+        // Main savepoint reached
+        upgrade_main_savepoint(true, 2011011401);
+    }
+
+    if ($oldversion < 2011011402) {
+        // Fix discrepancies in the block_positions table after upgrade from 1.9
+        $table = new xmldb_table('block_positions');
+        $columns = $DB->get_columns('block_positions');
+
+        // Check if we need to fix the blockinstanceid field
+        if (array_key_exists('blockinstanceid', $columns) && empty($columns['blockinstanceid']->unsigned)) {
+            // Fix blockinstanceid
+            // First remove the indexs on the field
+            $indexone = new xmldb_index('blockinstanceid', XMLDB_INDEX_NOTUNIQUE, array('blockinstanceid'));
+            $indexall = new xmldb_index('blockinstanceid-contextid-pagetype-subpage', XMLDB_INDEX_UNIQUE, array('blockinstanceid','contextid','pagetype','subpage'));
+            if ($dbman->index_exists($table, $indexone)) {
+                $dbman->drop_index($table, $indexone);
+            }
+            if ($dbman->index_exists($table, $indexall)) {
+                $dbman->drop_index($table, $indexall);
+            }
+            // blockinstanceid should be unsigned
+            // Also fixed in earlier upgrade code
+            $field = new xmldb_field('blockinstanceid', XMLDB_TYPE_INTEGER, 10, XMLDB_UNSIGNED, XMLDB_NOTNULL, null, null, 'id');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_unsigned($table, $field);
+            }
+
+            // Add the indexs back in
+            $dbman->add_index($table, $indexone);
+            $dbman->add_index($table, $indexall);
+        }
+
+        // Check if the visible field needs fixing.
+        if (array_key_exists('visible', $columns) && !empty($columns['visible']->has_default)) {
+            // visible shouldn't have a default
+            // Also fixed in earlier upgrade code
+            $field = new xmldb_field('visible', XMLDB_TYPE_INTEGER, 4, null, XMLDB_NOTNULL, null, null, 'subpage');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+        }
+
+        // Main savepoint reached
+        upgrade_main_savepoint(true, 2011011402);
+    }
+
+    if ($oldversion < 2011011403) {
+        $columns = $DB->get_columns('grade_categories');
+        // Check if we need to fix the hidden field
+        if (array_key_exists('hidden', $columns) && $columns['hidden']->max_length != 1) {
+            // Fix discrepancies in the grade_categories table after upgrade from 1.9
+            $table = new xmldb_table('grade_categories');
+
+            // hidden should be tinyint(1)
+            // Also fixed in earlier upgrade code
+            $field = new xmldb_field('hidden', XMLDB_TYPE_INTEGER, 1, XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'timemodified');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_precision($table, $field);
+            }
+        }
+
+        // Main savepoint reached
+        upgrade_main_savepoint(true, 2011011403);
+    }
+
+    if ($oldversion < 2011011404) {
+        // Fix discrepancies in the message table after upgrade from 1.9
+        $columns = $DB->get_columns('message');
+        $table = new xmldb_table('message');
+
+        // Check if we need to fix the useridfrom field
+        if (array_key_exists('useridfrom', $columns) && empty($columns['useridfrom']->unsigned)) {
+            // useridfrom should be unsigned
+            $field = new xmldb_field('useridfrom', XMLDB_TYPE_INTEGER, 10, XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'id');
+            $index = new xmldb_index('useridfrom', XMLDB_INDEX_NOTUNIQUE, array('useridfrom'));
+            if ($dbman->index_exists($table, $index)) {
+                $dbman->drop_index($table, $index);
+            }
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_unsigned($table, $field);
+            }
+            $dbman->add_index($table, $index);
+        }
+
+        // Check if we need to fix the useridto field
+        if (array_key_exists('useridto', $columns) && empty($columns['useridto']->unsigned)) {
+            // useridto should be unsigned
+            $field = new xmldb_field('useridto', XMLDB_TYPE_INTEGER, 10, XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'useridfrom');
+            $index = new xmldb_index('useridto', XMLDB_INDEX_NOTUNIQUE, array('useridto'));
+            if ($dbman->index_exists($table, $index)) {
+                $dbman->drop_index($table, $index);
+            }
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_unsigned($table, $field);
+            }
+            $dbman->add_index($table, $index);
+        }
+
+        // Check if we need to fix the notification field
+        if (array_key_exists('notification', $columns) && !empty($columns['notification']->not_null)) {
+            // notification should allow null
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('notification', XMLDB_TYPE_INTEGER, 1, XMLDB_UNSIGNED, null, null, 0, 'smallmessage');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_notnull($table, $field);
+            }
+        }
+
+        // Check if we need to fix the contexturl field
+        if (array_key_exists('contexturl', $columns) && strpos($columns['contexturl']->type, 'text') === false) {
+            // contexturl should be text
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('contexturl', XMLDB_TYPE_TEXT, 'small', null, null, null, null, 'notification');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_type($table, $field);
+            }
+        }
+
+        // Check if we need to fix the contexturl field
+        if (array_key_exists('contexturlname', $columns) && strpos($columns['contexturlname']->type, 'text') === false) {
+            // contexturlname should be text
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('contexturlname', XMLDB_TYPE_TEXT, 'small', null, null, null, null, 'contexturl');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_type($table, $field);
+            }
+        }
+
+        // Main savepoint reached
+        upgrade_main_savepoint(true, 2011011404);
+    }
+
+    if ($oldversion < 2011011405) {
+        // Fix discrepancies in the message_read table after upgrade from 1.9
+        $columns = $DB->get_columns('message_read');
+        $table = new xmldb_table('message_read');
+
+        // Check if we need to fix the useridfrom field
+        if (array_key_exists('useridfrom', $columns) && empty($columns['useridfrom']->unsigned)) {
+            // useridfrom should be unsigned
+            $field = new xmldb_field('useridfrom', XMLDB_TYPE_INTEGER, 10, XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'id');
+            $index = new xmldb_index('useridfrom', XMLDB_INDEX_NOTUNIQUE, array('useridfrom'));
+            if ($dbman->index_exists($table, $index)) {
+                $dbman->drop_index($table, $index);
+            }
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_unsigned($table, $field);
+            }
+            $dbman->add_index($table, $index);
+        }
+
+        // Check if we need to fix the useridto field
+        if (array_key_exists('useridto', $columns) && empty($columns['useridto']->unsigned)) {
+            // useridto should be unsigned
+            $field = new xmldb_field('useridto', XMLDB_TYPE_INTEGER, 10, XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'useridfrom');
+            $index = new xmldb_index('useridto', XMLDB_INDEX_NOTUNIQUE, array('useridto'));
+            if ($dbman->index_exists($table, $index)) {
+                $dbman->drop_index($table, $index);
+            }
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_unsigned($table, $field);
+            }
+            $dbman->add_index($table, $index);
+        }
+
+        // Check if we need to fix the notification field
+        if (array_key_exists('notification', $columns) && !empty($columns['notification']->not_null)) {
+            // notification should allow null
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('notification', XMLDB_TYPE_INTEGER, 1, XMLDB_UNSIGNED, null, null, 0, 'smallmessage');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_notnull($table, $field);
+            }
+        }
+
+        // Check if we need to fix the contexturl field
+        if (array_key_exists('contexturl', $columns) && strpos($columns['contexturl']->type, 'text') === false) {
+            // contexturl should be text
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('contexturl', XMLDB_TYPE_TEXT, 'small', null, null, null, null, 'notification');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_type($table, $field);
+            }
+        }
+
+        // Check if we need to fix the contexturl field
+        if (array_key_exists('contexturlname', $columns) && strpos($columns['contexturlname']->type, 'text') === false) {
+            // contexturlname should be text
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('contexturlname', XMLDB_TYPE_TEXT, 'small', null, null, null, null, 'contexturl');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_type($table, $field);
+            }
+        }
+
+        // Main savepoint reached
+        upgrade_main_savepoint(true, 2011011405);
+    }
+
+    if ($oldversion < 2011011406) {
+        // Fix discrepancies in the my_pages table after upgrade from 1.9
+        $columns = $DB->get_columns('my_pages');
+        $table = new xmldb_table('my_pages');
+
+        // Check if we need to fix the private column
+        if (array_key_exists('private', $columns) && $columns['private']->default_value != '1') {
+            // private should be default 1
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('private', XMLDB_TYPE_INTEGER, 1, XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 1, 'name');
+            $index = new xmldb_index('user_idx', XMLDB_INDEX_NOTUNIQUE, array('userid','private'));
+            if ($dbman->index_exists($table, $index)) {
+                $dbman->drop_index($table, $index);
+            }
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+            $dbman->add_index($table, $index);
+        }
+
+        // Check if we need to fix the sortorder field
+        if (array_key_exists('sortorder', $columns) && !empty($columns['sortorder']->unsigned)) {
+            // Sortorder should not be unsigned
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('sortorder', XMLDB_TYPE_INTEGER, 6, null, XMLDB_NOTNULL, null, 0, 'private');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_notnull($table, $field);
+            }
+        }
+
+        upgrade_main_savepoint(true, 2011011406);
+    }
+
+    if ($oldversion < 2011011407) {
+        // Check if we need to fix post.uniquehash
+        $columns = $DB->get_columns('my_pages');
+        if (array_key_exists('uniquehash', $columns) && $columns['uniquehash']->max_length != 128) {
+            // Fix discrepancies in the post table after upgrade from 1.9
+            $table = new xmldb_table('post');
+
+            // Uniquehash should be 128 chars
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('uniquehash', XMLDB_TYPE_CHAR, 128, null, XMLDB_NOTNULL, null, null, 'content');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_precision($table, $field);
+            }
+        }
+
+        upgrade_main_savepoint(true, 2011011407);
+    }
+
+    if ($oldversion < 2011011408) {
+        // Fix question in the post table after upgrade from 1.9
+        $columns = $DB->get_columns('question');
+        $table = new xmldb_table('question');
+
+        // Check if we need to fix default grade
+        if (array_key_exists('defaultgrade', $columns) && (
+                empty($columns['defaultgrade']->unsigned) ||
+                empty($columns['defaultgrade']->not_null) ||
+                $columns['defaultgrade']->default_value !== '1.0000000')) {
+            // defaultgrade should be unsigned NOT NULL DEFAULT '1.0000000'
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('defaultgrade', XMLDB_TYPE_NUMBER, '12, 7', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '1.0000000', 'generalfeedbackformat');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+        }
+
+        // Check if we need to fix penalty
+        if (array_key_exists('penalty', $columns) && (empty($columns['penalty']->not_null) || $columns['penalty']->default_value !== '0.1000000')) {
+            // penalty should be NOT NULL DEFAULT '0.1000000'
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('penalty', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0.1000000', 'defaultgrade');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+        }
+
+        upgrade_main_savepoint(true, 2011011408);
+    }
+
+    if ($oldversion < 2011011409) {
+        // Fix question_answers in the post table after upgrade from 1.9
+        $columns = $DB->get_columns('question_answers');
+        $table = new xmldb_table('question_answers');
+
+        if (array_key_exists('fraction', $columns) && empty($columns['fraction']->not_null)) {
+            // fraction should be NOT NULL DEFAULT '0.0000000',
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('fraction', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0', 'feedback');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+        }
+
+        upgrade_main_savepoint(true, 2011011409);
+    }
+
+    if ($oldversion < 2011011410) {
+        // Fix question_sessions in the post table after upgrade from 1.9
+        $columns = $DB->get_columns('question_sessions');
+        $table = new xmldb_table('question_sessions');
+
+        // Check if we need to fix sumpenalty
+        if (array_key_exists('sumpenalty', $columns) && empty($columns['sumpenalty']->not_null)) {
+            // sumpenalty should be NOT NULL DEFAULT '0.0000000',
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('sumpenalty', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0', 'newgraded');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+        }
+
+        upgrade_main_savepoint(true, 2011011410);
+    }
+
+    if ($oldversion < 2011011411) {
+        // Fix question_states in the post table after upgrade from 1.9
+        $columns = $DB->get_columns('question_states');
+        $table = new xmldb_table('question_states');
+
+        // Check if we need to fix grade
+        if (array_key_exists('grade', $columns) && empty($columns['grade']->not_null)) {
+            // grade should be NOT NULL DEFAULT '0.0000000',
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('grade', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0', 'event');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+        }
+
+        // Check if we need to fix raw_grade
+        if (array_key_exists('raw_grade', $columns) && empty($columns['raw_grade']->not_null)) {
+            // raw_grade should be NOT NULL DEFAULT '0.0000000',
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('raw_grade', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0', 'grade');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+        }
+
+        // Check if we need to fix raw_grade
+        if (array_key_exists('penalty', $columns) && empty($columns['penalty']->not_null)) {
+            // penalty should be NOT NULL DEFAULT '0.0000000',
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('penalty', XMLDB_TYPE_NUMBER, '12, 7', null, XMLDB_NOTNULL, null, '0', 'raw_grade');
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+        }
+
+        upgrade_main_savepoint(true, 2011011411);
+    }
+
+    if ($oldversion < 2011011412) {
+        // Fix tag_instance in the post table after upgrade from 1.9
+        $columns = $DB->get_columns('tag_instance');
+        $table = new xmldb_table('tag_instance');
+
+        // Check if we need to fix tiuserid
+        if (array_key_exists('tiuserid', $columns) && !empty($columns['tiuserid']->has_default)) {
+            // tiuserid should have no default
+            // Fixed in earlier upgrade code
+            $field = new xmldb_field('tiuserid', XMLDB_TYPE_INTEGER, 10, XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'itemid');
+            $index = new xmldb_index('itemtype-itemid-tagid-tiuserid', XMLDB_INDEX_UNIQUE, array('itemtype', 'itemid', 'tagid', 'tiuserid'));
+            if ($dbman->index_exists($table, $index)) {
+                $dbman->drop_index($table, $index);
+            }
+            if ($dbman->field_exists($table, $field)) {
+                $dbman->change_field_default($table, $field);
+            }
+            $dbman->add_index($table, $index);
+        }
+
+        upgrade_main_savepoint(true, 2011011412);
+    }
+
+    if ($oldversion < 2011011413) {
+        // Fix user_info_field in the post table after upgrade from 1.9
+        $table = new xmldb_table('user_info_field');
+
+        // Missing field descriptionformat
+        // Fixed in earlier upgrade code
+        $field = new xmldb_field('descriptionformat', XMLDB_TYPE_INTEGER, 2, XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'description');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_main_savepoint(true, 2011011413);
+    }
+
+    if ($oldversion < 2011011414) {
+        // Drop the adodb_logsql table if it exists... it was never actually used anyway.
+        $table = new xmldb_table('adodb_logsql');
+
+        if ($dbman->table_exists($table)) {
+            $dbman->drop_table($table);
+        }
+
+        upgrade_main_savepoint(true, 2011011414);
+    }
+
+    if ($oldversion < 2011011415) {
+        //create the rating table indexes if required
+        $table = new xmldb_table('rating');
+
+        $index = new xmldb_index('itemid', XMLDB_INDEX_NOTUNIQUE, array('itemid'));
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+
+            $key = new xmldb_key('contextid', XMLDB_KEY_FOREIGN, array('contextid'), 'context', array('id'));
+            $dbman->add_key($table, $key);
+
+            $key = new xmldb_key('userid', XMLDB_KEY_FOREIGN, array('userid'), 'user', array('id'));
+            $dbman->add_key($table, $key);
+        }
+
+        upgrade_main_savepoint(true, 2011011415);
+    }
+
+    if ($oldversion < 2011012400) {
+        // Clean up the old progress tracked roles setting, no longer used (replaced by enrolment)
+        unset_config('progresstrackedroles');
+        upgrade_main_savepoint(true, 2011012400);
+    }
+
+    if ($oldversion < 2011012500) {
+        $columns = $DB->get_columns('tag_instance');
+        $table = new xmldb_table('tag_instance');
+
+        // Drop and recreate index if tiuserid doesn't have default value
+        if (array_key_exists('tiuserid', $columns) && empty($columns['tiuserid']->has_default)) {
+            // Define index itemtype-itemid-tagid-tiuserid (unique) to be dropped form tag_instance
+            $index = new xmldb_index('itemtype-itemid-tagid-tiuserid', XMLDB_INDEX_UNIQUE, array('itemtype', 'itemid', 'tagid', 'tiuserid'));
+            // Conditionally launch drop index itemtype-itemid-tagid-tiuserid
+            if ($dbman->index_exists($table, $index)) {
+                $dbman->drop_index($table, $index);
+            }
+
+            // Changing the default of field tiuserid on table tag_instance to 0
+            $field = new xmldb_field('tiuserid', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0', 'itemid');
+
+            // Launch change of default for field tiuserid
+            $dbman->change_field_default($table, $field);
+
+            $index = new xmldb_index('itemtype-itemid-tagid-tiuserid', XMLDB_INDEX_UNIQUE, array('itemtype', 'itemid', 'tagid', 'tiuserid'));
+
+            // Conditionally launch add index itemtype-itemid-tagid-tiuserid
+            if (!$dbman->index_exists($table, $index)) {
+                $dbman->add_index($table, $index);
+            }
+        }
+
+        // Main savepoint reached
+        upgrade_main_savepoint(true, 2011012500);
+    }
+
+    if ($oldversion < 2011012501) {
+        //add the index userfieldidx (not unique) to user_info_data
+        $table = new xmldb_table('user_info_data');
+        $index = new xmldb_index('userfieldidx', XMLDB_INDEX_NOTUNIQUE, array('userid', 'fieldid'));
+
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        upgrade_main_savepoint(true, 2011012501);
+    }
+
+    if ($oldversion < 2011020200.01) {
+
+        // Define field targetversion to be added to upgrade_log
+        $table = new xmldb_table('upgrade_log');
+        $field = new xmldb_field('targetversion', XMLDB_TYPE_CHAR, '100', null, null, null, null, 'version');
+
+        // Conditionally launch add field targetversion
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Main savepoint reached
+        upgrade_main_savepoint(true, 2011020200.01);
+    }
+
 
     return true;
 }

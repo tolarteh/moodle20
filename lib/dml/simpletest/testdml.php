@@ -634,13 +634,14 @@ class dml_test extends UnitTestCase {
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table->add_field('course', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
         $table->add_field('name', XMLDB_TYPE_CHAR, '255', null, null, null, '0');
+        $table->add_field('onetext', XMLDB_TYPE_TEXT, 'big', null, null, null);
         $table->add_index('course', XMLDB_INDEX_NOTUNIQUE, array('course'));
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $dbman->create_table($table);
 
-        $data = array(array('id' => 1, 'course' => 3, 'name' => 'record1'),
-                      array('id' => 2, 'course' => 3, 'name' => 'record2'),
-                      array('id' => 3, 'course' => 5, 'name' => 'record3'));
+        $data = array(array('id' => 1, 'course' => 3, 'name' => 'record1', 'onetext'=>'abc'),
+                      array('id' => 2, 'course' => 3, 'name' => 'record2', 'onetext'=>'abcd'),
+                      array('id' => 3, 'course' => 5, 'name' => 'record3', 'onetext'=>'abcde'));
 
         foreach ($data as $record) {
             $DB->insert_record($tablename, $record);
@@ -693,6 +694,16 @@ class dml_test extends UnitTestCase {
             next($data);
         }
         $rs->close();
+
+        // test for exception throwing on text conditions being compared. (MDL-24863, unwanted auto conversion of param to int)
+        $conditions = array('onetext' => '1');
+        try {
+            $rs = $DB->get_recordset($tablename, $conditions);
+            $this->fail('An Exception is missing, expected due to equating of text fields');
+        } catch (exception $e) {
+            $this->assertTrue($e instanceof dml_exception);
+            $this->assertEqual($e->errorcode, 'textconditionsnotallowed');
+        }
 
         // notes:
         //  * limits are tested in test_get_recordset_sql()
@@ -894,6 +905,7 @@ class dml_test extends UnitTestCase {
 
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table->add_field('course', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
+        $table->add_field('onetext', XMLDB_TYPE_TEXT, 'big', null, null, null);
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $dbman->create_table($table);
 
@@ -939,6 +951,16 @@ class dml_test extends UnitTestCase {
         $this->assertEqual(0, count($records));
         $records = $DB->get_records($tablename, array('course' => false));
         $this->assertEqual(0, count($records));
+
+        // test for exception throwing on text conditions being compared. (MDL-24863, unwanted auto conversion of param to int)
+        $conditions = array('onetext' => '1');
+        try {
+            $records = $DB->get_records($tablename, $conditions);
+            $this->fail('An Exception is missing, expected due to equating of text fields');
+        } catch (exception $e) {
+            $this->assertTrue($e instanceof dml_exception);
+            $this->assertEqual($e->errorcode, 'textconditionsnotallowed');
+        }
 
         // note: delegate limits testing to test_get_records_sql()
     }
@@ -1251,6 +1273,7 @@ class dml_test extends UnitTestCase {
 
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table->add_field('course', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
+        $table->add_field('onetext', XMLDB_TYPE_TEXT, 'big', null, null, null);
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $dbman->create_table($table);
 
@@ -1276,6 +1299,16 @@ class dml_test extends UnitTestCase {
         $this->enable_debugging();
         $this->assertEqual(5, $DB->get_field($tablename, 'course', array('course' => 5), IGNORE_MISSING));
         $this->assertFalse($this->get_debugging() === '');
+
+        // test for exception throwing on text conditions being compared. (MDL-24863, unwanted auto conversion of param to int)
+        $conditions = array('onetext' => '1');
+        try {
+            $DB->get_field($tablename, 'course', $conditions);
+            $this->fail('An Exception is missing, expected due to equating of text fields');
+        } catch (exception $e) {
+            $this->assertTrue($e instanceof dml_exception);
+            $this->assertEqual($e->errorcode, 'textconditionsnotallowed');
+        }
     }
 
     public function test_get_field_select() {
@@ -2018,6 +2051,8 @@ class dml_test extends UnitTestCase {
 
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table->add_field('course', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
+        $table->add_field('onechar', XMLDB_TYPE_CHAR, '100', null, null, null);
+        $table->add_field('onetext', XMLDB_TYPE_TEXT, 'big', null, null, null);
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $dbman->create_table($table);
 
@@ -2059,6 +2094,16 @@ class dml_test extends UnitTestCase {
         $this->assertEqual(5, $DB->get_field($tablename, 'course', array('id' => $id1)));
         $this->assertEqual(5, $DB->get_field($tablename, 'course', array('id' => $id2)));
         $this->assertEqual(5, $DB->get_field($tablename, 'course', array('id' => $id3)));
+
+        // test for exception throwing on text conditions being compared. (MDL-24863, unwanted auto conversion of param to int)
+        $conditions = array('onetext' => '1');
+        try {
+            $DB->set_field($tablename, 'onechar', 'frog', $conditions);
+            $this->fail('An Exception is missing, expected due to equating of text fields');
+        } catch (exception $e) {
+            $this->assertTrue($e instanceof dml_exception);
+            $this->assertEqual($e->errorcode, 'textconditionsnotallowed');
+        }
 
         // Note: All the nulls, booleans, empties, quoted and backslashes tests
         // go to set_field_select() because set_field() is just one wrapper over it
@@ -2190,6 +2235,22 @@ class dml_test extends UnitTestCase {
         $DB->set_field_select($tablename, 'onebinary', $newblob, 'id = ?', array(1));
         $this->assertEqual($newclob, $DB->get_field($tablename, 'onetext', array('id' => 1)), 'Test "small" CLOB set_field (full contents output disabled)');
         $this->assertEqual($newblob, $DB->get_field($tablename, 'onebinary', array('id' => 1)), 'Test "small" BLOB set_field (full contents output disabled)');
+
+        // This is the failure from MDL-24863. This was giving an error on MSSQL,
+        // which converts the '1' to an integer, which cannot then be compared with
+        // onetext cast to a varchar. This should be fixed and working now.
+        $newchar = 'frog';
+        // test for exception throwing on text conditions being compared. (MDL-24863, unwanted auto conversion of param to int)
+        $params = array('onetext' => '1');
+        try {
+            $DB->set_field_select($tablename, 'onechar', $newchar, $DB->sql_compare_text('onetext') . ' = ?', $params);
+            $this->assertTrue(true, 'No exceptions thrown with numerical text param comparison for text field.');
+        } catch (dml_exception $e) {
+            $this->assertFalse(true, 'We have an unexpected exception.');
+            throw $e;
+        }
+
+
     }
 
     public function test_count_records() {
@@ -2202,6 +2263,7 @@ class dml_test extends UnitTestCase {
 
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table->add_field('course', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
+        $table->add_field('onetext', XMLDB_TYPE_TEXT, 'big', null, null, null);
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $dbman->create_table($table);
 
@@ -2212,6 +2274,16 @@ class dml_test extends UnitTestCase {
         $DB->insert_record($tablename, array('course' => 5));
 
         $this->assertEqual(3, $DB->count_records($tablename));
+
+        // test for exception throwing on text conditions being compared. (MDL-24863, unwanted auto conversion of param to int)
+        $conditions = array('onetext' => '1');
+        try {
+            $DB->count_records($tablename, $conditions);
+            $this->fail('An Exception is missing, expected due to equating of text fields');
+        } catch (exception $e) {
+            $this->assertTrue($e instanceof dml_exception);
+            $this->assertEqual($e->errorcode, 'textconditionsnotallowed');
+        }
     }
 
     public function test_count_records_select() {
@@ -2266,6 +2338,7 @@ class dml_test extends UnitTestCase {
 
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table->add_field('course', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
+        $table->add_field('onetext', XMLDB_TYPE_TEXT, 'big', null, null, null);
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $dbman->create_table($table);
 
@@ -2276,6 +2349,16 @@ class dml_test extends UnitTestCase {
 
         $this->assertTrue($DB->record_exists($tablename, array('course' => 3)));
 
+
+        // test for exception throwing on text conditions being compared. (MDL-24863, unwanted auto conversion of param to int)
+        $conditions = array('onetext' => '1');
+        try {
+            $DB->record_exists($tablename, $conditions);
+            $this->fail('An Exception is missing, expected due to equating of text fields');
+        } catch (exception $e) {
+            $this->assertTrue($e instanceof dml_exception);
+            $this->assertEqual($e->errorcode, 'textconditionsnotallowed');
+        }
     }
 
     public function test_record_exists_select() {
@@ -2327,6 +2410,7 @@ class dml_test extends UnitTestCase {
 
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table->add_field('course', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
+        $table->add_field('onetext', XMLDB_TYPE_TEXT, 'big', null, null, null);
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $dbman->create_table($table);
 
@@ -2349,6 +2433,26 @@ class dml_test extends UnitTestCase {
         // delete all
         $this->assertTrue($DB->delete_records($tablename, array()));
         $this->assertEqual(0, $DB->count_records($tablename));
+
+        // test for exception throwing on text conditions being compared. (MDL-24863, unwanted auto conversion of param to int)
+        $conditions = array('onetext'=>'1');
+        try {
+            $DB->delete_records($tablename, $conditions);
+            $this->fail('An Exception is missing, expected due to equating of text fields');
+        } catch (exception $e) {
+            $this->assertTrue($e instanceof dml_exception);
+            $this->assertEqual($e->errorcode, 'textconditionsnotallowed');
+        }
+
+        // test for exception throwing on text conditions being compared. (MDL-24863, unwanted auto conversion of param to int)
+        $conditions = array('onetext' => 1);
+        try {
+            $DB->delete_records($tablename, $conditions);
+            $this->fail('An Exception is missing, expected due to equating of text fields');
+        } catch (exception $e) {
+            $this->assertTrue($e instanceof dml_exception);
+            $this->assertEqual($e->errorcode, 'textconditionsnotallowed');
+        }
     }
 
     public function test_delete_records_select() {
@@ -2518,27 +2622,48 @@ class dml_test extends UnitTestCase {
 
         $table1->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table1->add_field('name', XMLDB_TYPE_CHAR, '255', null, null, null, null);
+        $table1->add_field('nametext', XMLDB_TYPE_TEXT, 'small', null, null, null, null);
         $table1->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $dbman->create_table($table1);
 
-        $DB->insert_record($tablename1, array('name'=>'100'));
+        $DB->insert_record($tablename1, array('name'=>'0100', 'nametext'=>'0200'));
+        $DB->insert_record($tablename1, array('name'=>'10',   'nametext'=>'20'));
 
         $table2 = $this->get_test_table("2");
         $tablename2 = $table2->getName();
         $table2->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table2->add_field('res', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
+        $table2->add_field('restext', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, '0');
         $table2->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $dbman->create_table($table2);
 
-        $DB->insert_record($tablename2, array('res'=>100));
+        $DB->insert_record($tablename2, array('res'=>100, 'restext'=>200));
 
-        try {
-            $sql = "SELECT * FROM {".$tablename1."} t1, {".$tablename2."} t2 WHERE ".$DB->sql_cast_char2int("t1.name")." = t2.res ";
-            $records = $DB->get_records_sql($sql);
-            $this->assertEqual(count($records), 1);
-        } catch (dml_exception $e) {
-            $this->fail("No exception expected");
-        }
+        // casting varchar field
+        $sql = "SELECT *
+                  FROM {".$tablename1."} t1
+                  JOIN {".$tablename2."} t2 ON ".$DB->sql_cast_char2int("t1.name")." = t2.res ";
+        $records = $DB->get_records_sql($sql);
+        $this->assertEqual(count($records), 1);
+        // also test them in order clauses
+        $sql = "SELECT * FROM {{$tablename1}} ORDER BY ".$DB->sql_cast_char2int('name');
+        $records = $DB->get_records_sql($sql);
+        $this->assertEqual(count($records), 2);
+        $this->assertEqual(reset($records)->name, '10');
+        $this->assertEqual(next($records)->name, '0100');
+
+        // casting text field
+        $sql = "SELECT *
+                  FROM {".$tablename1."} t1
+                  JOIN {".$tablename2."} t2 ON ".$DB->sql_cast_char2int("t1.nametext", true)." = t2.restext ";
+        $records = $DB->get_records_sql($sql);
+        $this->assertEqual(count($records), 1);
+        // also test them in order clauses
+        $sql = "SELECT * FROM {{$tablename1}} ORDER BY ".$DB->sql_cast_char2int('nametext', true);
+        $records = $DB->get_records_sql($sql);
+        $this->assertEqual(count($records), 2);
+        $this->assertEqual(reset($records)->nametext, '20');
+        $this->assertEqual(next($records)->nametext, '0200');
     }
 
     function test_cast_char2real() {
@@ -2550,17 +2675,38 @@ class dml_test extends UnitTestCase {
 
         $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $table->add_field('name', XMLDB_TYPE_CHAR, '255', null, null, null, null);
+        $table->add_field('nametext', XMLDB_TYPE_TEXT, 'small', null, null, null, null);
         $table->add_field('res', XMLDB_TYPE_NUMBER, '12, 7', null, null, null, null);
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $dbman->create_table($table);
 
-        $DB->insert_record($tablename, array('name'=>'10.10', 'res'=>5.1));
-        $DB->insert_record($tablename, array('name'=>'1.10', 'res'=>666));
-        $DB->insert_record($tablename, array('name'=>'11.10', 'res'=>0.1));
+        $DB->insert_record($tablename, array('name'=>'10.10', 'nametext'=>'10.10', 'res'=>5.1));
+        $DB->insert_record($tablename, array('name'=>'91.10', 'nametext'=>'91.10', 'res'=>666));
+        $DB->insert_record($tablename, array('name'=>'011.10','nametext'=>'011.10','res'=>10.1));
 
+        // casting varchar field
         $sql = "SELECT * FROM {{$tablename}} WHERE ".$DB->sql_cast_char2real('name')." > res";
         $records = $DB->get_records_sql($sql);
         $this->assertEqual(count($records), 2);
+        // also test them in order clauses
+        $sql = "SELECT * FROM {{$tablename}} ORDER BY ".$DB->sql_cast_char2real('name');
+        $records = $DB->get_records_sql($sql);
+        $this->assertEqual(count($records), 3);
+        $this->assertEqual(reset($records)->name, '10.10');
+        $this->assertEqual(next($records)->name, '011.10');
+        $this->assertEqual(next($records)->name, '91.10');
+
+        // casting text field
+        $sql = "SELECT * FROM {{$tablename}} WHERE ".$DB->sql_cast_char2real('nametext', true)." > res";
+        $records = $DB->get_records_sql($sql);
+        $this->assertEqual(count($records), 2);
+        // also test them in order clauses
+        $sql = "SELECT * FROM {{$tablename}} ORDER BY ".$DB->sql_cast_char2real('nametext', true);
+        $records = $DB->get_records_sql($sql);
+        $this->assertEqual(count($records), 3);
+        $this->assertEqual(reset($records)->nametext, '10.10');
+        $this->assertEqual(next($records)->nametext, '011.10');
+        $this->assertEqual(next($records)->nametext, '91.10');
     }
 
     function sql_compare_text() {
@@ -2758,11 +2904,14 @@ class dml_test extends UnitTestCase {
         // float, empty and strings
         $params = array(123.45, '', 'test');
         $this->assertEqual('123.45test', $DB->get_field_sql($sql, $params));
+        // only integers
+        $params = array(12, 34, 56);
+        $this->assertEqual('123456', $DB->get_field_sql($sql, $params));
         // float, null and strings
         $params = array(123.45, null, 'test');
         $this->assertNull($DB->get_field_sql($sql, $params), 'ANSI behaviour: Concatenating NULL must return NULL - But in Oracle :-(. [%s]'); // Concatenate NULL with anything result = NULL
 
-        /// Testing fieldnames + values
+        /// Testing fieldnames + values and also integer fieldnames
         $table = $this->get_test_table();
         $tablename = $table->getName();
 
@@ -2775,10 +2924,22 @@ class dml_test extends UnitTestCase {
         $DB->insert_record($tablename, array('description'=>'dxxx'));
         $DB->insert_record($tablename, array('description'=>'bcde'));
 
+        // fieldnames and values mixed
         $sql = 'SELECT id, ' . $DB->sql_concat('description', "'harcoded'", '?', '?') . ' AS result FROM {' . $tablename . '}';
         $records = $DB->get_records_sql($sql, array(123.45, 'test'));
         $this->assertEqual(count($records), 3);
         $this->assertEqual($records[1]->result, 'áéíóúharcoded123.45test');
+        // integer fieldnames and values
+        $sql = 'SELECT id, ' . $DB->sql_concat('id', "'harcoded'", '?', '?') . ' AS result FROM {' . $tablename . '}';
+        $records = $DB->get_records_sql($sql, array(123.45, 'test'));
+        $this->assertEqual(count($records), 3);
+        $this->assertEqual($records[1]->result, '1harcoded123.45test');
+        // all integer fieldnames
+        $sql = 'SELECT id, ' . $DB->sql_concat('id', 'id', 'id') . ' AS result FROM {' . $tablename . '}';
+        $records = $DB->get_records_sql($sql, array());
+        $this->assertEqual(count($records), 3);
+        $this->assertEqual($records[1]->result, '111');
+
     }
 
     function test_concat_join() {
@@ -3046,6 +3207,25 @@ class dml_test extends UnitTestCase {
         $DB->insert_record($tablename, array('course' => 3, 'content' => 'world', 'name'=>'abc'));
         $DB->insert_record($tablename, array('course' => 5, 'content' => 'hello', 'name'=>'def'));
         $DB->insert_record($tablename, array('course' => 2, 'content' => 'universe', 'name'=>'abc'));
+
+        // test limits in queries with DISTINCT/ALL clauses and multiple whitespace. MDL-25268
+        $sql = "SELECT   DISTINCT   course
+                  FROM {{$tablename}}
+                 ORDER BY course";
+        // only limitfrom
+        $records = $DB->get_records_sql($sql, null, 1);
+        $this->assertEqual(2, count($records));
+        $this->assertEqual(3, reset($records)->course);
+        $this->assertEqual(5, next($records)->course);
+        // only limitnum
+        $records = $DB->get_records_sql($sql, null, 0, 2);
+        $this->assertEqual(2, count($records));
+        $this->assertEqual(2, reset($records)->course);
+        $this->assertEqual(3, next($records)->course);
+        // both limitfrom and limitnum
+        $records = $DB->get_records_sql($sql, null, 2, 2);
+        $this->assertEqual(1, count($records));
+        $this->assertEqual(5, reset($records)->course);
 
         // we have sql like this in moodle, this syntax breaks on older versions of sqlite for example..
         $sql = "SELECT a.id AS id, a.course AS course
@@ -3429,6 +3609,118 @@ class dml_test extends UnitTestCase {
         $this->assertEqual(1, count($records));
         $this->assertTrue($records = $DB->get_records_sql($sqlnamed, array('content' => '2')));
         $this->assertEqual(1, count($records));
+    }
+
+    public function test_limits_and_offsets() {
+        $DB = $this->tdb;
+        $dbman = $DB->get_manager();
+
+        if (false) $DB = new moodle_database ();
+
+        $table = $this->get_test_table();
+        $tablename = $table->getName();
+
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('name', XMLDB_TYPE_CHAR, '255', null, null, null, null);
+        $table->add_field('content', XMLDB_TYPE_TEXT, 'big', XMLDB_UNSIGNED, XMLDB_NOTNULL);
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $dbman->create_table($table);
+
+        $this->assertTrue($DB->insert_record($tablename, array('name' => 'a', 'content'=>'one')));
+        $this->assertTrue($DB->insert_record($tablename, array('name' => 'b', 'content'=>'two')));
+        $this->assertTrue($DB->insert_record($tablename, array('name' => 'c', 'content'=>'three')));
+        $this->assertTrue($DB->insert_record($tablename, array('name' => 'd', 'content'=>'four')));
+        $this->assertTrue($DB->insert_record($tablename, array('name' => 'e', 'content'=>'five')));
+        $this->assertTrue($DB->insert_record($tablename, array('name' => 'f', 'content'=>'six')));
+
+        $sqlqm = "SELECT *
+                    FROM {{$tablename}}";
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm, null, 4));
+        $this->assertEqual(2, count($records));
+        $this->assertEqual('e', reset($records)->name);
+        $this->assertEqual('f', end($records)->name);
+
+        $sqlqm = "SELECT *
+                    FROM {{$tablename}}";
+        $this->assertFalse($records = $DB->get_records_sql($sqlqm, null, 8));
+
+        $sqlqm = "SELECT *
+                    FROM {{$tablename}}";
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm, null, 0, 4));
+        $this->assertEqual(4, count($records));
+        $this->assertEqual('a', reset($records)->name);
+        $this->assertEqual('d', end($records)->name);
+
+        $sqlqm = "SELECT *
+                    FROM {{$tablename}}";
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm, null, 0, 8));
+        $this->assertEqual(6, count($records));
+        $this->assertEqual('a', reset($records)->name);
+        $this->assertEqual('f', end($records)->name);
+
+        $sqlqm = "SELECT *
+                    FROM {{$tablename}}";
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm, null, 1, 4));
+        $this->assertEqual(4, count($records));
+        $this->assertEqual('b', reset($records)->name);
+        $this->assertEqual('e', end($records)->name);
+
+        $sqlqm = "SELECT *
+                    FROM {{$tablename}}";
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm, null, 4, 4));
+        $this->assertEqual(2, count($records));
+        $this->assertEqual('e', reset($records)->name);
+        $this->assertEqual('f', end($records)->name);
+
+        $sqlqm = "SELECT t.*, t.name AS test
+                    FROM {{$tablename}} t
+                    ORDER BY t.id ASC";
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm, null, 4, 4));
+        $this->assertEqual(2, count($records));
+        $this->assertEqual('e', reset($records)->name);
+        $this->assertEqual('f', end($records)->name);
+
+        $sqlqm = "SELECT DISTINCT t.name, t.name AS test
+                    FROM {{$tablename}} t
+                    ORDER BY t.name DESC";
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm, null, 4, 4));
+        $this->assertEqual(2, count($records));
+        $this->assertEqual('b', reset($records)->name);
+        $this->assertEqual('a', end($records)->name);
+
+        $sqlqm = "SELECT 1
+                    FROM {{$tablename}} t
+                    WHERE t.name = 'a'";
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm, null, 0, 1));
+        $this->assertEqual(1, count($records));
+
+        $sqlqm = "SELECT 'constant'
+                    FROM {{$tablename}} t
+                    WHERE t.name = 'a'";
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm, null, 0, 8));
+        $this->assertEqual(1, count($records));
+
+        $this->assertTrue($DB->insert_record($tablename, array('name' => 'a', 'content'=>'one')));
+        $this->assertTrue($DB->insert_record($tablename, array('name' => 'b', 'content'=>'two')));
+        $this->assertTrue($DB->insert_record($tablename, array('name' => 'c', 'content'=>'three')));
+
+        $sqlqm = "SELECT t.name, COUNT(DISTINCT t2.id) AS count, 'Test' AS teststring
+                    FROM {{$tablename}} t
+                    LEFT JOIN (
+                        SELECT t.id, t.name
+                        FROM {{$tablename}} t
+                    ) t2 ON t2.name = t.name
+                    GROUP BY t.name
+                    ORDER BY t.name ASC";
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm));
+        $this->assertEqual(6, count($records));         // a,b,c,d,e,f
+        $this->assertEqual(2, reset($records)->count);  // a has 2 records now
+        $this->assertEqual(1, end($records)->count);    // f has 1 record still
+
+        $this->assertTrue($records = $DB->get_records_sql($sqlqm, null, 0, 2));
+        $this->assertEqual(2, count($records));
+        $this->assertEqual(2, reset($records)->count);
+        $this->assertEqual(2, end($records)->count);
     }
 }
 

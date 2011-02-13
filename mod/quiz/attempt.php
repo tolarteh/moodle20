@@ -72,8 +72,7 @@
     }
     $accessmanager->do_password_check($attemptobj->is_preview_user());
 
-/// This action used to be 'continue attempt' but the database field has only 15 characters.
-    add_to_log($attemptobj->get_courseid(), 'quiz', 'continue attemp',
+    add_to_log($attemptobj->get_courseid(), 'quiz', 'continue attempt',
             'review.php?attempt=' . $attemptobj->get_attemptid(),
             $attemptobj->get_quizid(), $attemptobj->get_cmid());
 
@@ -98,7 +97,7 @@
     // Arrange for the navigation to be displayed.
     $navbc = $attemptobj->get_navigation_panel('quiz_attempt_nav_panel', $page);
     $firstregion = reset($PAGE->blocks->get_regions());
-    $PAGE->blocks->add_pretend_block($navbc, $firstregion);
+    $PAGE->blocks->add_fake_block($navbc, $firstregion);
 
     // Print the page header
     $title = get_string('attempt', 'quiz', $attemptobj->get_attempt_number());

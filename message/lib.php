@@ -27,7 +27,11 @@ require_once($CFG->libdir.'/eventslib.php');
 
 
 define ('MESSAGE_SHORTLENGTH', 300);
-define ('MESSAGE_WINDOW', true);          // We are in a message window (so don't pop up a new one!)
+
+//$PAGE isnt set if we're being loaded by cron which doesnt display popups anyway
+if (isset($PAGE)) {
+    $PAGE->set_popup_notification_allowed(false); // We are in a message window (so don't pop up a new one)
+}
 
 define ('MESSAGE_DISCUSSION_WIDTH',600);
 define ('MESSAGE_DISCUSSION_HEIGHT',500);
@@ -136,7 +140,7 @@ function message_print_participants($context, $courseid, $contactselecturl=null,
 
     $countparticipants = count_enrolled_users($context);
     $participants = get_enrolled_users($context, '', 0, 'u.*', '', $page*MESSAGE_CONTACTS_PER_PAGE, MESSAGE_CONTACTS_PER_PAGE);
-    
+
     $pagingbar = new paging_bar($countparticipants, $page, MESSAGE_CONTACTS_PER_PAGE, $PAGE->url, 'page');
     echo $OUTPUT->render($pagingbar);
 
@@ -265,24 +269,21 @@ function message_get_contacts($user1=null, &$user2=null) {
                  GROUP BY $userfields
                  ORDER BY u.firstname ASC";
 
-    if ($rs = $DB->get_recordset_sql($contactsql, array($user1->id, $user1->id))){
-        foreach($rs as $rd){
+    $rs = $DB->get_recordset_sql($contactsql, array($user1->id, $user1->id));
+    foreach ($rs as $rd) {
+        if ($rd->lastaccess >= $timefrom) {
+            // they have been active recently, so are counted online
+            $onlinecontacts[] = $rd;
 
-            if($rd->lastaccess >= $timefrom){
-                // they have been active recently, so are counted online
-                $onlinecontacts[] = $rd;
-
-            }else{
-                $offlinecontacts[] = $rd;
-            }
-
-            if (!empty($user2) && $user2->id==$rd->id) {
-                $user2->iscontact = true;
-            }
+        } else {
+            $offlinecontacts[] = $rd;
         }
-        unset($rd);
-        $rs->close();
+
+        if (!empty($user2) && $user2->id==$rd->id) {
+            $user2->iscontact = true;
+        }
     }
+    $rs->close();
 
     // get messages from anyone who isn't in our contact list and count the number
     // of messages we have from each of them
@@ -294,13 +295,11 @@ function message_get_contacts($user1=null, &$user2=null) {
                   GROUP BY $userfields
                   ORDER BY u.firstname ASC";
 
-    if($rs = $DB->get_recordset_sql($strangersql, array($USER->id))){
-        foreach($rs as $rd){
-            $strangers[] = $rd;
-        }
-        unset($rd);
-        $rs->close();
+    $rs = $DB->get_recordset_sql($strangersql, array($USER->id));
+    foreach ($rs as $rd) {
+        $strangers[] = $rd;
     }
+    $rs->close();
 
     return array($onlinecontacts, $offlinecontacts, $strangers);
 }
@@ -523,7 +522,11 @@ function message_print_search($advancedsearch = false, $user1=null) {
 
     $doingsearch = false;
     if ($frm) {
-        $doingsearch = !empty($frm->combinedsubmit) || !empty($frm->keywords) || (!empty($frm->personsubmit) and !empty($frm->name));
+        if (confirm_sesskey()) {
+            $doingsearch = !empty($frm->combinedsubmit) || !empty($frm->keywords) || (!empty($frm->personsubmit) and !empty($frm->name));
+        } else {
+            $frm = false;
+        }
     }
 
     if (!empty($frm->combinedsearch)) {
@@ -1333,7 +1336,7 @@ function message_shorten_message($message, $minlength=0) {
  */
 function message_get_fragment($message, $keywords) {
 
-    $fullsize = 120;
+    $fullsize = 160;
     $halfsize = (int)($fullsize/2);
 
     $message = strip_tags($message);
@@ -1413,9 +1416,10 @@ function message_get_history($user1, $user2, $limitnum=0, $viewingnewmessages=fa
     }
 
     //if we only want the last $limitnum messages
-    if ($limitnum>0) {
-        ksort($messages);
-        $messages = array_slice($messages, count($messages)-$limitnum, $limitnum, true);
+    ksort($messages);
+    $messagecount = count($messages);
+    if ($limitnum>0 && $messagecount>$limitnum) {
+        $messages = array_slice($messages, $messagecount-$limitnum, $limitnum, true);
     }
 
     return $messages;
@@ -1516,7 +1520,7 @@ function message_format_message(&$message, &$user, $format='', $keywords='', $cl
 
     //if supplied display small messages as fullmessage may contain boilerplate text that shouldnt appear in the messaging UI
     if (!empty($message->smallmessage)) {
-        $messagetext = format_text($message->smallmessage, null, $options);
+        $messagetext = format_text($message->smallmessage, FORMAT_MOODLE, $options);
     } else {
         $messagetext = format_text($message->fullmessage, $message->fullmessageformat, $options);
     }
@@ -1556,14 +1560,20 @@ function message_post_message($userfrom, $userto, $message, $format, $messagetyp
     //using string manager directly so that strings in the message will be in the message recipients language rather than the senders
     $eventdata->subject          = get_string_manager()->get_string('unreadnewmessage', 'message', fullname($userfrom), $userto->lang);
 
-    $eventdata->fullmessage      = $message;
+    if ($format==FORMAT_HTML) {
+        $eventdata->fullmessage      = '';
+        $eventdata->fullmessagehtml  = $message;
+    } else {
+        $eventdata->fullmessage      = $message;
+        $eventdata->fullmessagehtml  = '';
+    }
+
     $eventdata->fullmessageformat = $format;
-    $eventdata->fullmessagehtml  = '';
-    $eventdata->smallmessage     = $message;
+    $eventdata->smallmessage     = strip_tags($message);//strip just in case there are is any html that would break the popup notification
 
     $s = new stdClass();
     $s->sitename = $SITE->shortname;
-    $s->url = $CFG->wwwroot.'/message/index.php?id='.$userfrom->id;//.'&user='.$userto->id;
+    $s->url = $CFG->wwwroot.'/message/index.php?user='.$userto->id.'&id='.$userfrom->id;
 
     $emailtagline = get_string_manager()->get_string('emailtagline', 'message', $s, $userto->lang);
     if (!empty($eventdata->fullmessage)) {
@@ -1572,7 +1582,7 @@ function message_post_message($userfrom, $userto, $message, $format, $messagetyp
     if (!empty($eventdata->fullmessagehtml)) {
         $eventdata->fullmessagehtml .= "<br /><br />---------------------------------------------------------------------<br />".$emailtagline;
     }
-    
+
     $eventdata->timecreated     = time();
     return message_send($eventdata);
 }
@@ -1758,7 +1768,7 @@ function message_mark_messages_read($touserid, $fromuserid){
 */
 function message_mark_message_read($message, $timeread, $messageworkingempty=false) {
     global $DB;
-    
+
     $message->timeread = $timeread;
 
     $messageid = $message->id;

@@ -47,10 +47,12 @@ class moodlelib_test extends UnitTestCase {
 
     var $user_agents = array(
             'MSIE' => array(
+                '5.0' => array('Windows 98' => 'Mozilla/4.0 (compatible; MSIE 5.00; Windows 98)'),
                 '5.5' => array('Windows 2000' => 'Mozilla/4.0 (compatible; MSIE 5.5; Windows NT 5.0)'),
                 '6.0' => array('Windows XP SP2' => 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1)'),
                 '7.0' => array('Windows XP SP2' => 'Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; YPC 3.0.1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)'),
                 '8.0' => array('Windows Vista' => 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 1.1.4322; .NET CLR 3.0.04506.30; .NET CLR 3.0.04506.648)'),
+                '9.0' => array('Windows 7' => 'Mozilla/5.0 (Windows; U; MSIE 9.0; WIndows NT 9.0; en-US))'),
 
             ),
             'Firefox' => array(
@@ -63,7 +65,18 @@ class moodlelib_test extends UnitTestCase {
             ),
             'Safari' => array(
                 '312' => array('Mac OS X' => 'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en-us) AppleWebKit/312.1 (KHTML, like Gecko) Safari/312'),
-                '2.0' => array('Mac OS X' => 'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en) AppleWebKit/412 (KHTML, like Gecko) Safari/412')
+                '412' => array('Mac OS X' => 'Mozilla/5.0 (Macintosh; U; PPC Mac OS X; en) AppleWebKit/412 (KHTML, like Gecko) Safari/412')
+            ),
+            'Safari iOS' => array(
+                '528' => array('iPhone' => 'Mozilla/5.0 (iPhone; U; CPU iPhone OS 3_1_2 like Mac OS X; cs-cz) AppleWebKit/528.18 (KHTML, like Gecko) Version/4.0 Mobile/7D11 Safari/528.16'),
+                '533' => array('iPad' => 'Mozilla/5.0 (iPad; U; CPU OS 4_2_1 like Mac OS X; en-us) AppleWebKit/533.17.9 (KHTML, like Gecko) Version/5.0.2 Mobile/8C148 Safari/6533.18.5'),
+            ),
+            'WebKit Android' => array(
+                '525' => array('G1 Phone' => 'Mozilla/5.0 (Linux; U; Android 1.1; en-gb; dream) AppleWebKit/525.10+ (KHTML, like Gecko) Version/3.0.4 Mobile Safari/523.12.2 – G1 Phone'),
+                '530' => array('Nexus' => 'Mozilla/5.0 (Linux; U; Android 2.1; en-us; Nexus One Build/ERD62) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17 –Nexus'),
+            ),
+            'Chrome' => array(
+                '8' => array('Mac OS X' => 'Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_6_5; en-US) AppleWebKit/534.10 (KHTML, like Gecko) Chrome/8.0.552.215 Safari/534.10'),
             ),
             'Opera' => array(
                 '8.51' => array('Windows XP' => 'Opera/8.51 (Windows NT 5.1; U; en)'),
@@ -188,25 +201,80 @@ class moodlelib_test extends UnitTestCase {
     {
         global $CFG;
 
-        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Safari']['2.0']['Mac OS X'];
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Safari']['412']['Mac OS X'];
+        $this->assertTrue(check_browser_version('Safari'));
+        $this->assertTrue(check_browser_version('WebKit'));
         $this->assertTrue(check_browser_version('Safari', '312'));
         $this->assertFalse(check_browser_version('Safari', '500'));
+        $this->assertFalse(check_browser_version('Chrome'));
+        $this->assertFalse(check_browser_version('Safari iOS'));
+
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Safari iOS']['528']['iPhone'];
+        $this->assertTrue(check_browser_version('Safari iOS'));
+        $this->assertTrue(check_browser_version('WebKit'));
+        $this->assertTrue(check_browser_version('Safari iOS', '527'));
+        $this->assertFalse(check_browser_version('Safari iOS', 590));
+        $this->assertFalse(check_browser_version('Safari', '312'));
+        $this->assertFalse(check_browser_version('Safari', '500'));
+        $this->assertFalse(check_browser_version('Chrome'));
+
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['WebKit Android']['530']['Nexus'];
+        $this->assertTrue(check_browser_version('WebKit'));
+        $this->assertTrue(check_browser_version('WebKit Android', '527'));
+        $this->assertFalse(check_browser_version('WebKit Android', 590));
+        $this->assertFalse(check_browser_version('Safari'));
+        $this->assertFalse(check_browser_version('Chrome'));
+
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Chrome']['8']['Mac OS X'];
+        $this->assertTrue(check_browser_version('Chrome'));
+        $this->assertTrue(check_browser_version('WebKit'));
+        $this->assertTrue(check_browser_version('Chrome', 8));
+        $this->assertFalse(check_browser_version('Chrome', 10));
+        $this->assertFalse(check_browser_version('Safari', '1'));
 
         $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Opera']['9.0']['Windows XP'];
+        $this->assertTrue(check_browser_version('Opera'));
         $this->assertTrue(check_browser_version('Opera', '8.0'));
         $this->assertFalse(check_browser_version('Opera', '10.0'));
 
         $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['MSIE']['6.0']['Windows XP SP2'];
+        $this->assertTrue(check_browser_version('MSIE'));
         $this->assertTrue(check_browser_version('MSIE', '5.0'));
         $this->assertFalse(check_browser_version('MSIE', '7.0'));
 
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['MSIE']['5.0']['Windows 98'];
+        $this->assertFalse(check_browser_version('MSIE'));
+        $this->assertTrue(check_browser_version('MSIE', 0));
+        $this->assertTrue(check_browser_version('MSIE', '5.0'));
+        $this->assertFalse(check_browser_version('MSIE', '7.0'));
+
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['MSIE']['9.0']['Windows 7'];
+        $this->assertTrue(check_browser_version('MSIE'));
+        $this->assertTrue(check_browser_version('MSIE', 0));
+        $this->assertTrue(check_browser_version('MSIE', '5.0'));
+        $this->assertTrue(check_browser_version('MSIE', '9.0'));
+        $this->assertFalse(check_browser_version('MSIE', '10'));
+
         $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Firefox']['2.0']['Windows XP'];
+        $this->assertTrue(check_browser_version('Firefox'));
         $this->assertTrue(check_browser_version('Firefox', '1.5'));
         $this->assertFalse(check_browser_version('Firefox', '3.0'));
     }
 
     function test_get_browser_version_classes() {
-        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Safari']['2.0']['Mac OS X'];
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Safari']['412']['Mac OS X'];
+        $this->assertEqual(array('safari'), get_browser_version_classes());
+
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Chrome']['8']['Mac OS X'];
+        $this->assertEqual(array('safari'), get_browser_version_classes());
+
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Safari iOS']['528']['iPhone'];
+        $this->assertEqual(array('safari', 'ios'), get_browser_version_classes());
+
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['WebKit Android']['530']['Nexus'];
+        $this->assertEqual(array('safari', 'android'), get_browser_version_classes());
+
+        $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Chrome']['8']['Mac OS X'];
         $this->assertEqual(array('safari'), get_browser_version_classes());
 
         $_SERVER['HTTP_USER_AGENT'] = $this->user_agents['Opera']['9.0']['Windows XP'];
@@ -243,6 +311,10 @@ class moodlelib_test extends UnitTestCase {
     function test_clean_param_raw() {
         $this->assertEqual(clean_param('#()*#,9789\'".,<42897></?$(*DSFMO#$*)(SDJ)($*)', PARAM_RAW),
             '#()*#,9789\'".,<42897></?$(*DSFMO#$*)(SDJ)($*)');
+    }
+
+    function test_clean_param_trim() {
+        $this->assertEqual(clean_param("   Frog toad   \r\n  ", PARAM_RAW_TRIMMED), 'Frog toad');
     }
 
     function test_clean_param_clean() {
@@ -451,7 +523,7 @@ class moodlelib_test extends UnitTestCase {
         // The string version of date comes from server locale setting and does
         // not respect user language, so it is necessary to reset that.
         $oldlocale = setlocale(LC_TIME, '0');
-        setlocale(LC_TIME, 'en_AU.UTF-8'); 
+        setlocale(LC_TIME, 'en_AU.UTF-8');
 
         $ts = 1261540267; //the time this function was created
 

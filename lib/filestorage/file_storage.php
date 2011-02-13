@@ -442,6 +442,35 @@ class file_storage {
     }
 
     /**
+     * Move all the files in a file area from one context to another.
+     * @param integer $oldcontextid the context the files are being moved from.
+     * @param integer $newcontextid the context the files are being moved to.
+     * @param string $component the plugin that these files belong to.
+     * @param string $filearea the name of the file area.
+     * @return integer the number of files moved, for information.
+     */
+    public function move_area_files_to_new_context($oldcontextid, $newcontextid, $component, $filearea, $itemid = false) {
+        // Note, this code is based on some code that Petr wrote in
+        // forum_move_attachments in mod/forum/lib.php. I moved it here because
+        // I needed it in the question code too.
+        $count = 0;
+
+        $oldfiles = $this->get_area_files($oldcontextid, $component, $filearea, $itemid, 'id', false);
+        foreach ($oldfiles as $oldfile) {
+            $filerecord = new stdClass();
+            $filerecord->contextid = $newcontextid;
+            $this->create_file_from_storedfile($filerecord, $oldfile);
+            $count += 1;
+        }
+
+        if ($count) {
+            $this->delete_area_files($oldcontextid, $component, $filearea, $itemid);
+        }
+
+        return $count;
+    }
+
+    /**
      * Recursively creates directory.
      *
      * @param int $contextid
@@ -1185,6 +1214,8 @@ class file_storage {
         foreach ($rs as $dir) {
             $this->delete_area_files($dir->contextid, $dir->component, $dir->filearea, $dir->itemid);
         }
+        $rs->close();
+        mtrace('done.');
 
         // remove trash pool files once a day
         // if you want to disable purging of trash put $CFG->fileslastcleanup=time(); into config.php
@@ -1196,12 +1227,14 @@ class file_storage {
                     FROM {files} f
                     LEFT OUTER JOIN {context} c ON f.contextid = c.id
                     WHERE c.id IS NULL";
-            if ($rs = $DB->get_recordset_sql($sql)) {
+            $rs = $DB->get_recordset_sql($sql);
+            if ($rs->valid()) {
                 $fs = get_file_storage();
                 foreach ($rs as $ctx) {
                     $fs->delete_area_files($ctx->contextid);
                 }
             }
+            $rs->close();
             mtrace('done.');
 
             mtrace('Deleting trash files... ', '');

@@ -50,9 +50,12 @@ $CFG->dboptions = array(
                                 //  used? set to 'false' for the most stable
                                 //  setting, 'true' can improve performance
                                 //  sometimes
-    'dbsocket'  => false,       // should connection via UNIX socket be
-                                //  used? if you set it to 'true' here,
-                                //  set dbhost to 'localhost'
+    'dbsocket'  => false,       // should connection via UNIX socket be used?
+                                //  if you set it to 'true' or custom path
+                                //  here set dbhost to 'localhost',
+                                //  (please note mysql is always using socket
+                                //  if dbhost is 'localhost' - if you need
+                                //  local port connection use '127.0.0.1')
     'dbport'    => '',          // the TCP port number to use when connecting
                                 //  to the server. keep empty string for the
                                 //  default port
@@ -155,10 +158,6 @@ $CFG->admin = 'admin';
 // any existing key.
 //      $CFG->mnetkeylifetime = 28;
 //
-// Prevent scheduled backups from operating (and hide the GUI for them)
-// Useful for webhost operators who have alternate methods of backups
-//      $CFG->disablescheduledbackups = true;
-//
 // Allow user passwords to be included in backup files. Very dangerous
 // setting as far as it publishes password hashes that can be unencrypted
 // if the backup file is publicy available. Use it only if you can guarantee
@@ -236,7 +235,6 @@ $CFG->admin = 'admin';
 // may break things for users coming using proxies that change all the time,
 // like AOL.
 //      $CFG->tracksessionip = true;
-//
 //
 // The following lines are for handling email bounces.
 //      $CFG->handlebounces = true;
@@ -353,6 +351,13 @@ $CFG->admin = 'admin';
 //
 //     $CFG->lang = 'yourlangcode'; // for example 'cs'
 //
+// When Moodle is about to perform an intensive operation it raises PHP's memory
+// limit. The following setting should be used on large sites to set the raised
+// memory limit to something higher.
+// The value for the settings should be a valid PHP memory value. e.g. 512M, 1G
+//
+//     $CFG->extramemorylimit = 1G;
+//
 //=========================================================================
 // 8. SETTINGS FOR DEVELOPMENT SERVERS - not intended for production use!!!
 //=========================================================================
@@ -363,13 +368,19 @@ $CFG->admin = 'admin';
 // $CFG->debug = 38911;  // DEBUG_DEVELOPER // NOT FOR PRODUCTION SERVERS!
 // $CFG->debugdisplay = true;   // NOT FOR PRODUCTION SERVERS!
 //
+// You can specify a comma separated list of user ids that that always see
+// debug messages, this overrides the debug flag in $CFG->debug and $CFG->debugdisplay
+// for these users only.
+// $CFG->debugusers = '2';
+//
 // Prevent theme caching
 // $CFG->themerev = -1; // NOT FOR PRODUCTION SERVERS!
 //
 // Prevent core_string_manager on-disk cache
 // $CFG->langstringcache = false; // NOT FOR PRODUCTION SERVERS!
 //
-// When working with production data on test servers, no emails should ever be send to real users
+// When working with production data on test servers, no emails or other messages
+// should ever be send to real users
 // $CFG->noemailever = true;    // NOT FOR PRODUCTION SERVERS!
 //
 // Divert all outgoing emails to this address to test and debug emailing features
@@ -394,6 +405,12 @@ $CFG->admin = 'admin';
 // Since 2.0 sql queries are not shown during upgrade by default.
 // Please note that this setting may produce very long upgrade page on large sites.
 // $CFG->upgradeshowsql = true; // NOT FOR PRODUCTION SERVERS!
+//
+// Add SQL queries to the output of cron, just before their execution
+// $CFG->showcronsql = true;
+//
+// Force developer level debug and add debug info to the output of cron
+// $CFG->showcrondebugging = true;
 //
 //=========================================================================
 // 9. FORCED SETTINGS

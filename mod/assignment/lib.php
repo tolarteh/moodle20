@@ -722,7 +722,7 @@ class assignment_base {
 
                         //add to log only if updating
                         add_to_log($this->course->id, 'assignment', 'update grades',
-                                   'submissions.php?id='.$this->assignment->id.'&user='.$submission->userid,
+                                   'submissions.php?id='.$this->cm->id.'&user='.$submission->userid,
                                    $submission->userid, $this->cm->id);
                     }
 
@@ -1573,7 +1573,7 @@ class assignment_base {
             $this->update_grade($submission);
 
             add_to_log($this->course->id, 'assignment', 'update grades',
-                       'submissions.php?id='.$this->assignment->id.'&user='.$feedback->userid, $feedback->userid, $this->cm->id);
+                       'submissions.php?id='.$this->cm->id.'&user='.$feedback->userid, $feedback->userid, $this->cm->id);
              if (!is_null($formdata)) {
                     if ($this->type == 'upload' || $this->type == 'uploadsingle') {
                         $mformdata = $formdata->mform->get_data();
@@ -2688,7 +2688,8 @@ function assignment_upgrade_grades() {
     $sql = "SELECT a.*, cm.idnumber AS cmidnumber, a.course AS courseid
               FROM {assignment} a, {course_modules} cm, {modules} m
              WHERE m.name='assignment' AND m.id=cm.module AND cm.instance=a.id";
-    if ($rs = $DB->get_recordset_sql($sql)) {
+    $rs = $DB->get_recordset_sql($sql);
+    if ($rs->valid()) {
         // too much debug output
         $pbar = new progress_bar('assignmentupgradegrades', 500, true);
         $i=0;
@@ -2698,9 +2699,9 @@ function assignment_upgrade_grades() {
             assignment_update_grades($assignment);
             $pbar->update($i, $count, "Updating Assignment grades ($i/$count).");
         }
-        $rs->close();
         upgrade_set_timeout(); // reset to default timeout
     }
+    $rs->close();
 }
 
 /**

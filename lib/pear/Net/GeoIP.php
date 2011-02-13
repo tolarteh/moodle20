@@ -30,7 +30,7 @@
  * @author   Hans Lellelid <hans@xmpl.org>
  * @license  LGPL http://www.gnu.org/licenses/lgpl.txt
  * @link     http://pear.php.net/package/Net_GeoIp
- * $Id: GeoIP.php 296763 2010-03-25 00:53:44Z clockwerx $
+ * $Id$
  */
 
 require_once 'PEAR/Exception.php';

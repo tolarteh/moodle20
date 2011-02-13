@@ -3,7 +3,7 @@
      *	adapter for SimpleTest to use PHPUnit test cases
      *	@package	SimpleTest
      *	@subpackage Extensions
-     *	@version	$Id: phpunit_test_case.php,v 1.3 2008/06/10 20:10:54 nicolasconnault Exp $
+     *	@version	$Id: phpunit_test_case.php,v 1.4 2010/12/14 17:36:02 moodlerobot Exp $
      */
     
     /**#@+

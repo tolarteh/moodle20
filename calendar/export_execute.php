@@ -152,7 +152,7 @@ if(empty($serialized)) {
 }
 
 //IE compatibility HACK!
-if(ini_get('zlib.output_compression')) {
+if (ini_get_bool('zlib.output_compression')) {
     ini_set('zlib.output_compression', 'Off');
 }
 
@@ -165,6 +165,6 @@ header('Pragma: no-cache');
 header('Accept-Ranges: none'); // Comment out if PDFs do not work...
 header('Content-disposition: attachment; filename='.$filename);
 header('Content-length: '.strlen($serialized));
-header('Content-type: text/calendar');
+header('Content-type: text/calendar; charset=utf-8');
 
 echo $serialized;

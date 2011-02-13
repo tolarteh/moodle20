@@ -30,7 +30,7 @@ require_once 'Zend/Service/ReCaptcha.php';
  * @subpackage ReCaptcha
  * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com)
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
- * @version    $Id: MailHide.php 20108 2010-01-06 22:05:31Z matthew $
+ * @version    $Id$
  */
 class Zend_Service_ReCaptcha_MailHide extends Zend_Service_ReCaptcha
 {

@@ -16,7 +16,10 @@ if (isset($_GET["laboratory_id"])) {
 } else {
   $lab = Laboratory::first();
 }
-   $PAGE->set_context(CONTEXT_MODULE);
+
+$course_id = $COURSE->id
+
+
 ?>
 
 

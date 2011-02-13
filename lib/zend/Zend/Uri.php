@@ -16,7 +16,7 @@
  * @package   Zend_Uri
  * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com)
  * @license   http://framework.zend.com/license/new-bsd     New BSD License
- * @version   $Id: Uri.php 22083 2010-05-03 18:49:28Z shahar $
+ * @version   $Id$
  */
 
 /**

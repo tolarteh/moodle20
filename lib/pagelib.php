@@ -80,7 +80,7 @@ defined('MOODLE_INTERNAL') || die();
  * @property-read string $pagetype Returns the page type string, should be used as the id for the body tag in the theme.
  * @property-read int $periodicrefreshdelay The periodic refresh delay to use with meta refresh
  * @property-read page_requirements_manager $requires Tracks the JavaScript, CSS files, etc. required by this page.
- * @property-read settings_navigation $settignsnav
+ * @property-read settings_navigation $settingsnav
  * @property-read int $state One of the STATE_... constants
  * @property-read string $subpage The subpage identifier, if any.
  * @property-read theme_config $theme Returns the initialised theme for this page.
@@ -102,9 +102,8 @@ class moodle_page {
     protected $_course = null;
 
     /**
-     * If this page belongs to a module, this is the row from the course_modules
-     * table, as fetched by get_coursemodule_from_id or get_coursemodule_from_instance,
-     * so the extra modname and name fields are present.
+     * If this page belongs to a module, this is the cm_info module description object.
+     * @var cm_info
      */
     protected $_cm = null;
 
@@ -225,6 +224,8 @@ class moodle_page {
 
     protected $_https_login_required = false;
 
+    protected $_popup_notification_allowed = true;
+
 /// Magic getter methods =============================================================
 /// Due to the __get magic below, you normally do not call these as $PAGE->magic_get_x
 /// methods, but instead use the $PAGE->x syntax.
@@ -270,6 +271,7 @@ class moodle_page {
      * if this page is not within a module. This is a full cm object, as loaded
      * by get_coursemodule_from_id or get_coursemodule_from_instance,
      * so the extra modname and name fields are present.
+     * @return cm_info
      */
     protected function magic_get_cm() {
         return $this->_cm;
@@ -773,7 +775,7 @@ class moodle_page {
     /**
      * The course module that this page belongs to (if it does belong to one).
      *
-     * @param stdClass $cm a full cm object obtained from get_coursemodule_from_id or get_coursemodule_from_instance.
+     * @param stdClass|cm_info $cm a record from course_modules table or cm_info from get_fast_modinfo().
      * @param stdClass $course
      * @param stdClass $module
      * @return void
@@ -781,23 +783,29 @@ class moodle_page {
     public function set_cm($cm, $course = null, $module = null) {
         global $DB;
 
-        if (!isset($cm->name) || !isset($cm->modname) || !isset($cm->id)) {
-            throw new coding_exception('The $cm you set on $PAGE must have been obtained with get_coursemodule_from_id or get_coursemodule_from_instance. That is, the ->name and -> modname fields must be present and correct.');
+        if (!isset($cm->id) || !isset($cm->course)) {
+            throw new coding_exception('Invalid $cm parameter for $PAGE object, it has to be instance of cm_info or record from the course_modules table.');
         }
-        $this->_cm = $cm;
-        $this->_cm->context = get_context_instance(CONTEXT_MODULE, $cm->id); // hacky shortcut
-        if (!$this->_context) {
-            $this->set_context($this->_cm->context);
-        }
+
         if (!$this->_course || $this->_course->id != $cm->course) {
             if (!$course) {
                 $course = $DB->get_record('course', array('id' => $cm->course), '*', MUST_EXIST);
             }
             if ($course->id != $cm->course) {
-                throw new coding_exception('The course you passed to $PAGE->set_cm does not seem to correspond to the $cm.');
+                throw new coding_exception('The course you passed to $PAGE->set_cm does not correspond to the $cm.');
             }
             $this->set_course($course);
         }
+
+        // make sure we have a $cm from get_fast_modinfo as this contains activity access details
+        if (!($cm instanceof cm_info)) {
+            $modinfo = get_fast_modinfo($this->_course);
+            $cm = $modinfo->get_cm($cm->id);
+        }
+        $this->_cm = $cm;
+        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $this->set_context($context); // the content of page MUST match the cm, this prints warning if there is any problem
+
         if ($module) {
             $this->set_activity_record($module);
         }
@@ -1191,10 +1199,10 @@ class moodle_page {
                 $title .= ' - ';
             }
             $this->set_title($title . get_string('maintenancemode', 'admin'));
+        } else {
+            // Show the messaging popup if there are messages
+            message_popup_window();
         }
-
-        // Show the messaging popup, if there are messages.
-        message_popup_window();
 
         $this->initialise_standard_body_classes();
     }
@@ -1676,6 +1684,24 @@ class moodle_page {
 
     public function set_block_actions_done($setting = true) {
         $this->_block_actions_done = $setting;
+    }
+
+    /**
+     * Are popup notifications allowed on this page?
+     * Popup notifications may be disallowed in situations such as while upgrading or completing a quiz
+     * @return boolean true if popup notifications may be displayed
+     */
+    public function get_popup_notification_allowed() {
+        return $this->_popup_notification_allowed;
+    }
+
+    /**
+     * Allow or disallow popup notifications on this page. Popups are allowed by default.
+     * @param boolean true if notifications are allowed. False if not allowed. They are allowed by default.
+     * @return null
+     */
+    public function set_popup_notification_allowed($allowed) {
+        $this->_popup_notification_allowed = $allowed;
     }
 }
 

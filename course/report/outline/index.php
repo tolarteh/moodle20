@@ -47,7 +47,6 @@
 
     $outlinetable = new html_table();
     $outlinetable->attributes['class'] = 'generaltable boxaligncenter';
-    $outlinetable->attributes['style'] = 'width:2000px;';
     $outlinetable->cellpadding = 5;
     $outlinetable->id = 'outlinetable';
     $outlinetable->head = array($stractivity, $strviews);
@@ -75,7 +74,7 @@
     foreach ($modinfo->sections as $sectionnum=>$section) {
         foreach ($section as $cmid) {
             $cm = $modinfo->cms[$cmid];
-            if ($cm->modname == 'label') {
+            if (!$cm->has_view()) {
                 continue;
             }
             if (!$cm->uservisible) {

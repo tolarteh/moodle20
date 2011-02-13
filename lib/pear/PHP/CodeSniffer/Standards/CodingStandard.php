@@ -10,7 +10,7 @@
  * @author    Marc McIntyre <mmcintyre@squiz.net>
  * @copyright 2006 Squiz Pty Ltd (ABN 77 084 670 600)
  * @license   http://matrix.squiz.net/developer/tools/php_cs/licence BSD Licence
- * @version   CVS: $Id: CodingStandard.php,v 1.1 2009/05/19 15:22:46 nicolasconnault Exp $
+ * @version   CVS: $Id: CodingStandard.php,v 1.2 2010/12/14 17:36:05 moodlerobot Exp $
  * @link      http://pear.php.net/package/PHP_CodeSniffer
  */
 

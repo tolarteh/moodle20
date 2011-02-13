@@ -12,6 +12,7 @@ $temp->add(new admin_setting_configselect('gdversion', get_string('gdversion','a
                                                                                                                                                           '2' => get_string('gd2'))));
 $temp->add(new admin_setting_configexecutable('pathtodu', get_string('pathtodu', 'admin'), get_string('configpathtodu', 'admin'), ''));
 $temp->add(new admin_setting_configexecutable('aspellpath', get_string('aspellpath', 'admin'), get_string('edhelpaspellpath'), ''));
+$temp->add(new admin_setting_configexecutable('pathtodot', get_string('pathtodot', 'admin'), get_string('pathtodot_help', 'admin'), ''));
 $ADMIN->add('server', $temp);
 
 
@@ -185,6 +186,8 @@ $temp->add(new admin_setting_configselect('deleteincompleteusers', get_string('d
                                                                                                                                                                     48 => get_string('numdays', '', 2),
                                                                                                                                                                     24 => get_string('numdays', '', 1))));
 
+$temp->add(new admin_setting_configcheckbox('logguests', get_string('logguests', 'admin'),
+                                            get_string('logguests_help', 'admin'), 1));
 $temp->add(new admin_setting_configselect('loglifetime', get_string('loglifetime', 'admin'), get_string('configloglifetime', 'admin'), 0, array(0 => get_string('neverdeletelogs'),
                                                                                                                                                 1000 => get_string('numdays', '', 1000),
                                                                                                                                                 365 => get_string('numdays', '', 365),
@@ -200,7 +203,7 @@ $temp->add(new admin_setting_configselect('loglifetime', get_string('loglifetime
 
 
 $temp->add(new admin_setting_configcheckbox('disablegradehistory', get_string('disablegradehistory', 'grades'),
-                                            get_string('disablegradehistory_help', 'grades'), 0, PARAM_INT));
+                                            get_string('disablegradehistory_help', 'grades'), 0));
 
 $temp->add(new admin_setting_configselect('gradehistorylifetime', get_string('gradehistorylifetime', 'grades'),
                                           get_string('gradehistorylifetime_help', 'grades'), 0, array(0 => get_string('neverdeletehistory', 'grades'),

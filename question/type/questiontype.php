@@ -46,7 +46,11 @@ require_once($CFG->libdir . '/questionlib.php');
  * @subpackage questiontypes
  */
 class default_questiontype {
-    public static $fileoptions = array('subdirs'=>false, 'maxfiles'=>-1, 'maxbytes'=>0);
+    protected $fileoptions = array(
+        'subdirs' => false,
+        'maxfiles' => -1,
+        'maxbytes' => 0,
+    );
 
     /**
      * Name of the question type
@@ -151,14 +155,6 @@ class default_questiontype {
      * more than one answer be equivalent to one teacher supplied response.
      */
     function has_wildcards_in_responses($question, $subqid) {
-        return false;
-    }
-
-    /**
-     * @return whether the question_answers.answer field needs to have
-     * restore_decode_content_links_worker called on it.
-     */
-    function has_html_answers() {
         return false;
     }
 
@@ -309,7 +305,7 @@ class default_questiontype {
     *       redisplayed with validation errors, from validation_errors field, which
     *       is itself an object, shown next to the form fields. (I don't think this is accurate any more.)
     */
-    function save_question($question, $form, $course) {
+    function save_question($question, $form) {
         global $USER, $DB, $OUTPUT;
 
         list($question->category) = explode(',', $form->category);
@@ -353,32 +349,28 @@ class default_questiontype {
             $question->defaultgrade = $form->defaultgrade;
         }
 
-        if (!empty($question->id)) {
-        /// Question already exists, update.
-            $question->modifiedby = $USER->id;
-            $question->timemodified = time();
-
-            // process queston text
-            $question->questiontext = file_save_draft_area_files($form->questiontext['itemid'], $context->id, 'question', 'questiontext', (int)$question->id, self::$fileoptions, $question->questiontext);
-            // process feedback text
-            $question->generalfeedback = file_save_draft_area_files($form->generalfeedback['itemid'], $context->id, 'question', 'generalfeedback', (int)$question->id, self::$fileoptions, $question->generalfeedback);
-            $DB->update_record('question', $question);
-        } else {
-        /// New question.
+        // If the question is new, create it.
+        if (empty($question->id)) {
             // Set the unique code
             $question->stamp = make_unique_id_code();
             $question->createdby = $USER->id;
-            $question->modifiedby = $USER->id;
             $question->timecreated = time();
-            $question->timemodified = time();
             $question->id = $DB->insert_record('question', $question);
-            // process queston text
-            $question->questiontext = file_save_draft_area_files($form->questiontext['itemid'], $context->id, 'question', 'questiontext', (int)$question->id, self::$fileoptions, $question->questiontext);
-            // process feedback text
-            $question->generalfeedback = file_save_draft_area_files($form->generalfeedback['itemid'], $context->id, 'question', 'generalfeedback', (int)$question->id, self::$fileoptions, $question->generalfeedback);
-
-            $DB->update_record('question', $question);
         }
+
+        // Now, whether we are updating a existing question, or creating a new
+        // one, we have to do the files processing and update the record.
+        /// Question already exists, update.
+        $question->modifiedby = $USER->id;
+        $question->timemodified = time();
+
+        if (!empty($question->questiontext) && !empty($form->questiontext['itemid'])) {
+            $question->questiontext = file_save_draft_area_files($form->questiontext['itemid'], $context->id, 'question', 'questiontext', (int)$question->id, $this->fileoptions, $question->questiontext);
+        }
+        if (!empty($question->generalfeedback) && !empty($form->generalfeedback['itemid'])) {
+            $question->generalfeedback = file_save_draft_area_files($form->generalfeedback['itemid'], $context->id, 'question', 'generalfeedback', (int)$question->id, $this->fileoptions, $question->generalfeedback);
+        }
+        $DB->update_record('question', $question);
 
         // Now to save all the answers and type-specific options
         $form->id = $question->id;
@@ -400,10 +392,7 @@ class default_questiontype {
         }
 
         if (!empty($result->noticeyesno)) {
-            echo $OUTPUT->confirm($result->noticeyesno, "question.php?id=$question->id&courseid={$course->id}",
-                    "edit.php?courseid={$course->id}");
-            echo $OUTPUT->footer();
-            exit;
+            throw new coding_exception('$result->noticeyesno no longer supported in save_question.');
         }
 
         // Give the question a unique version stamp determined by question_hash()
@@ -526,32 +515,30 @@ class default_questiontype {
     }
 
     /**
-    * Deletes a question from the question-type specific tables
-    *
-    * @return boolean Success/Failure
-    * @param object $question  The question being deleted
-    */
-    function delete_question($questionid) {
-        global $CFG, $DB;
-        $success = true;
+     * Deletes the question-type specific data when a question is deleted.
+     * @param integer $question the question being deleted.
+     * @param integer $contextid the context this quesiotn belongs to.
+     */
+    function delete_question($questionid, $contextid) {
+        global $DB;
+
+        $this->delete_files($questionid, $contextid);
 
         $extra_question_fields = $this->extra_question_fields();
         if (is_array($extra_question_fields)) {
             $question_extension_table = array_shift($extra_question_fields);
-            $success = $success && $DB->delete_records($question_extension_table,
+            $DB->delete_records($question_extension_table,
                     array($this->questionid_column_name() => $questionid));
         }
 
         $extra_answer_fields = $this->extra_answer_fields();
         if (is_array($extra_answer_fields)) {
             $answer_extension_table = array_shift($extra_answer_fields);
-            $success = $success && $DB->delete_records_select($answer_extension_table,
+            $DB->delete_records_select($answer_extension_table,
                 "answerid IN (SELECT qa.id FROM {question_answers} qa WHERE qa.question = ?)", array($questionid));
         }
 
-        $success = $success && $DB->delete_records('question_answers', array('question' => $questionid));
-
-        return $success;
+        $DB->delete_records('question_answers', array('question' => $questionid));
     }
 
     /**
@@ -963,14 +950,14 @@ class default_questiontype {
 
         $formatoptions = new stdClass;
         $formatoptions->para = false;
-        $comment = format_text($state->manualcomment, FORMAT_HTML,
+        $comment = format_text($state->manualcomment, $state->manualcommentformat,
                 $formatoptions, $cmoptions->course);
         $commentlink = '';
 
         if (!empty($options->questioncommentlink)) {
             $strcomment = get_string('commentorgrade', 'quiz');
 
-            $link = new moodle_url("$options->questioncommentlink?attempt=$state->attempt&question=$actualquestionid");
+            $link = new moodle_url($options->questioncommentlink, array('question' => $actualquestionid));
             $action = new popup_action('click', $link, 'commentquestion', array('height' => 480, 'width' => 750));
             $commentlink = $OUTPUT->container($OUTPUT->action_link($link, $strcomment, $action), 'commentlink');
         }
@@ -1100,12 +1087,11 @@ class default_questiontype {
             return '';
         }
 
-        $params = array('aid' => $state->attempt);
         if (isset($question->randomquestionid)) {
-            $params['qid'] = $question->randomquestionid;
+            $actualquestionid = $question->randomquestionid;
             $randomprefix = 'random' . $question->id . '-';
         } else {
-            $params['qid'] = $question->id;
+            $actualquestionid = $question->id;
             $randomprefix = '';
         }
         if ($options->history == 'all') {
@@ -1114,7 +1100,8 @@ class default_questiontype {
             $eventtest = 'event IN (' . QUESTION_EVENTS_GRADED . ')';
         }
         $states = $DB->get_records_select('question_states',
-                'attempt = :aid AND question = :qid AND ' . $eventtest, $params, 'seq_number ASC');
+                'attempt = :aid AND question = :qid AND ' . $eventtest,
+                array('aid' => $state->attempt, 'qid' => $actualquestionid), 'seq_number,id');
         if (count($states) <= 1) {
             return '';
         }
@@ -1144,7 +1131,7 @@ class default_questiontype {
                 $link = '<b>' . $st->seq_number . '</b>';
             } else if (isset($options->questionreviewlink)) {
                 $reviewlink = new moodle_url($options->questionreviewlink);
-                $reviewlink->params(array('state'=>$st->id,'question'=>$question->id));
+                $reviewlink->params(array('state' => $st->id,'question' => $actualquestionid));
                 $link = new moodle_url($reviewlink);
                 $action = new popup_action('click', $link, 'reviewquestion', array('height' => 450, 'width' => 650));
                 $link = $OUTPUT->action_link($link, $st->seq_number, $action, array('title'=>$strreviewquestion));
@@ -1529,93 +1516,6 @@ class default_questiontype {
         return format_text($text, $textformat, $formatoptions, $cmoptions === NULL ? NULL : $cmoptions->course);
     }
 
-    /*
-     * Find all course / site files linked from a question.
-     *
-     * Need to check for links to files in question_answers.answer and feedback
-     * and in question table in generalfeedback and questiontext fields. Methods
-     * on child classes will also check extra question specific fields.
-     *
-     * Needs to be overriden for child classes that have extra fields containing
-     * html.
-     *
-     * @param string html the html to search
-     * @param int courseid search for files for courseid course or set to siteid for
-     *              finding site files.
-     * @return array of url, relative url is key and array with one item = question id as value
-     *                  relative url is relative to course/site files directory root.
-     */
-    function find_file_links($question, $courseid){
-        $urls = array();
-    /// Questiontext and general feedback.
-        $urls += question_find_file_links_from_html($question->questiontext, $courseid);
-        $urls += question_find_file_links_from_html($question->generalfeedback, $courseid);
-
-    /// Answers, if this question uses them.
-        if (isset($question->options->answers)){
-            foreach ($question->options->answers as $answerkey => $answer){
-            /// URLs in the answers themselves, if appropriate.
-                if ($this->has_html_answers()) {
-                    $urls += question_find_file_links_from_html($answer->answer, $courseid);
-                }
-            /// URLs in the answer feedback.
-                $urls += question_find_file_links_from_html($answer->feedback, $courseid);
-            }
-        }
-
-    /// Set all the values of the array to the question object
-        if ($urls){
-            $urls = array_combine(array_keys($urls), array_fill(0, count($urls), array($question->id)));
-        }
-        return $urls;
-    }
-    /*
-     * Find all course / site files linked from a question.
-     *
-     * Need to check for links to files in question_answers.answer and feedback
-     * and in question table in generalfeedback and questiontext fields. Methods
-     * on child classes will also check extra question specific fields.
-     *
-     * Needs to be overriden for child classes that have extra fields containing
-     * html.
-     *
-     * @param string html the html to search
-     * @param int course search for files for courseid course or set to siteid for
-     *              finding site files.
-     * @return array of files, file name is key and array with one item = question id as value
-     */
-    function replace_file_links($question, $fromcourseid, $tocourseid, $url, $destination){
-        global $CFG, $DB;
-        $updateqrec = false;
-    /// Questiontext and general feedback.
-        $question->questiontext = question_replace_file_links_in_html($question->questiontext, $fromcourseid, $tocourseid, $url, $destination, $updateqrec);
-        $question->generalfeedback = question_replace_file_links_in_html($question->generalfeedback, $fromcourseid, $tocourseid, $url, $destination, $updateqrec);
-
-    /// If anything has changed, update it in the database.
-        if ($updateqrec){
-            $DB->update_record('question', $question);
-        }
-
-
-    /// Answers, if this question uses them.
-        if (isset($question->options->answers)){
-            //answers that do not need updating have been unset
-            foreach ($question->options->answers as $answer){
-                $answerchanged = false;
-            /// URLs in the answers themselves, if appropriate.
-                if ($this->has_html_answers()) {
-                    $answer->answer = question_replace_file_links_in_html($answer->answer, $fromcourseid, $tocourseid, $url, $destination, $answerchanged);
-                }
-            /// URLs in the answer feedback.
-                $answer->feedback = question_replace_file_links_in_html($answer->feedback, $fromcourseid, $tocourseid, $url, $destination, $answerchanged);
-            /// If anything has changed, update it in the database.
-                if ($answerchanged){
-                    $DB->update_record('question_answers', $answer);
-                }
-            }
-        }
-    }
-
     /**
      * @return the best link to pass to print_error.
      * @param $cmoptions as passed in from outside.
@@ -1755,31 +1655,102 @@ class default_questiontype {
     }
 
     /**
-     * When move the category of questions, the belonging files should be moved as well
-     * @param object $question, question information
-     * @param object $newcategory, target category information
+     * Save the file belonging to one text field.
+     *
+     * @param array $field the data from the form (or from import). This will
+     *      normally have come from the formslib editor element, so it will be an
+     *      array with keys 'text', 'format' and 'itemid'. However, when we are
+     *      importing, it will be an array with keys 'text', 'format' and 'files'
+     * @param object $context the context the question is in.
+     * @param string $component indentifies the file area question.
+     * @param string $filearea indentifies the file area questiontext, generalfeedback,answerfeedback.
+     * @param integer $itemid identifies the file area.
+     *
+     * @return string the text for this field, after files have been processed.
      */
-    function move_files($question, $newcategory) {
+    protected function import_or_save_files($field, $context, $component, $filearea, $itemid) {
+        if (!empty($field['itemid'])) {
+            // This is the normal case. We are safing the questions editing form.
+            return file_save_draft_area_files($field['itemid'], $context->id, $component,
+                    $filearea, $itemid, $this->fileoptions, trim($field['text']));
+
+        } else if (!empty($field['files'])) {
+            // This is the case when we are doing an import.
+            foreach ($field['files'] as $file) {
+                $this->import_file($context, $component,  $filearea, $itemid, $file);
+            }
+        }
+        return trim($field['text']);
+    }
+
+    /**
+     * Move all the files belonging to this question from one context to another.
+     * @param integer $questionid the question being moved.
+     * @param integer $oldcontextid the context it is moving from.
+     * @param integer $newcontextid the context it is moving to.
+     */
+    public function move_files($questionid, $oldcontextid, $newcontextid) {
+        $fs = get_file_storage();
+        $fs->move_area_files_to_new_context($oldcontextid,
+                $newcontextid, 'question', 'questiontext', $questionid);
+        $fs->move_area_files_to_new_context($oldcontextid,
+                $newcontextid, 'question', 'generalfeedback', $questionid);
+    }
+
+    /**
+     * Move all the files belonging to this question's answers when the question
+     * is moved from one context to another.
+     * @param integer $questionid the question being moved.
+     * @param integer $oldcontextid the context it is moving from.
+     * @param integer $newcontextid the context it is moving to.
+     * @param boolean $answerstoo whether there is an 'answer' question area,
+     *      as well as an 'answerfeedback' one. Default false.
+     */
+    protected function move_files_in_answers($questionid, $oldcontextid, $newcontextid, $answerstoo = false) {
         global $DB;
         $fs = get_file_storage();
-        $component = 'question';
-        // process general question files
-        // Currently we have questiontext and generalfeedback areas
-        foreach (array('questiontext', 'generalfeedback') as $filearea) {
-            $files = $fs->get_area_files($question->contextid, $component, $filearea, $question->id);
-            foreach ($files as $storedfile) {
-                if (!$storedfile->is_directory()) {
-                    if ($newcategory->contextid == $question->contextid) {
-                        continue;
-                    }
-                    $newfile = new stdClass();
-                    // only contextid changed
-                    $newfile->contextid = (int)$newcategory->contextid;
-                    $fs->create_file_from_storedfile($newfile, $storedfile);
-                    // delete old files
-                    $storedfile->delete();
-                }
+
+        $answerids = $DB->get_records_menu('question_answers',
+                array('question' => $questionid), 'id', 'id,1');
+        foreach ($answerids as $answerid => $notused) {
+            if ($answerstoo) {
+                $fs->move_area_files_to_new_context($oldcontextid,
+                        $newcontextid, 'question', 'answer', $answerid);
             }
+            $fs->move_area_files_to_new_context($oldcontextid,
+                    $newcontextid, 'question', 'answerfeedback', $answerid);
+        }
+    }
+
+    /**
+     * Delete all the files belonging to this question.
+     * @param integer $questionid the question being deleted.
+     * @param integer $contextid the context the question is in.
+     */
+    protected function delete_files($questionid, $contextid) {
+        $fs = get_file_storage();
+        $fs->delete_area_files($contextid, 'question', 'questiontext', $questionid);
+        $fs->delete_area_files($contextid, 'question', 'generalfeedback', $questionid);
+    }
+
+    /**
+     * Delete all the files belonging to this question's answers.
+     * @param integer $questionid the question being deleted.
+     * @param integer $contextid the context the question is in.
+     * @param boolean $answerstoo whether there is an 'answer' question area,
+     *      as well as an 'answerfeedback' one. Default false.
+     */
+    protected function delete_files_in_answers($questionid, $contextid, $answerstoo = false) {
+        global $DB;
+        $fs = get_file_storage();
+
+        $answerids = $DB->get_records_menu('question_answers',
+                array('question' => $questionid), 'id', 'id,1');
+        foreach ($answerids as $answerid => $notused) {
+            if ($answerstoo) {
+                $fs->delete_area_files($contextid, 'question', 'answer', $answerid);
+            }
+            $fs->delete_area_files($contextid, 'question', 'answerfeedback', $answerid);
         }
     }
 

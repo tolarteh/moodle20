@@ -3,7 +3,7 @@
  *  base include file for SimpleTest
  *  @package    SimpleTest
  *  @subpackage UnitTester
- *  @version    $Id: reporter.php,v 1.3 2008/06/10 20:10:51 nicolasconnault Exp $
+ *  @version    $Id: reporter.php,v 1.4 2010/12/14 17:35:46 moodlerobot Exp $
  */
 
 /**#@+

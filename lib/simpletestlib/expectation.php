@@ -3,7 +3,7 @@
  *    base include file for SimpleTest
  *    @package    SimpleTest
  *    @subpackage    UnitTester
- *    @version    $Id: expectation.php,v 1.4 2010/07/19 08:53:16 skodak Exp $
+ *    @version    $Id: expectation.php,v 1.5 2010/12/14 17:35:45 moodlerobot Exp $
  */
 
 /**#@+

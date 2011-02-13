@@ -1,17 +1,17 @@
 <?php
 
 class block_navigation_renderer extends plugin_renderer_base {
-
-    public function navigation_tree(global_navigation $navigation, $expansionlimit) {
+    
+    public function navigation_tree(global_navigation $navigation, $expansionlimit, array $options = array()) {
         $navigation->add_class('navigation_node');
-        $content = $this->navigation_node(array($navigation), array('class'=>'block_tree list'), $expansionlimit);
+        $content = $this->navigation_node(array($navigation), array('class'=>'block_tree list'), $expansionlimit, $options);
         if (isset($navigation->id) && !is_numeric($navigation->id) && !empty($content)) {
             $content = $this->output->box($content, 'block_tree_box', $navigation->id);
         }
         return $content;
     }
 
-    protected function navigation_node($items, $attrs=array(), $expansionlimit=null, $depth=1) {
+    protected function navigation_node($items, $attrs=array(), $expansionlimit=null, array $options = array(), $depth=1) {
 
         // exit if empty, we don't want an empty ul element
         if (count($items)==0) {
@@ -21,13 +21,16 @@ class block_navigation_renderer extends plugin_renderer_base {
         // array of nested li elements
         $lis = array();
         foreach ($items as $item) {
-            if (!$item->display) {
+            if (!$item->display && !$item->contains_active_node()) {
                 continue;
             }
             $content = $item->get_content();
             $title = $item->get_title();
-            $isbranch = ($item->type !== $expansionlimit && ($item->children->count() > 0 || ($item->nodetype == navigation_node::NODETYPE_BRANCH && $item->children->count()==0 && (isloggedin() || $item->type <= navigation_node::TYPE_CATEGORY))));
-            $hasicon = ((!$isbranch || $item->type == navigation_node::TYPE_ACTIVITY)&& $item->icon instanceof renderable);
+
+            $isexpandable = (empty($expansionlimit) || ($item->type > navigation_node::TYPE_ACTIVITY || $item->type < $expansionlimit) || ($item->contains_active_node() && $item->children->count() > 0));
+            $isbranch = $isexpandable && ($item->children->count() > 0 || ($item->has_children() && (isloggedin() || $item->type <= navigation_node::TYPE_CATEGORY)));
+
+            $hasicon = ((!$isbranch || $item->type == navigation_node::TYPE_ACTIVITY )&& $item->icon instanceof renderable);
 
             if ($hasicon) {
                 $icon = $this->output->render($item->icon);
@@ -41,32 +44,23 @@ class block_navigation_renderer extends plugin_renderer_base {
                 continue;
             }
 
-            if ($item->action instanceof action_link) {
+            $attributes = array();
+            if ($title !== '') {
+                $attributes['title'] = $title;
+            }
+            if ($item->hidden) {
+                $attributes['class'] = 'dimmed_text';
+            }
+            if (is_string($item->action) || empty($item->action) || ($item->type === navigation_node::TYPE_CATEGORY && empty($options['linkcategories']))) {
+                $content = html_writer::tag('span', $content, $attributes);
+            } else if ($item->action instanceof action_link) {
                 //TODO: to be replaced with something else
                 $link = $item->action;
-                if ($item->hidden) {
-                    $link->add_class('dimmed');
-                }
+                $link->attributes = array_merge($link->attributes, $attributes);
                 $content = $this->output->render($link);
+                $linkrendered = true;
             } else if ($item->action instanceof moodle_url) {
-                $attributes = array();
-                if ($title !== '') {
-                    $attributes['title'] = $title;
-                }
-                if ($item->hidden) {
-                    $attributes['class'] = 'dimmed_text';
-                }
                 $content = html_writer::link($item->action, $content, $attributes);
-
-            } else if (is_string($item->action) || empty($item->action)) {
-                $attributes = array();
-                if ($title !== '') {
-                    $attributes['title'] = $title;
-                }
-                if ($item->hidden) {
-                    $attributes['class'] = 'dimmed_text';
-                }
-                $content = html_writer::tag('span', $content, $attributes);
             }
 
             // this applies to the li item which contains all child lists too
@@ -100,7 +94,10 @@ class block_navigation_renderer extends plugin_renderer_base {
             if (!empty($item->id)) {
                 $divattr['id'] = $item->id;
             }
-            $content = html_writer::tag('p', $content, $divattr) . $this->navigation_node($item->children, array(), $expansionlimit, $depth+1);
+            $content = html_writer::tag('p', $content, $divattr);
+            if ($isexpandable) {
+                $content .= $this->navigation_node($item->children, array(), $expansionlimit, $options, $depth+1);
+            }
             if (!empty($item->preceedwithhr) && $item->preceedwithhr===true) {
                 $content = html_writer::empty_tag('hr') . $content;
             }

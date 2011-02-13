@@ -187,7 +187,8 @@ if ($xml = glossary_read_imported_file($result)) {
     }
 
     $xmlentries = $xml['GLOSSARY']['#']['INFO'][0]['#']['ENTRIES'][0]['#']['ENTRY'];
-    for($i = 0; $i < sizeof($xmlentries); $i++) {
+    $sizeofxmlentries = sizeof($xmlentries);
+    for($i = 0; $i < $sizeofxmlentries; $i++) {
         // Inserting the entries
         $xmlentry = $xmlentries[$i];
         unset($newentry);
@@ -204,9 +205,15 @@ if ($xml = glossary_read_imported_file($result)) {
             if ( !$glossary->allowduplicatedentries ) {
                 // checking if the entry is valid (checking if it is duplicated when should not be)
                 if ( $newentry->casesensitive ) {
-                    $dupentry = $DB->get_record("glossary_entries", array("concept"=>$newentry->concept, "glossaryid"=>$glossary->id));
+                    $dupentry = $DB->record_exists_select('glossary_entries',
+                                    'glossaryid = :glossaryid AND concept = :concept', array(
+                                        'glossaryid' => $glossary->id,
+                                        'concept'    => $newentry->concept));
                 } else {
-                    $dupentry = $DB->get_record("glossary_entries", array("lower(concept)"=>moodle_strtolower($newentry->concept), "glossaryid"=>$glossary->id));
+                    $dupentry = $DB->record_exists_select('glossary_entries',
+                                    'glossaryid = :glossaryid AND LOWER(concept) = :concept', array(
+                                        'glossaryid' => $glossary->id,
+                                        'concept'    => moodle_strtolower($newentry->concept)));
                 }
                 if ($dupentry) {
                     $permissiongranted = 0;
@@ -241,7 +248,8 @@ if ($xml = glossary_read_imported_file($result)) {
             $importedentries++;
 
             $xmlaliases = @$xmlentry['#']['ALIASES'][0]['#']['ALIAS']; // ignore missing ALIASES
-            for($k = 0; $k < sizeof($xmlaliases); $k++) {
+            $sizeofxmlaliases = sizeof($xmlaliases);
+            for($k = 0; $k < $sizeofxmlaliases; $k++) {
             /// Importing aliases
                 $xmlalias = $xmlaliases[$k];
                 $aliasname = $xmlalias['#']['NAME'][0]['#'];
@@ -257,7 +265,8 @@ if ($xml = glossary_read_imported_file($result)) {
             if (!empty($data->catsincl)) {
                 // If the categories must be imported...
                 $xmlcats = @$xmlentry['#']['CATEGORIES'][0]['#']['CATEGORY']; // ignore missing CATEGORIES
-                for($k = 0; $k < sizeof($xmlcats); $k++) {
+                $sizeofxmlcats = sizeof($xmlcats);
+                for($k = 0; $k < $sizeofxmlcats; $k++) {
                     $xmlcat = $xmlcats[$k];
 
                     $newcat = new stdClass();

@@ -325,6 +325,10 @@ class core_renderer extends renderer_base {
                     'type' => $type, 'title' => $alt->title, 'href' => $alt->url));
         }
 
+        if (!empty($CFG->additionalhtmlhead)) {
+            $output .= "\n".$CFG->additionalhtmlhead;
+        }
+
         return $output;
     }
 
@@ -334,7 +338,12 @@ class core_renderer extends renderer_base {
      * @return string HTML fragment.
      */
     public function standard_top_of_body_html() {
-        return  $this->page->requires->get_top_of_body_code();
+        global $CFG;
+        $output = $this->page->requires->get_top_of_body_code();
+        if (!empty($CFG->additionalhtmltopofbody)) {
+            $output .= "\n".$CFG->additionalhtmltopofbody;
+        }
+        return $output;
     }
 
     /**
@@ -344,7 +353,7 @@ class core_renderer extends renderer_base {
      * @return string HTML fragment.
      */
     public function standard_footer_html() {
-        global $CFG;
+        global $CFG, $SCRIPT;
 
         // This function is normally called from a layout.php file in {@link header()}
         // but some of the content won't be known until later, so we return a placeholder
@@ -358,6 +367,14 @@ class core_renderer extends renderer_base {
             $output .= '<div class="performanceinfo pageinfo">This page is: ' . $this->page->debug_summary() . '</div>';
         }
         if (debugging(null, DEBUG_DEVELOPER) and has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM))) {  // Only in developer mode
+            // Add link to profiling report if necessary
+            if (function_exists('profiling_is_running') && profiling_is_running()) {
+                $txt = get_string('profiledscript', 'admin');
+                $title = get_string('profiledscriptview', 'admin');
+                $url = $CFG->wwwroot . '/admin/report/profiling/index.php?script=' . urlencode($SCRIPT);
+                $link= '<a title="' . $title . '" href="' . $url . '">' . $txt . '</a>';
+                $output .= '<div class="profilingfooter">' . $link . '</div>';
+            }
             $output .= '<div class="purgecaches"><a href="'.$CFG->wwwroot.'/admin/purgecaches.php?confirm=1&amp;sesskey='.sesskey().'">'.get_string('purgecaches', 'admin').'</a></div>';
         }
         if (!empty($CFG->debugvalidators)) {
@@ -366,6 +383,9 @@ class core_renderer extends renderer_base {
               <li><a href="http://www.contentquality.com/mynewtester/cynthia.exe?rptmode=-1&amp;url1=' . urlencode(qualified_me()) . '">Section 508 Check</a></li>
               <li><a href="http://www.contentquality.com/mynewtester/cynthia.exe?rptmode=0&amp;warnp2n3e=1&amp;url1=' . urlencode(qualified_me()) . '">WCAG 1 (2,3) Check</a></li>
             </ul></div>';
+        }
+        if (!empty($CFG->additionalhtmlfooter)) {
+            $output .= "\n".$CFG->additionalhtmlfooter;
         }
         return $output;
     }
@@ -379,7 +399,7 @@ class core_renderer extends renderer_base {
         // This function is normally called from a layout.php file in {@link header()}
         // but some of the content won't be known until later, so we return a placeholder
         // for now. This will be replaced with the real content in {@link footer()}.
-        echo self::END_HTML_TOKEN;
+        return self::END_HTML_TOKEN;
     }
 
     /**
@@ -1293,11 +1313,14 @@ class core_renderer extends renderer_base {
         $output .= html_writer::empty_tag('input', array('type'=>'hidden', 'name'=>'sesskey', 'value'=>sesskey()));
         $output .= html_writer::select($urls, 'jump', $selected, $select->nothing, $select->attributes);
 
-        $go = html_writer::empty_tag('input', array('type'=>'submit', 'value'=>get_string('go')));
-        $output .= html_writer::tag('noscript', html_writer::tag('div', $go), array('style'=>'inline'));
-
-        $nothing = empty($select->nothing) ? false : key($select->nothing);
-        $output .= $this->page->requires->js_init_call('M.util.init_url_select', array($select->formid, $select->attributes['id'], $nothing));
+        if (!$select->showbutton) {
+            $go = html_writer::empty_tag('input', array('type'=>'submit', 'value'=>get_string('go')));
+            $output .= html_writer::tag('noscript', html_writer::tag('div', $go), array('style'=>'inline'));
+            $nothing = empty($select->nothing) ? false : key($select->nothing);
+            $output .= $this->page->requires->js_init_call('M.util.init_url_select', array($select->formid, $select->attributes['id'], $nothing));
+        } else {
+            $output .= html_writer::empty_tag('input', array('type'=>'submit', 'value'=>$select->showbutton));
+        }
 
         // then div wrapper for xhtml strictness
         $output = html_writer::tag('div', $output);
@@ -2348,11 +2371,7 @@ EOD;
      * @return string XHTML navbar
      */
     public function navbar() {
-        //return $this->page->navbar->content();
-
         $items = $this->page->navbar->get_items();
-
-        $count = 0;
 
         $htmlblocks = array();
         // Iterate the navarray and display each node
@@ -2700,9 +2719,9 @@ class core_renderer_ajax extends core_renderer {
     public function header() {
         // unfortunately YUI iframe upload does not support application/json
         if (!empty($_FILES)) {
-            @header('Content-type: text/plain');
+            @header('Content-type: text/plain; charset=utf-8');
         } else {
-            @header('Content-type: application/json');
+            @header('Content-type: application/json; charset=utf-8');
         }
 
         /// Headers to make it not cacheable and json

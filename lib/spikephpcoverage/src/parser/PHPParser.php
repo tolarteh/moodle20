@@ -1,6 +1,6 @@
 <?php
     /*
-    *  $Id: PHPParser.php,v 1.2 2009/08/19 21:44:24 stronk7 Exp $
+    *  $Id: PHPParser.php,v 1.3 2010/12/14 17:36:00 moodlerobot Exp $
     *  
     *  Copyright(c) 2004-2006, SpikeSource Inc. All Rights Reserved.
     *  Licensed under the Open Software License version 2.1
@@ -18,7 +18,7 @@
     * Parser for PHP files 
     * 
     * @author Nimish Pachapurkar (npac@spikesource.com)
-    * @version $Revision: 1.2 $
+    * @version $Revision: 1.3 $
     * @package SpikePHPCoverage_Parser
     */
     class PHPParser extends Parser {

@@ -51,9 +51,8 @@ define('LASTACCESS_UPDATE_SECS', 60);
  * Returns $user object of the main admin user
  * primary admin = admin with lowest role_assignment id among admins
  *
- * @global object
- * @static object $myadmin
- * @return object An associative array representing the admin user.
+ * @static stdClass $mainadmin
+ * @return stdClass {@link $USER} record from DB, false if not found
  */
 function get_admin() {
     static $mainadmin = null;
@@ -66,7 +65,8 @@ function get_admin() {
         //      for now return the first assigned admin
         $mainadmin = reset($admins);
     }
-    return $mainadmin;
+    // we must clone this otherwise code outside can break the static var
+    return clone($mainadmin);
 }
 
 /**
@@ -438,6 +438,12 @@ function get_courses_page($categoryid="all", $sort="c.sortorder ASC", $fields="c
 
     list($ccselect, $ccjoin) = context_instance_preload_sql('c.id', CONTEXT_COURSE, 'ctx');
 
+    $totalcount = 0;
+    if (!$limitfrom) {
+        $limitfrom = 0;
+    }
+    $visiblecourses = array();
+
     $sql = "SELECT $fields $ccselect
               FROM {course} c
               $ccjoin
@@ -445,17 +451,8 @@ function get_courses_page($categoryid="all", $sort="c.sortorder ASC", $fields="c
           ORDER BY $sort";
 
     // pull out all course matching the cat
-    if (!$rs = $DB->get_recordset_sql($sql, $params)) {
-        return array();
-    }
-    $totalcount = 0;
-
-    if (!$limitfrom) {
-        $limitfrom = 0;
-    }
-
+    $rs = $DB->get_recordset_sql($sql, $params);
     // iteration will have to be done inside loop to keep track of the limitfrom and limitnum
-    $visiblecourses = array();
     foreach($rs as $course) {
         context_instance_preload($course);
         if ($course->visible <= 0) {
@@ -764,35 +761,35 @@ function get_courses_search($searchterms, $sort='fullname ASC', $page=0, $record
 
     $searchcond = implode(" AND ", $searchcond);
 
+    $courses = array();
+    $c = 0; // counts how many visible courses we've seen
+
+    // Tiki pagination
+    $limitfrom = $page * $recordsperpage;
+    $limitto   = $limitfrom + $recordsperpage;
+
     list($ccselect, $ccjoin) = context_instance_preload_sql('c.id', CONTEXT_COURSE, 'ctx');
     $sql = "SELECT c.* $ccselect
               FROM {course} c
            $ccjoin
              WHERE $searchcond AND c.id <> ".SITEID."
           ORDER BY $sort";
-    $courses = array();
-    $c = 0; // counts how many visible courses we've seen
 
-    if ($rs = $DB->get_recordset_sql($sql, $params)) {
-        // Tiki pagination
-        $limitfrom = $page * $recordsperpage;
-        $limitto   = $limitfrom + $recordsperpage;
-
-        foreach($rs as $course) {
-            context_instance_preload($course);
-            $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
-            if ($course->visible || has_capability('moodle/course:viewhiddencourses', $coursecontext)) {
-                // Don't exit this loop till the end
-                // we need to count all the visible courses
-                // to update $totalcount
-                if ($c >= $limitfrom && $c < $limitto) {
-                    $courses[$course->id] = $course;
-                }
-                $c++;
+    $rs = $DB->get_recordset_sql($sql, $params);
+    foreach($rs as $course) {
+        context_instance_preload($course);
+        $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
+        if ($course->visible || has_capability('moodle/course:viewhiddencourses', $coursecontext)) {
+            // Don't exit this loop till the end
+            // we need to count all the visible courses
+            // to update $totalcount
+            if ($c >= $limitfrom && $c < $limitto) {
+                $courses[$course->id] = $course;
             }
+            $c++;
         }
-        $rs->close();
     }
+    $rs->close();
 
     // our caller expects 2 bits of data - our return
     // array, and an updated $totalcount
@@ -857,16 +854,15 @@ function get_categories($parent='none', $sort=NULL, $shallow=true) {
     }
     $categories = array();
 
-    if( $rs = $DB->get_recordset_sql($sql, $params) ){
-        foreach($rs as $cat) {
-            context_instance_preload($cat);
-            $catcontext = get_context_instance(CONTEXT_COURSECAT, $cat->id);
-            if ($cat->visible || has_capability('moodle/category:viewhiddencategories', $catcontext)) {
-                $categories[$cat->id] = $cat;
-            }
+    $rs = $DB->get_recordset_sql($sql, $params);
+    foreach($rs as $cat) {
+        context_instance_preload($cat);
+        $catcontext = get_context_instance(CONTEXT_COURSECAT, $cat->id);
+        if ($cat->visible || has_capability('moodle/category:viewhiddencategories', $catcontext)) {
+            $categories[$cat->id] = $cat;
         }
-        $rs->close();
     }
+    $rs->close();
     return $categories;
 }
 
@@ -1039,10 +1035,19 @@ function fix_course_sortorder() {
             HAVING cc.coursecount <> COUNT(c.id)";
 
     if ($updatecounts = $DB->get_records_sql($sql)) {
+        // categories with more courses than MAX_COURSES_IN_CATEGORY
+        $categories = array();
         foreach ($updatecounts as $cat) {
             $cat->coursecount = $cat->newcount;
+            if ($cat->coursecount >= MAX_COURSES_IN_CATEGORY) {
+                $categories[] = $cat->id;
+            }
             unset($cat->newcount);
             $DB->update_record_raw('course_categories', $cat, true);
+        }
+        if (!empty($categories)) {
+            $str = implode(', ', $categories);
+            debugging("The number of courses (category id: $str) has reached MAX_COURSES_IN_CATEGORY (" . MAX_COURSES_IN_CATEGORY . "), it will cause a sorting performance issue, please increase the value of MAX_COURSES_IN_CATEGORY in lib/datalib.php file. See tracker issue: MDL-25669", DEBUG_DEVELOPER);
         }
     }
 
@@ -1645,12 +1650,18 @@ function add_to_log($courseid, $module, $action, $url='', $info='', $cm=0, $user
         $userid = empty($USER->id) ? '0' : $USER->id;
     }
 
+    if (isset($CFG->logguests) and !$CFG->logguests) {
+        if (!$userid or isguestuser($userid)) {
+            return;
+        }
+    }
+
     $REMOTE_ADDR = getremoteaddr();
 
     $timenow = time();
     $info = $info;
     if (!empty($url)) { // could break doing html_entity_decode on an empty var.
-        $url = html_entity_decode($url); // for php < 4.3.0 this is defined in moodlelib.php
+        $url = html_entity_decode($url);
     }
 
     // Restrict length of log lines to the space actually available in the
@@ -1673,28 +1684,28 @@ function add_to_log($courseid, $module, $action, $url='', $info='', $cm=0, $user
 
     $log = array('time'=>$timenow, 'userid'=>$userid, 'course'=>$courseid, 'ip'=>$REMOTE_ADDR, 'module'=>$module,
                  'cmid'=>$cm, 'action'=>$action, 'url'=>$url, 'info'=>$info);
-    $result = $DB->insert_record_raw('log', $log, false);
 
-    // MDL-11893, alert $CFG->supportemail if insert into log failed
-    if (!$result and $CFG->supportemail and empty($CFG->noemailever)) {
-        // email_to_user is not usable because email_to_user tries to write to the logs table,
-        // and this will get caught in an infinite loop, if disk is full
-        $site = get_site();
-        $subject = 'Insert into log failed at your moodle site '.$site->fullname;
-        $message = "Insert into log table failed at ". date('l dS \of F Y h:i:s A') .".\n It is possible that your disk is full.\n\n";
-        $message .= "The failed query parameters are:\n\n" . var_export($log, true);
+    try {
+        $DB->insert_record_raw('log', $log, false);
+    } catch (dml_write_exception $e) {
+        debugging('Error: Could not insert a new entry to the Moodle log', DEBUG_ALL);
+        // MDL-11893, alert $CFG->supportemail if insert into log failed
+        if ($CFG->supportemail and empty($CFG->noemailever)) {
+            // email_to_user is not usable because email_to_user tries to write to the logs table,
+            // and this will get caught in an infinite loop, if disk is full
+            $site = get_site();
+            $subject = 'Insert into log failed at your moodle site '.$site->fullname;
+            $message = "Insert into log table failed at ". date('l dS \of F Y h:i:s A') .".\n It is possible that your disk is full.\n\n";
+            $message .= "The failed query parameters are:\n\n" . var_export($log, true);
 
-        $lasttime = get_config('admin', 'lastloginserterrormail');
-        if(empty($lasttime) || time() - $lasttime > 60*60*24) { // limit to 1 email per day
-            mail($CFG->supportemail, $subject, $message);
-            set_config('lastloginserterrormail', time(), 'admin');
+            $lasttime = get_config('admin', 'lastloginserterrormail');
+            if(empty($lasttime) || time() - $lasttime > 60*60*24) { // limit to 1 email per day
+                //using email directly rather than messaging as they may not be able to log in to access a message
+                mail($CFG->supportemail, $subject, $message);
+                set_config('lastloginserterrormail', time(), 'admin');
+            }
         }
     }
-
-    if (!$result) {
-        debugging('Error: Could not insert a new entry to the Moodle log', DEBUG_ALL);
-    }
-
 }
 
 /**
