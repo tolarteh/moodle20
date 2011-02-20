@@ -462,3 +462,9 @@ div.lab-body {
 a.red {
   color: red;
 }
+
+iframe {
+  width: 760px;
+  height: 500px;
+  border: 1px solid #999;
+}

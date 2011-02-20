@@ -12,6 +12,8 @@ require_logged_user();
 $reservation = find_reservation($_GET["id"]);
 $laboratory = Laboratory::find_by_id($reservation->laboratory_id);
 $experiment = Experiment::find_by_id($reservation->experiment_id);
+
+global $USER;
 ?>
 <?php
 
@@ -58,7 +60,7 @@ if ($experiment->procedure) {
   echo "<div id='procedure' class='exp-div'>" . $experiment->procedure . "</div>";
 }
 if ($experiment->html) {
-  echo "<div id='html' class='exp-div'>" . $experiment->html . "</div>";
+  echo "<div id='html' class='exp-div'><iframe src='" . $experiment->html . "?username=" . $USER->username . "&password=" . $USER->password . "'></iframe></div>";
 }
 ?>
 <script type="text/javascript" src="show.js"></script>

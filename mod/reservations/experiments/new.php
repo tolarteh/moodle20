@@ -50,9 +50,9 @@ require_logged_user();
   <input type="hidden" name="laboratory_id" value="<?php echo $_GET['laboratory_id']; ?>" />
 
   <p>
-    <em>Código HTML:</em>
+    <em>URL del experimento:</em>
     <br/>
-    <textarea rows="8" cols="60" name="html"></textarea>
+    <input type="text" name="html"></input>
   </p>
 
   <p>
