@@ -9,8 +9,6 @@
    $PAGE->set_title(get_string("pagetitle", "reservations"));
 
 
-
-
 echo $OUTPUT->header();
 
 require_logged_user();
@@ -62,7 +60,11 @@ if (isset($_GET["laboratory_id"])) {
 
 <div style="clear:both;"></div>
 <p><br/><br/>
-  <a href="new.php">Crear un nuevo laboratorio</a>
+      <?php
+         if (has_capability("mod/reservations:create_laboratory", $context)) { ?>
+           <a href="new.php">Crear un nuevo laboratorio</a>
+      <?
+      } ?>
 </p>
 <?php
    echo $OUTPUT->footer();

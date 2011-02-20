@@ -3,8 +3,12 @@
 require_once(dirname(dirname(dirname(__FILE__))).'/../config.php');
 require_once(dirname(__FILE__).'/../locallib.php');
 
+global $COURSE;
+$context = get_context_instance(CONTEXT_MODULE, $COURSE->id);
+$PAGE->set_context($context);
 $PAGE->set_url('/mod/reservations/experiments/create.php');
 $PAGE->set_title(get_string("pagetitle", "reservations"));
+
 echo $OUTPUT->header();
 
 require_logged_user();
@@ -22,6 +26,10 @@ $texts = array("introduction" => $introduction,
                "theory" => $theory,
                "setup" => $setup,
                "proc" => $procedure);
+
+if (!has_capability("mod/reservations:create_experiment", $context)) {
+  echo "No está autorizado para crear experimentos";
+} else {
 if ($name && $description && $html && $laboratory_id) {
 
   if ($experiment = Experiment::create($name, $description, $html, $laboratory_id, $texts)){
@@ -83,6 +91,7 @@ if ($name && $description && $html && $laboratory_id) {
 
 
 <?php
+}
 }
 ?>
 <script type="text/javascript" src="areas.js"></script>

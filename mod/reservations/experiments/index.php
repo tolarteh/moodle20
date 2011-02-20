@@ -2,11 +2,12 @@
 require_once(dirname(dirname(dirname(__FILE__))).'/../config.php');
 require_once(dirname(__FILE__).'/../locallib.php');
 
-
+global $COURSE;
+$context = get_context_instance(CONTEXT_MODULE, $COURSE->id);
+$PAGE->set_context($context);
 $PAGE->set_url('/mod/reservations/experiments/index.php');
 $PAGE->set_title(get_string("pagetitle", "reservations"));
 
-$PAGE->set_context(get_system_context());
 echo $OUTPUT->header();
 
 require_logged_user();
@@ -31,15 +32,24 @@ if (!$lab){
   foreach ($experiments as $experiment) {
      echo "<tr>";
      echo "<td>" . $experiment->name . "</td>";
-     echo "<td>". $experiment->activation_link() . "</td>";
+     if (has_capability("mod/reservations:update_experiment", $context)) {
+       echo "<td>". $experiment->activation_link() . "</td>";
+     }
      echo "<td><a href='../contents/index.php?experiment_id=" . $experiment->id . "'>Ver Contenidos</a></td>";
-     echo "<td><a href='delete.php?experiment_id=" . $experiment->id . "'>Eliminar</a></td>";
+     if (has_capability("mod/reservations:delete_experiment", $context)) {
+       echo "<td><a href='delete.php?experiment_id=" . $experiment->id . "'>Eliminar</a></td>";
+     }
      echo "</tr>";
    }
     ?>
   </table>
 </div>
-<a href="new.php?laboratory_id=<?php echo $lab->id; ?>">Crear un nuevo experimento</a><br/><br/>
+
+<?php
+if (has_capability("mod/reservations:create_experiment", $context)) {
+  echo "<a href='new.php?laboratory_id=" . $lab->id . "'>Crear un nuevo experimento</a><br/><br/>";
+}
+?>
 <a href="../laboratories/index.php">Volver a Laboratorios</a>
 <?php
   echo $OUTPUT->footer();

@@ -15,7 +15,11 @@ $name = $_POST["name"];
 $description = $_POST["description"];
 
 if ($name && $description) {
-  if ($lab = Laboratory::create($name, $description)){
+  if (!(has_capability("mod/reservations:create_laboratory", $context))) {
+    echo "No está autorizado para crear laboratorios";
+  }
+
+  else if ($lab = Laboratory::create($name, $description)){
     echo "El laboratorio se creó exitosamente.<br/>";
     echo "<a href='index.php'>Haga click aquí</a> para regresar.";
   } else {
