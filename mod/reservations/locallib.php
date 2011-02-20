@@ -171,10 +171,13 @@ function current_user_id() {
   return $USER->id;
 }
 
-function auth_user($username, $hash) {
+function auth_user($username, $hash, $res_id) {
   global $DB;
 
   if (!$user = $DB->get_record("user", array("username" => $username)))
+    return false;
+
+  if (!$reservation = find_reservation($res_id))
     return false;
 
   return $user->password == $hash;
