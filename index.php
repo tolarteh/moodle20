@@ -217,5 +217,6 @@
         }
         echo '<br />';
     }
-
+ // TODO: Finish text for the index page
+    include("intro.htm");
     echo $OUTPUT->footer();
