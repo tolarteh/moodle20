@@ -1,27 +1,30 @@
-<?php  /// Moodle Configuration File 
+<?php  // Moodle configuration file
 
 unset($CFG);
+global $CFG;
 $CFG = new stdClass();
 
 $CFG->dbtype    = 'mysqli';
 $CFG->dblibrary = 'native';
 $CFG->dbhost    = 'localhost';
 $CFG->dbname    = 'moodle20';
-$CFG->dbuser    = 'moodle';
-$CFG->dbpass    = 'moodle';
+$CFG->dbuser    = 'moodleadmin';
+$CFG->dbpass    = 'moodleadmin';
 $CFG->prefix    = 'mdl_';
-$CFG->dboptions = array ('dbpersit' => 0,
+$CFG->dboptions = array (
+  'dbpersist' => 0,
+  'dbsocket' => 0,
 );
 
-$CFG->wwwroot   = 'http://localhost:8888/moodle20';
-$CFG->dirroot   = '/Applications/MAMP/htdocs/moodle20';
-$CFG->dataroot  = '/Applications/MAMP/data/moodle20';
+$CFG->wwwroot   = 'http://localhost/moodle20';
+$CFG->dataroot  = 'C:\\xampp\\moodledata';
 $CFG->admin     = 'admin';
 
-$CFG->passwordsaltmain = 'some_very_long_secret!#A12345678901234567890!';
-$CFG->directorypermissions = 00777;  // try 02777 on a server in Safe Mode
+$CFG->directorypermissions = 0777;
 
-require_once("$CFG->dirroot/lib/setup.php");
+$CFG->passwordsaltmain = 'U&v0X2!l>k60(sKw,#CnFQ<-I{x}#';
+
+require_once(dirname(__FILE__) . '/lib/setup.php');
 
 // There is no php closing tag in this file,
 // it is intentional because it prevents trailing whitespace problems!

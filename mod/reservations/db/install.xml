@@ -68,7 +68,7 @@
       <FIELDS>
         <FIELD NAME="id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="true" NEXT="name"/>
         <FIELD NAME="name" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" PREVIOUS="id" NEXT="description"/>
-        <FIELD NAME="description" TYPE="char" LENGTH="300" NOTNULL="true" SEQUENCE="false" PREVIOUS="name"/>
+        <FIELD NAME="description" TYPE="char" LENGTH="2000" NOTNULL="false" SEQUENCE="false" PREVIOUS="name"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

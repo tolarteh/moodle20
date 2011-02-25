@@ -21,7 +21,7 @@ require_logged_user();
   </p>
 
   <p>
-    <em>Descripción:</em>
+    <em>Descripción:</em> (Menos de 2.000 caracteres)
     <br/>
     <textarea rows="8" cols="60" name="description"></textarea>
   </p>

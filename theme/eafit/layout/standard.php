@@ -40,9 +40,9 @@ echo $OUTPUT->doctype(); ?>
         <li>
           <?php
              if (current_user_id() == 0) {
-               link_to("Login", "/login/");
+               link_to("Login", "login/");
              } else {
-               link_to("Logout", "/login/logout.php");
+               link_to("Logout", "login/logout.php");
              }
           ?>
         </li>
