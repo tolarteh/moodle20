@@ -35,6 +35,9 @@ if (!$lab){
      if (has_capability("mod/reservations:update_experiment", $context)) {
        echo "<td>". $experiment->activation_link() . "</td>";
      }
+     if (has_capability("mod/reservations:update_experiment", $context)) {
+       echo "<td><a href='edit.php?experiment_id=" . $experiment->id . "'>Editar</a></td>";
+     }
      echo "<td><a href='../contents/index.php?experiment_id=" . $experiment->id . "'>Ver Contenidos</a></td>";
      if (has_capability("mod/reservations:delete_experiment", $context)) {
        echo "<td><a href='delete.php?experiment_id=" . $experiment->id . "'>Eliminar</a></td>";
