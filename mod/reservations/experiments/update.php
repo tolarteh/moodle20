@@ -16,8 +16,7 @@ require_logged_user();
 $name = $_POST["name"];
 $description = $_POST["description"];
 $html = $_POST["html"];
-$laboratory_id = $_REQUEST["laboratory_id"];
-$experiment_id = $_REQUEST["laboratory_id"];
+$experiment_id = $_REQUEST["experiment_id"];
 $introduction = $_POST["introduction"];
 $theory = $_POST["theory"];
 $setup = $_POST["setup"];
@@ -41,9 +40,10 @@ if (!has_capability("mod/reservations:update_experiment", $context)) {
   $experiment->procedure = $procedure;
   $experiment->update();
   echo "Se ha actualizado el experimento";
-  echo "<a href='index.php?laboratory_id=" . $laboratory_id . "'>Haga click aquí</a> para regresar.";
-?>
+  echo "<a href='index.php?laboratory_id=" . $experiment->laboratory_id . "'>Haga click aquí</a> para regresar.";
+}
+  ?>
 
-<?php
+  <?php
   echo $OUTPUT->footer();
-?>
+  ?>
