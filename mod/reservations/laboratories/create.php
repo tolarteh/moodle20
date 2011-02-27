@@ -3,18 +3,20 @@
 require_once(dirname(dirname(dirname(__FILE__))).'/../config.php');
 require_once(dirname(__FILE__).'/../locallib.php');
 
-$PAGE->set_url('/mod/reservations/laboratories/create.php');
+// Moodle CONTEXT for courses
+global $COURSE;
+$context = get_context_instance(CONTEXT_MODULE, $COURSE->id);
+$PAGE->set_context($context);
 
+$PAGE->set_url('/mod/reservations/laboratories/create.php');
 $PAGE->set_title(get_string("pagetitle", "reservations"));
-$PAGE->set_context(get_system_context());
 echo $OUTPUT->header();
 
 require_logged_user();
 
 $name = $_POST["name"];
 $description = $_POST["description"];
-
-if ($name && $description) {
+if ($name && $description) { 
   if (!(has_capability("mod/reservations:create_laboratory", $context))) {
     echo "No está autorizado para crear laboratorios";
   }
