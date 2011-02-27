@@ -91,7 +91,6 @@ class Experiment {
     return $exp->is_active == 1;
   }
 
-
   function update() {
     global $DB;
     $DB->update_record('experiments', $this);

@@ -17,12 +17,12 @@ $CFG->dboptions = array (
 );
 
 $CFG->wwwroot   = 'http://localhost/moodle20';
-$CFG->dataroot  = 'C:\\xampp\\moodledata';
+$CFG->dataroot  = 'C:\\wamp\\moodledata';
 $CFG->admin     = 'admin';
 
 $CFG->directorypermissions = 0777;
 
-$CFG->passwordsaltmain = 'U&v0X2!l>k60(sKw,#CnFQ<-I{x}#';
+$CFG->passwordsaltmain = 'b7 _~I^H}bsju6.](E/P_}Tb)1xrq';
 
 require_once(dirname(__FILE__) . '/lib/setup.php');
 
