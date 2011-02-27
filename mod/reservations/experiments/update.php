@@ -39,7 +39,7 @@ if (!has_capability("mod/reservations:update_experiment", $context)) {
   $experiment->setup = $setup;
   $experiment->procedure = $procedure;
   $experiment->update();
-  echo "Se ha actualizado el experimento";
+  echo "Se ha actualizado el experimento<br/>";
   echo "<a href='index.php?laboratory_id=" . $experiment->laboratory_id . "'>Haga click aquí</a> para regresar.";
 }
   ?>

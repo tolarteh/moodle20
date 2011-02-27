@@ -24,31 +24,31 @@ if (!$_GET["experiment_id"] || !$experiment){
   <p>
     <em>Descripción del experimento:</em>
     <br/>
-    <textarea id="description" rows="8" cols="60" name="description" value="<?php echo $experiment->description ?>"></textarea>
+    <textarea id="description" rows="8" cols="60" name="description"><?php echo $experiment->description ?></textarea>
   </p>
 
   <p>
     <em>Introducción:</em>
     <br/>
-    <textarea id="introduction" rows="8" cols="60" name="introduction" value="<?php echo $experiment->introduction ?>"></textarea>
+    <textarea id="introduction" rows="8" cols="60" name="introduction"><?php echo $experiment->introduction ?></textarea>
   </p>
 
   <p>
     <em>Teoría:</em>
     <br/>
-    <textarea id="theory" rows="8" cols="60" name="theory" value="<?php echo $experiment->theory ?>"></textarea>
+    <textarea id="theory" rows="8" cols="60" name="theory"><?php echo $experiment->theory ?></textarea>
   </p>
 
   <p>
     <em>Montaje:</em>
     <br/>
-    <textarea id="setup" rows="8" cols="60" name="setup" value="<?php echo $experiment->setup ?>"></textarea>
+    <textarea id="setup" rows="8" cols="60" name="setup"><?php echo $experiment->setup ?></textarea>
   </p>
 
   <p>
     <em>Procedimiento:</em>
     <br/>
-    <textarea id="procedure" rows="8" cols="60" name="procedure" value="<?php echo $experiment->procedure ?>"></textarea>
+    <textarea id="procedure" rows="8" cols="60" name="procedure"><?php echo $experiment->procedure ?></textarea>
   </p>
   <input type="hidden" name="laboratory_id" value="<?php echo $_GET['laboratory_id']; ?>" />
   <input type="hidden" name="experiment_id" value="<?php echo $experiment->id; ?>" />
@@ -60,7 +60,7 @@ if (!$_GET["experiment_id"] || !$experiment){
   </p>
 
   <p>
-    <input type="submit" value="Crear Experimento" onclick="post();"/>
+    <input type="submit" value="Editar Experimento" onclick="post();"/>
   </p>
 </form>
 
