@@ -22,7 +22,7 @@ if (isset($_GET["laboratory_id"])) {
 }
 ?>
 
-<div class="contenido">
+<div class="contenido-lab">
   <h2>Laboratorios</h2>
   <div class="lab-info">
     <div class="lab-nav">
