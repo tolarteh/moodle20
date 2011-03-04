@@ -15,7 +15,7 @@ require_logged_user();
 
 $name = $_POST["name"];
 $description = $_POST["description"];
-$html = $_POST["html"];
+$html = $_POST["rtml"];
 $experiment_id = $_REQUEST["experiment_id"];
 $introduction = $_POST["introduction"];
 $theory = $_POST["theory"];
@@ -23,27 +23,25 @@ $setup = $_POST["setup"];
 $procedure = $_POST["procedure"];
 
 $texts = array("introduction" => $introduction,
-               "theory" => $theory,
-               "setup" => $setup,
-               "proc" => $procedure);
+    "theory" => $theory,
+    "setup" => $setup,
+    "proc" => $procedure);
 
 if (!has_capability("mod/reservations:update_experiment", $context)) {
-  echo "No está autorizado para editar experimentos";
+    echo "No está autorizado para editar experimentos";
 } else {
-  $experiment = Experiment::find_by_id($experiment_id);
-  $experiment->name = $name;
-  $experiment->description = $description;
-  $experiment->html = $html;
-  $experiment->introduction = $introduction;
-  $experiment->theory = $theory;
-  $experiment->setup = $setup;
-  $experiment->procedure = $procedure;
-  $experiment->update();
-  echo "Se ha actualizado el experimento<br/>";
-  echo "<a href='index.php?laboratory_id=" . $experiment->laboratory_id . "'>Haga click aquí</a> para regresar.";
+    $experiment = Experiment::find_by_id($experiment_id);
+    $experiment->name = $name;
+    $experiment->description = $description;
+    $experiment->html = $html;
+    $experiment->introduction = $introduction;
+    $experiment->theory = $theory;
+    $experiment->setup = $setup;
+    $experiment->procedure = $procedure;
+    $experiment->update();
+    echo "Se ha actualizado el experimento<br/>";
+    echo "<a href='index.php?laboratory_id=" . $experiment->laboratory_id . "'>Haga click aquí</a> para regresar.";
 }
-  ?>
 
-  <?php
-  echo $OUTPUT->footer();
-  ?>
+echo $OUTPUT->footer();
+?>

@@ -13,25 +13,28 @@ $PAGE->set_title(get_string("pagetitle", "reservations"));
 echo $OUTPUT->header();
 
 require_logged_user();
-$experiment = Experiment::i($_GET["experiment_id"]);
-if (!$_GET["experiment_id"] || !$experiment){
-  die("Error en la activación de experimentos");
+
+echo "<h2>Activación de experimentos</h2>";
+
+if (!$_GET["experiment_id"]){
+    echo "No fue posible leer el ID del experimento";
 }
-?>
+else {
+    $experiment = Experiment::find_by_id($_GET["experiment_id"]);
+    if (!$experiment) {
+        echo "Experimento no encontrado";
+    }
+    else {
+        if ($experiment->is_active == 1)
+            $experiment->is_active = 0;
+        else
+            $experiment->is_active = 1;
+        $experiment->update();
 
-<h2>Activación de experimentos</h2>
+        echo "Se ha cambiado el estado de activación del experimento<br/><br/>";
+        echo "<a href='index.php?laboratory_id=" . $experiment->laboratory_id . "'>Haga click aquí</a> para regresar al experimento.";
+    }
+}
 
-<?php
-
-if ($experiment->is_active == 1)
-  $experiment->is_active = 0;
-else
-  $experiment->is_active = 1;
-
-$experiment->update();
-echo "Se ha cambiado el estado de activación del experimento<br/>";
-echo "<a href='index.php?laboratory_id=" . $experiment->laboratory_id . "'>Haga click aquí</a> para regresar.";
-
-
-  echo $OUTPUT->footer();
+echo $OUTPUT->footer();
 ?>

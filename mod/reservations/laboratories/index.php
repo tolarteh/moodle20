@@ -30,7 +30,7 @@ if (isset($_GET["laboratory_id"])) {
       <a class="lab-nav" href="../new.php?laboratory_id=<?php echo $lab->id; ?>">Reservar</a>
       <a class="lab-nav" href="../experiments/index.php?laboratory_id=<?php echo $lab->id; ?>">Ver Experimentos</a>
       <?php
-         if (has_capability("mod/reservations:delete_reservation", $context)) { ?>
+         if (has_capability("mod/reservations:delete_laboratory", $context)) { ?>
            <a class='lab-nav red' href='delete.php?laboratory_id=<?php echo $lab->id; ?>'>Eliminar</a>
       <?php
       } ?>
