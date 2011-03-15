@@ -1,21 +1,29 @@
 <?php
 
-require_once(dirname(dirname(dirname(__FILE__))).'/config.php');
-require_once(dirname(__FILE__).'/locallib.php');
-require_once(dirname(__FILE__).'/lib.php');
+require_once("../../config.php");
+require_once($CFG->dirroot.'/mod/reservations/locallib.php');
+require_once($CFG->dirroot.'/mod/reservations/lib.php');
 
 $PAGE->set_url('/mod/reservations');
 $PAGE->set_title(get_string("pagetitle", "reservations"));
 echo $OUTPUT->header();
-require_logged_user();
+
+if (isguestuser() or !isloggedin()) {
+    echo "<br/>";
+    if (isguestuser())
+        echo "<p>No se aceptan usuarios invitados (guest).</p>";
+    echo "<p>Para realizar una reserva debe autenticarse primero.</p>";
+    echo "<br/>";
+    link_to("Ingresar aqu&iacute;", "login/");
+    echo $OUTPUT->footer();
+    exit();
+}
 
 $reservation = find_reservation($_GET["id"]);
 $laboratory = Laboratory::find_by_id($reservation->laboratory_id);
 $experiment = Experiment::find_by_id($reservation->experiment_id);
 
 global $USER;
-?>
-<?php
 
 if ($experiment->description) {
   echo "<a href='javascript:show(\"description\");'><span class='link-horizontal'>Descripción</span class='link-horizontal'></a>";
@@ -42,10 +50,9 @@ echo "<a href='javascript:show(\"html\");'><span class='link-horizontal'>Experim
 ?>
 <br/ >
 <br/ >
-
 <?php
 if ($experiment->description) {
-  echo "<div class='active' id='description' class='exp-div'>" . $experiment->description ."</div>";
+  echo "<div class='active' id='description' class='exp-div'>" . $experiment->description . "</div>";
 }
 if ($experiment->introduction) {
   echo "<div id='introduction' class='exp-div'>" . $experiment->introduction . "</div>";
@@ -60,7 +67,7 @@ if ($experiment->procedure) {
   echo "<div id='procedure' class='exp-div'>" . $experiment->procedure . "</div>";
 }
 if ($experiment->html) {
-  echo "<div id='html' class='exp-div'><iframe src='" . $experiment->html . "?username=" . $USER->username . "&password=" . $USER->password . "'></iframe></div>";
+  echo "<div id='html' class='exp-div'><iframe src='" . $experiment->html . "?username=" . $USER->username . "&password=" . $USER->password . "&reservation=" . $reservation->id . "'></iframe></div>";
 }
 ?>
 <script type="text/javascript" src="show.js"></script>

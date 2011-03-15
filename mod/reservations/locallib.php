@@ -171,7 +171,7 @@ function current_user_id() {
   return $USER->id;
 }
 
-function auth_user($username, $hash, $res_id) {
+function auth_user($username, $pass, $res_id) {
   global $DB;
 
   if (!$user = $DB->get_record("user", array("username" => $username)))
@@ -180,7 +180,7 @@ function auth_user($username, $hash, $res_id) {
   if (!$reservation = find_reservation($res_id))
     return false;
 
-  return $user->password == $hash;
+  return $user->password == $pass;
 }
 
 function current_course_id() {

@@ -1,14 +1,23 @@
 <?php
 
-require_once(dirname(dirname(dirname(__FILE__))).'/config.php');
-require_once(dirname(__FILE__).'/locallib.php');
-require_once(dirname(__FILE__).'/lib.php');
-
+require_once("../../config.php");
+require_once($CFG->dirroot.'/mod/reservations/locallib.php');
+require_once($CFG->dirroot.'/mod/reservations/lib.php');
 
 $PAGE->set_url('/mod/reservations');
 $PAGE->set_title(get_string("pagetitle", "reservations"));
 echo $OUTPUT->header();
-require_logged_user();
+
+if (isguestuser() or !isloggedin()) {
+    echo "<br/>";
+    if (isguestuser())
+        echo "<p>No se aceptan usuarios invitados (guest).</p>";
+    echo "<p>Para realizar una reserva debe autenticarse primero.</p>";
+    echo "<br/>";
+    link_to("Ingresar aqu&iacute;", "login/");
+    echo $OUTPUT->footer();
+    exit();
+}
 ?>
 <h2>Reservas</h2>
 
@@ -44,7 +53,7 @@ if ($active_reservations) { ?>
   <tr>
     <th>Número</th>
     <th>Laboratorio</th>
-    <th>Tiempo Restante (approx.)</th>
+    <th>Tiempo Restante (aprox.)</th>
   </tr>
   <?php
 

@@ -9,6 +9,7 @@ echo $OUTPUT->doctype(); ?>
     <title><?php echo $PAGE->title ?></title>
     <?php echo $OUTPUT->standard_head_html() ?>
   </head>
+
   <body id="<?php echo $PAGE->bodyid; ?>" class="<?php echo $PAGE->bodyclasses; ?>">
     <?php echo $OUTPUT->standard_top_of_body_html() ?>
     <div id="page">
@@ -16,12 +17,12 @@ echo $OUTPUT->doctype(); ?>
         <div id="menu-subportales">
           <ul class="botones-subportales">
             <li><a href="http://www.eafit.edu.co/investigacion">Investigación</a></li>
-	    <li><a href="http://www.eafit.edu.co/cice">Cice</a></li>
-	    <li><a href="http://www.eafit.edu.co/cec">Educación Continua</a></li>
-	    <li><a href="http://www.eafit.edu.co/idiomas">Idiomas</a></li>
+      <li><a href="http://www.eafit.edu.co/cice">Cice</a></li>
+      <li><a href="http://www.eafit.edu.co/cec">Educación Continua</a></li>
+      <li><a href="http://www.eafit.edu.co/idiomas">Idiomas</a></li>
             <li><a href="http://www.eafit.edu.co/cultura">Cultura</a></li>
             <li><a href="http://www.eafit.edu.co/biblioteca">Biblioteca</a></li>
-	    <li class="last"><a href="http://www.eafit.edu.co/international">International</a></li>
+      <li class="last"><a href="http://www.eafit.edu.co/international">International</a></li>
           </ul>
         </div>
 
@@ -33,38 +34,31 @@ echo $OUTPUT->doctype(); ?>
     <div class="nav">
       <ul>
         <li><?php link_to("Inicio", "");?></li>
-        <li><?php link_to("Información", "");?></li>
+        <li><?php link_to("Información", "mod/reservations/info");?></li>
         <li><?php link_to("Laboratorios", "mod/reservations/laboratories");?></li>
         <li><?php link_to("Reservas", "mod/reservations");?></li>
-        <li><?php link_to("Cursos", "course");?></li>
-        <li>
-          <?php
-             if (current_user_id() == 0) {
-               link_to("Login", "login/");
-             } else {
-               link_to("Logout", "login/logout.php");
-             }
-          ?>
+        <li><?php
+            if (current_user_id() == 0) {
+              link_to("Ingresar", "login/");
+            } else {
+              link_to("Salir", "login/logout.php");
+            } ?>
         </li>
-
-
       </ul>
     </div>
 
-
     <div id="cuerpo">
       <div class="contenido">
-        <?php echo core_renderer::MAIN_CONTENT_TOKEN ?>
+        <?php echo core_renderer::MAIN_CONTENT_TOKEN; ?>
       </div>
-
       <div class="sidebar">
-        <?php if ($hassidepre) { ?>
-        <?php echo $OUTPUT->blocks_for_region('side-pre') ?>
-        <?php } ?>
-
-        <?php if ($hassidepost) { ?>
-        <?php echo $OUTPUT->blocks_for_region('side-post') ?>
-        <?php } ?>
+        <?php 
+        if ($hassidepre) {
+          echo $OUTPUT->blocks_for_region('side-pre');
+        }
+        if ($hassidepost) {
+          echo $OUTPUT->blocks_for_region('side-post');
+        } ?>
       </div>
     </div>
     <div id="footer_bg">
@@ -85,14 +79,14 @@ echo $OUTPUT->doctype(); ?>
           <ul class="botones-footer">
             <li class="amarillo">Alianzas</li>
             <li><a href="http://www.colombiaaprende.edu.co" target="_blank">Colombia Aprende</a></li>
-	    <li><a href="http://www.colombiaespasion.com" target="_blank">Colombia es Pasión</a></li>
-	    <li><a href="http://www.medellincomovamos.org" target="_blank">Medellín cómo vamos</a></li>
-	    <li><a href="http://www.faae.org.co" target="_blank">FAAE</a></li>
-	    <li><a href="http://www.birdantioquia.org.co" target="_blank">Bird Antioquia</a></li>
-	    <li><a href="http://www.universia.net.co" target="_blank">Universia</a></li>
-	    <li><a href="http://www.ruana.edu.co" target="_blank">Ruana</a></li>
-	    <li><a href="http://www.renata.edu.co" target="_blank">Renata</a></li>
-	    <li><a href="http://www.cis.org.co" target="_blank">Cis</a></li>
+            <li><a href="http://www.colombiaespasion.com" target="_blank">Colombia es Pasión</a></li>
+            <li><a href="http://www.medellincomovamos.org" target="_blank">Medellín cómo vamos</a></li>
+            <li><a href="http://www.faae.org.co" target="_blank">FAAE</a></li>
+            <li><a href="http://www.birdantioquia.org.co" target="_blank">Bird Antioquia</a></li>
+            <li><a href="http://www.universia.net.co" target="_blank">Universia</a></li>
+            <li><a href="http://www.ruana.edu.co" target="_blank">Ruana</a></li>
+            <li><a href="http://www.renata.edu.co" target="_blank">Renata</a></li>
+            <li><a href="http://www.cis.org.co" target="_blank">Cis</a></li>
           </ul>
         </div>
 
@@ -100,14 +94,14 @@ echo $OUTPUT->doctype(); ?>
           <ul class="botones-footer">
             <li class="amarillo">Servicios Web</li>
             <li><a href="/servicios-en-linea/aplicaciones-web/Paginas/aplicaciones-web.aspx" target="_blank">Aplicaciones Web</a></li>
-	    <li><a href="http://portus.eafit.edu.co" target="_blank">Correo Web</a></li>
-	    <li><a href="http://www.eafit.edu.co/ulises" target="_blank">Ulises</a></li>
-	    <li><a href="http://interactiva.eafit.edu.co" target="_blank">EAFIT Interactiva</a></li>
-	    <li><a href="http://entrenos.eafit.edu.co" target="_blank">Intranet Entrenos</a></li>
-	    <li><a href="http://www.eafit.edu.co/agencia-noticias" target="_blank">Agencia de Noticias</a></li>
-	    <li><a href="http://envivo.eafit.edu.co" target="_blank">Canal Envivo</a></li>
-	    <li><a href="http://acustica.eafit.edu.co" target="_blank">Emisora Acústica</a></li>
-	    <li><a href="http://www.eafit.edu.co/servicios-en-linea/Paginas/mapa-sitio.aspx" target="_blank">Mapa de Sitio</a></li>
+            <li><a href="http://portus.eafit.edu.co" target="_blank">Correo Web</a></li>
+            <li><a href="http://www.eafit.edu.co/ulises" target="_blank">Ulises</a></li>
+            <li><a href="http://interactiva.eafit.edu.co" target="_blank">EAFIT Interactiva</a></li>
+            <li><a href="http://entrenos.eafit.edu.co" target="_blank">Intranet Entrenos</a></li>
+            <li><a href="http://www.eafit.edu.co/agencia-noticias" target="_blank">Agencia de Noticias</a></li>
+            <li><a href="http://envivo.eafit.edu.co" target="_blank">Canal Envivo</a></li>
+            <li><a href="http://acustica.eafit.edu.co" target="_blank">Emisora Acústica</a></li>
+            <li><a href="http://www.eafit.edu.co/servicios-en-linea/Paginas/mapa-sitio.aspx" target="_blank">Mapa de Sitio</a></li>
           </ul>
         </div>
 
@@ -115,27 +109,16 @@ echo $OUTPUT->doctype(); ?>
           <ul class="botones-footer">
             <li class="amarillo">Contáctenos</li>
             <li><a href="/institucional/contacto/Paginas/contacto-eafit.aspx" target="_blank">Contacto</a></li>
-	    <li><a href="http://www2.eafit.edu.co/bisu" target="_blank">Sugerencias</a></li>
-	    <li><a href="http://www.eafit.edu.co/registro" target="_blank">Suscríbase</a></li>
-	    <li><a href="/servicios-en-linea/Paginas/directorio-redes-sociales.aspx" target="_blank">Directorio de redes sociales</a></li>
-	    <li><a href="http://www.elempleo.com/sitios_empresariales/eafit/index.asp" target="_blank">Trabaje con nosotros</a><a href="#"></a></li>
+            <li><a href="http://www2.eafit.edu.co/bisu" target="_blank">Sugerencias</a></li>
+            <li><a href="http://www.eafit.edu.co/registro" target="_blank">Suscríbase</a></li>
+            <li><a href="/servicios-en-linea/Paginas/directorio-redes-sociales.aspx" target="_blank">Directorio de redes sociales</a></li>
+            <li><a href="http://www.elempleo.com/sitios_empresariales/eafit/index.asp" target="_blank">Trabaje con nosotros</a><a href="#"></a></li>
           </ul>
         </div>
       </div>
       <div id="linea-footer"></div>
     </div>
 
-
-
-    <?php echo $OUTPUT->standard_end_of_body_html() ?>
+    <?php echo $OUTPUT->standard_end_of_body_html(); ?>
 </body>
 </html>
-
-
-
-
-
-
-
-
-

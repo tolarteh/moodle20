@@ -183,7 +183,7 @@ div.sidebar {
   color: #FFB921;
 }
 
-p,a,li,label { font-family: Georgia, "Times New Roman", Times, serif; ;}
+p,a,li,label { font-family: Georgia, "Times New Roman", Times, serif; }
 a, a:visited { color: #006fbf; }
 li a { font-family: Helvetica, Arial, sans-serif; }
 p { line-height: 1.5em; }
@@ -411,6 +411,12 @@ div.lab-info {
   width: 520px;
 }
 
+div.lab-info li{
+  list-style-type: disc;
+  margin-left: 20px;
+  margin-top: 7px;
+}
+
 div.lab-links {
   float: right;
   width: 200px;
@@ -424,6 +430,7 @@ div.lab-links h3 {
   font-size: 16px;
   padding-bottom: 5px;
   border-bottom: 2px solid #FFC903;
+  margin-top: 10px;
   margin-bottom: 15px;
 }
 
@@ -433,17 +440,20 @@ div.lab-links ul li {
 
 div.lab-links a {
   font-size: 13px;
+  background:  url([[pix:theme|bullet]]) left top no-repeat;
   color: white;
+  padding: 2px 2px 2px 15px;
   text-decoration: none;
 }
 
 div.lab-links a:hover {
   font-size: 13px;
-  color: #FFC903;
+  background:  url([[pix:theme|bullet_over]]) left top no-repeat;
+  color: #FFB903;
 }
 
 div.lab-links hr {
-  color: #FFC903;
+  color: #FFB903;
 }
 
 span.lab-name {
@@ -461,17 +471,11 @@ a.lab-nav {
 }
 
 div.lab-body {
-  color: #595959;
   margin-top: 30px;
-  font-family: Georgia, Times, serif;
-}
-
-a.red {
-  color: red;
+  font-family: Georgia, "Times New Roman", Times, serif;
 }
 
 iframe {
-  width: 760px;
-  height: 500px;
-  border: 1px solid #999;
+  height: 700px;
+  width: 900px;
 }
