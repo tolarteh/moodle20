@@ -33,4 +33,6 @@ else {
     echo "Error creando la reserva";
   }
 }
+
+echo $OUTPUT->footer();
 ?>

@@ -1,11 +1,23 @@
 <?php
-require_once(dirname(dirname(dirname(__FILE__))).'/config.php');
-require_once(dirname(__FILE__).'/locallib.php');
+require_once("../../config.php");
+require_once($CFG->dirroot.'/mod/reservations/locallib.php');
+require_once($CFG->dirroot.'/mod/reservations/lib.php');
 
 $PAGE->set_url('/mod/reservations/new.php');
 $PAGE->set_title(get_string("pagetitle", "reservations"));
 echo $OUTPUT->header();
-require_logged_user();
+
+if (isguestuser() or !isloggedin()) {
+  echo "<br/>";
+  if (isguestuser())
+    echo "<p>No se aceptan usuarios invitados (guest).</p>";
+  echo "<p>Para realizar una reserva debe autenticarse primero.</p>";
+  echo "<br/>";
+  link_to("Ingresar aqu&iacute;", "login/");
+  echo $OUTPUT->footer();
+  exit();
+}
+
 $laboratory = Laboratory::find_by_id($_GET["laboratory_id"]);
 ?>
 
@@ -15,26 +27,23 @@ $laboratory = Laboratory::find_by_id($_GET["laboratory_id"]);
   <div>
     <p>
       <em>Fecha:</em>
-      <?php
-        select_for_days();
-        select_for_months();
-        select_for_years();
-      ?>
+<?php
+select_for_days();
+select_for_months();
+select_for_years();
+?>
     </p>
-
     <p>
       <em>Hora:</em>
-      <?php
-        select_for_hours();
-      ?>
+<?php
+select_for_hours();
+?>
     </p>
-
     <p>
       <em>Duración:</em>
-      <?php
-        select_for_duration();
-      ?> horas
-
+<?php
+select_for_duration();
+?> horas
     </p>
 
   </div>
@@ -47,21 +56,19 @@ $laboratory = Laboratory::find_by_id($_GET["laboratory_id"]);
     <input type="hidden" name="laboratory_id" value="<?php echo $laboratory->id ?>" />
 
     <p>
-    <?php
-          if (!count($laboratory->active_experiments())) {
-            echo "<br/>Este laboratorio no tiene experimentos activos. Por favor ";
-            link_to("activar", "mod/reservations/experiments/index.php?laboratory_id=" . $laboratory->id);
-            echo " alguno de los experimentos antes de proceder.<br/><br/>";
+<?php
+if (!count($laboratory->active_experiments())) {
+  echo "<br/>Este laboratorio no tiene experimentos activos. Por favor ";
+  link_to("activar", "mod/reservations/experiments/index.php?laboratory_id=" . $laboratory->id);
+  echo " alguno de los experimentos antes de proceder.<br/><br/>";
 
-            echo '<input id="submit" DISABLED type="submit" value="Reservar" /> o ';
-            link_to("volver a laboratorios", "mod/reservations/laboratories/");
-    } else {
-            echo '<input id="submit" type="submit" value="Reservar" /> o ';
-            link_to("volver a laboratorios", "mod/reservations/laboratories/");
-          }
-    ?>
-
-
+  echo '<input id="submit" DISABLED type="submit" value="Reservar" /> o ';
+  link_to("volver a laboratorios", "mod/reservations/laboratories/");
+} else {
+  echo '<input id="submit" type="submit" value="Reservar" /> o ';
+  link_to("volver a laboratorios", "mod/reservations/laboratories/");
+}
+?>
     </p>
 
 </form>
