@@ -7,22 +7,22 @@ $CFG = new stdClass();
 $CFG->dbtype    = 'mysqli';
 $CFG->dblibrary = 'native';
 $CFG->dbhost    = 'localhost';
-$CFG->dbname    = 'moodle20';
-$CFG->dbuser    = 'moodleadmin';
-$CFG->dbpass    = 'moodleadmin';
+$CFG->dbname    = 'moodle';
+$CFG->dbuser    = 'moodleuser';
+$CFG->dbpass    = 'eafit-moodledb-2011*';
 $CFG->prefix    = 'mdl_';
 $CFG->dboptions = array (
   'dbpersist' => 0,
   'dbsocket' => 0,
 );
 
-$CFG->wwwroot   = 'http://localhost/moodle20';
-$CFG->dataroot  = 'C:\\wamp\\moodledata';
+$CFG->wwwroot   = 'http://200.12.180.124/moodle20';
+$CFG->dataroot  = '/var/moodledata';
 $CFG->admin     = 'admin';
 
 $CFG->directorypermissions = 0777;
 
-$CFG->passwordsaltmain = 'b7 _~I^H}bsju6.](E/P_}Tb)1xrq';
+$CFG->passwordsaltmain = ';9D%wW@wzETEL`Bf;e&R{y38G n95';
 
 require_once(dirname(__FILE__) . '/lib/setup.php');
 

@@ -15,7 +15,7 @@ require_logged_user();
 
 $name = $_POST["name"];
 $description = $_POST["description"];
-$html = $_POST["rtml"];
+$html = $_POST["html"];
 $experiment_id = $_REQUEST["experiment_id"];
 $introduction = $_POST["introduction"];
 $theory = $_POST["theory"];
