@@ -33,7 +33,7 @@ if (isguestuser() or !isloggedin()) {
       $reservations = find_reservations_for(current_user_id());
       foreach ($reservations as $r) {
         echo "<tr>";
-        echo "<td>" . lab_name($r->equipment_id) . "</td>";
+        echo "<td>" . lab_name($r->experiment_id) . "</td>";
         echo "<td>" . humanize_date($r->date) . "</td>";
         echo "<td>" . $r->duration . " hora(s)</td>";
         echo "<td><a href='reservations/delete.php?reservation_id=" . $r->id . "'>Cancelar</a></td>";
