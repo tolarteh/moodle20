@@ -16,7 +16,7 @@ $CFG->dboptions = array (
   'dbsocket' => 0,
 );
 
-$CFG->wwwroot   = 'http://200.12.180.124/moodle20';
+$CFG->wwwroot   = 'http://weblab.dis.eafit.edu.co';
 $CFG->dataroot  = '/var/moodledata';
 $CFG->admin     = 'admin';
 

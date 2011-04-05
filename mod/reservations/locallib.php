@@ -12,7 +12,7 @@ function require_logged_user() {
 }
 
 function link_to($text, $link) {
-  $root_url = "/moodle20/";
+  $root_url = "/";
   echo "<a href='" . $root_url . $link . "'>" . $text . "</a>";
 }
 
