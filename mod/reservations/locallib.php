@@ -164,7 +164,6 @@ function delete_reservation($id){
   return false;
 }
 
-
 function current_user_id() {
   global $USER;
 
@@ -173,14 +172,19 @@ function current_user_id() {
 
 function auth_user($username, $pass, $res_id) {
   global $DB;
-
+  // The user is in the database?
   if (!$user = $DB->get_record("user", array("username" => $username)))
     return false;
-
-  if (!$reservation = find_reservation($res_id))
+  // The reservation exists?
+  $reservation = find_reservation($res_id);
+  if (!$reservation)
     return false;
-
+  // The user is the owner of the reservation?
+  if ($user->id != $res->owner_id)
+    return false;
+  // The password is correct for that user?
   return $user->password == $pass;
+  // TODO: Check the date for the reservation
 }
 
 function current_course_id() {

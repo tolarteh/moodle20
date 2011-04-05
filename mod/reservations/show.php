@@ -8,8 +8,9 @@ $PAGE->set_url('/mod/reservations');
 $PAGE->set_title(get_string("pagetitle", "reservations"));
 echo $OUTPUT->header();
 
+// You need to login to see reservations (GUEST not aloud)
 if (isguestuser() or !isloggedin()) {
-    echo "<br/>";
+    echo "<h2>Reserva: Permisos insuficientes</h2>";
     if (isguestuser())
         echo "<p>No se aceptan usuarios invitados (guest).</p>";
     echo "<p>Para realizar una reserva debe autenticarse primero.</p>";
@@ -20,10 +21,33 @@ if (isguestuser() or !isloggedin()) {
 }
 
 $reservation = find_reservation($_GET["id"]);
-$laboratory = Laboratory::find_by_id($reservation->laboratory_id);
-$experiment = Experiment::find_by_id($reservation->experiment_id);
-
 global $USER;
+
+// Check if the $USER is the owner of the reservation
+if ($USER->id != $reservation->owner_id) {
+  echo "<h2>Reserva: Usuario incorrecto</h2>";
+  echo "<p>Esta reserva fue realizada por otro usuario, por lo que no tiene permiso su usuario no tiene permiso para ingresar a ella.</p>";
+  echo "<p>Escoja un horario disponible para realizar su propia reserva.</p>";
+  
+  echo $OUTPUT->footer();
+  exit();
+}
+
+// Check current date vs. reservation date
+$begin_date = $reservation->date;
+$end_date = $reservation->end_date;
+$date = time();
+if ($begin_date > $date || $date > $end_date) {
+  echo "<h2>Reserva: Problemas con la fecha</h2>";
+  if ($begin_date > $date)
+    echo "<p>A&uacute;n no es tiempo para esta reserva. Ingrese </p>";
+  if ($date > $end_date)
+    echo "<p>La reserva ya expir&oacute;. Realice una nueva reserva de ser necesario.</p>";
+  echo $OUTPUT->footer();
+  exit();
+}
+
+$experiment = Experiment::find_by_id($reservation->experiment_id);
 
 if ($experiment->description) {
   echo "<a href='javascript:show(\"description\");'><span class='link-horizontal'>Descripción</span class='link-horizontal'></a>";
