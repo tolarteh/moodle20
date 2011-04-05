@@ -12,8 +12,8 @@ function require_logged_user() {
 }
 
 function link_to($text, $link) {
-  $root_url = "/";
-  echo "<a href='" . $root_url . $link . "'>" . $text . "</a>";
+  global $CFG;
+  echo "<a href='" . $CFG->wwwroot . "/" . $link . "'>" . $text . "</a>";
 }
 
 
