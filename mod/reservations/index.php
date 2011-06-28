@@ -25,7 +25,7 @@ if (isguestuser() or !isloggedin()) {
   <table>
     <tr>
       <th>Laboratorio</th>
-      <th>Fecha</th>
+      <th>Fecha y Hora (Colombia)</th>
       <th>Duración</th>
       <th>&nbsp;</th>
     </tr>
@@ -35,7 +35,7 @@ if (isguestuser() or !isloggedin()) {
         echo "<tr>";
         echo "<td>" . lab_name($r->experiment_id) . "</td>";
         echo "<td>" . humanize_date($r->date) . "</td>";
-        echo "<td>" . $r->duration . " hora(s)</td>";
+        echo "<td>" . ($r->duration)*60 . " minutos</td>";
         echo "<td><a href='reservations/delete.php?reservation_id=" . $r->id . "'>Cancelar</a></td>";
         echo "</tr>";
       }

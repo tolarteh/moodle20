@@ -15,13 +15,13 @@ $year = $_POST["year"];
 $date = mktime($_POST["hour"], 0, 0, $_POST["month"], $_POST["day"], $_POST["year"]);
 $duration = $_POST["duration"];
 // TODO Revisar que la hora + duracion no supere el día
-$end_date = mktime($_POST["hour"] + $duration , 0, 0, $_POST["month"], $_POST["day"], $_POST["year"]);
+$end_date = mktime($_POST["hour"] + (int)$duration, ($duration-(int)$duration)*60, 0, $_POST["month"], $_POST["day"], $_POST["year"]);
 
 
 $lab_id = $_POST["laboratory_id"];
 $experiment = $_POST["experiment_id"];
 
-if (find_reservation_by_date($year, $month, $day, $hour)) {
+if (find_reservation_by_date($date)) {
   echo "Ya existe una reserva en esta hora";
   echo "<br/><a href='index.php'>Volver</a>";
 }

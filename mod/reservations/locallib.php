@@ -63,8 +63,8 @@ function select_for_hours() {
 
 function select_for_duration() {
   echo "<select name='duration'>Duración</option>";
-  for ($i = 1; $i <= 8; $i++) {
-    echo "<option value='" . $i . "'>" . $i . "</option>";
+  for ($i = 0.5; $i <= 2; $i+=0.5) {
+    echo "<option value='" . $i . "'>" . ($i*60) . "</option>";
   }
   echo "</select>";
 }
@@ -116,10 +116,9 @@ function find_active_reservations() {
   return $DB->get_records_sql($sql);
 }
 
-function find_reservation_by_date($year, $month, $day, $hour) {
+function find_reservation_by_date($date) {
   global $DB;
 
-  $date = mktime($hour, 0, 0, $month, $day, $year);
   $record = $DB->get_record("reservations", array("date" => $date));
 
   return ($record != false);
@@ -201,7 +200,7 @@ function lab_name($id) {
 }
 
 function humanize_date($date) {
-  return date("d-m-Y", $date);
+  return date("d-m-Y, g:i a", $date);
 }
 
 function reservation_remaining_time($reservation) {
