@@ -43,7 +43,7 @@ select_for_hours();
       <em>Duración:</em>
 <?php
 select_for_duration();
-?> minutos
+?> horas
     </p>
 
   </div>

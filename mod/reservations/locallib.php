@@ -57,14 +57,13 @@ function select_for_hours() {
   for ($i = 0; $i <= 23; $i++) {
     echo "<option value='" . $i . ":00'>" . $i . ":00</option>";
   }
-
   echo "</select>";
 }
 
 function select_for_duration() {
   echo "<select name='duration'>Duración</option>";
-  for ($i = 0.5; $i <= 2; $i+=0.5) {
-    echo "<option value='" . $i . "'>" . ($i*60) . "</option>";
+  for ($i = 1; $i <= 8; $i++) {
+    echo "<option value='" . $i . "'>" . $i . "</option>";
   }
   echo "</select>";
 }
@@ -79,7 +78,6 @@ function print_experiments_list($laboratory, $selected=null) {
       } else {
         echo "<option value='" . $e->id . "'>" . $e->name . "</option>";
       }
-
     }
     echo "</select>";
   } else {

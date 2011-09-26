@@ -30,16 +30,18 @@ if (!$experiment){
      echo "<tr>";
      echo "<td>" . $content->name . "</td>";
      echo '<td><a href=file.php?content_id='. $content->id . '>Descargar</a></td>';
-     echo "<td><a href='delete.php?content_id=" . $content->id . "'>Eliminar</a></td>";
-     echo "</tr>";
+	 if (has_capability("mod/reservations:update_experiment", $context)) {
+     	echo "<td><a href='delete.php?content_id=" . $content->id . "'>Eliminar</a></td>";
+     }
+	 echo "</tr>";
    }
-
     ?>
   </table>
 </div>
 
-
+<?php if (has_capability("mod/reservations:update_experiment", $context)) { ?>
 <a href="new.php?experiment_id=<?php echo $experiment->id; ?>">Crear un nuevo contenido</a><br/><br/>
+<?php } ?>
 <a href="../experiments/index.php?laboratory_id=<?php echo $experiment->laboratory_id; ?>">Volver a Experimentos</a>
 <?php
   echo $OUTPUT->footer();
