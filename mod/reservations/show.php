@@ -70,8 +70,6 @@ if ($experiment->procedure) {
 
 echo "<a href='javascript:show(\"html\");'><span class='link-horizontal'>Experimento</span class='link-horizontal'></a>";
 
-echo "<a href='javascript:window.open(\"http://200.12.180.126/gpibcamera.html\",\"GPIBcamera\",\"width=655,height=515\");' target=\"_blank\"><span class='link-horizontal'>Video remoto</span class='link-horizontal'></a>";
-
 ?>
 <br/ >
 <br/ >

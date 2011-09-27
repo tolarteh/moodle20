@@ -17,20 +17,3 @@ function show(which){
     el.style.display = "block";
     el.className = "active";
 }
-
-function displayRemoteVideo(){
-	//if(navigator.appName.indexOf('Microsoft Internet Explorer') != -1){
-		//window.showModelessDialog('http://200.12.180.126/gpibcamera.html','','dialogTop:50px;dialogLeft:50px;dialogHeight:400px;dialogWidth:500px');
-	//}
-	
-	//if(navigator.appName.indexOf('Netscape') != -1){
-		window.open('http://200.12.180.126/gpibcamera.html','GPIBcamera','width=400,height=500');
-	//} 
-	
-	//return false;
-}
-
-
-
-
-

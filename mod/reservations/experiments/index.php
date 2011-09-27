@@ -14,7 +14,9 @@ require_logged_user();
 
 $lab = Laboratory::find_by_id($_GET["laboratory_id"]);
 if (!$lab){
-  die("Laboratorio Inválido");
+  echo "Laboratorio Inv&aacute;lido";
+  echo $OUTPUT->footer();
+  die();
 }
 ?>
 
@@ -23,27 +25,26 @@ if (!$lab){
   <table>
     <tr>
       <th>Nombre</th>
-      <th>&nbsp</th>
-      <th>&nbsp</th>
-      <th>&nbsp</th>
+      <th>Documentos</th>
+      <th>&nbsp;</th>
+      <th>&nbsp;</th>
+      <th>&nbsp;</th>
     </tr>
     <?php
   $experiments = $lab->experiments();
   foreach ($experiments as $experiment) {
-     echo "<tr>";
-     echo "<td>" . $experiment->name . "</td>";
-     if (has_capability("mod/reservations:update_experiment", $context)) {
-       echo "<td>". $experiment->activation_link() . "</td>";
-     }
-     if (has_capability("mod/reservations:update_experiment", $context)) {
-       echo "<td><a href='edit.php?experiment_id=" . $experiment->id . "'>Editar</a></td>";
-     }
-     echo "<td><a href='../contents/index.php?experiment_id=" . $experiment->id . "'>Ver Contenidos</a></td>";
-     if (has_capability("mod/reservations:delete_experiment", $context)) {
-       echo "<td><a href='delete.php?experiment_id=" . $experiment->id . "'>Eliminar</a></td>";
-     }
-     echo "</tr>";
-   }
+    echo "<tr>";
+    echo "<td>" . $experiment->name . "</td>";
+    echo "<td><a href='../contents/index.php?experiment_id=" . $experiment->id . "'>Ver Documentos</a></td>";
+    if (has_capability("mod/reservations:update_experiment", $context)) {
+      echo "<td>". $experiment->activation_link() . "</td>";
+      echo "<td><a href='edit.php?experiment_id=" . $experiment->id . "'><img title='Editar' alt='Editar' src='".$OUTPUT->pix_url('f/edit')."'/></a></td>";
+    }
+    if (has_capability("mod/reservations:delete_experiment", $context)) {
+      echo "<td><a href='delete.php?experiment_id=" . $experiment->id . "'><img title='Eliminar' alt='Eliminar' src='".$OUTPUT->pix_url('i/cross_red_big')."'/></a></td>";
+    }
+    echo "</tr>";
+  }
     ?>
   </table>
 </div>

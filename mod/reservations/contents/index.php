@@ -2,17 +2,21 @@
 require_once(dirname(dirname(dirname(__FILE__))).'/../config.php');
 require_once(dirname(__FILE__).'/../locallib.php');
 
+global $COURSE;
+$context = get_context_instance(CONTEXT_MODULE, $COURSE->id);
+$PAGE->set_context($context);
 $PAGE->set_url('/mod/reservations/contents/index.php');
 $PAGE->set_title(get_string("pagetitle", "reservations"));
 
-$PAGE->set_context(get_system_context());
 echo $OUTPUT->header();
 
 require_logged_user();
 
 $experiment = Experiment::find_by_id($_GET["experiment_id"]);
 if (!$experiment){
-  die("Experimento Inválido");
+  echo "Experimento Inv&aacute;lido";
+  echo $OUTPUT->footer();
+  die();
 }
 ?>
 
@@ -24,18 +28,18 @@ if (!$experiment){
       <th>Contenido</th>
       <th>&nbsp</th>
     </tr>
-    <?php
+<?php
   $contents = $experiment->contents();
   foreach ($contents as $content) {
-     echo "<tr>";
-     echo "<td>" . $content->name . "</td>";
-     echo '<td><a href=file.php?content_id='. $content->id . '>Descargar</a></td>';
-	 if (has_capability("mod/reservations:update_experiment", $context)) {
-     	echo "<td><a href='delete.php?content_id=" . $content->id . "'>Eliminar</a></td>";
-     }
-	 echo "</tr>";
-   }
-    ?>
+    echo "<tr>";
+    echo "<td>" . $content->name . "</td>";
+    echo '<td><a href=file.php?content_id='. $content->id . '>Descargar</a></td>';
+    if (has_capability("mod/reservations:update_experiment", $context)) {
+      echo "<td><a href='delete.php?content_id=" . $content->id . "'>Eliminar</a></td>";
+    }
+    echo "</tr>";
+  }
+?>
   </table>
 </div>
 
