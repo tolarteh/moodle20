@@ -28,7 +28,7 @@ $texts = array("introduction" => $introduction,
     "proc" => $procedure);
 
 if (!has_capability("mod/reservations:update_experiment", $context)) {
-    echo "No está autorizado para editar experimentos";
+    echo "No est&aacute; autorizado para editar experimentos";
 } else {
     $experiment = Experiment::find_by_id($experiment_id);
     $experiment->name = $name;
@@ -37,10 +37,10 @@ if (!has_capability("mod/reservations:update_experiment", $context)) {
     $experiment->introduction = $introduction;
     $experiment->theory = $theory;
     $experiment->setup = $setup;
-    $experiment->procedure = $procedure;
+    $experiment->proc = $procedure;
     $experiment->update();
     echo "Se ha actualizado el experimento<br/>";
-    echo "<a href='index.php?laboratory_id=" . $experiment->laboratory_id . "'>Haga click aquí</a> para regresar.";
+    echo "<a href='index.php?laboratory_id=" . $experiment->laboratory_id . "'>Haga click aqu&iacute;</a> para regresar.";
 }
 
 echo $OUTPUT->footer();

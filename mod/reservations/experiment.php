@@ -39,19 +39,19 @@ class Experiment {
         else {
             $texts = array("introduction" => $record->introduction,
                 "theory" => $record->theory,
-                "setup" => $record->setup,
-                "proc" => $record->proc);
+                "setup"  => $record->setup,
+                "proc"   => $record->proc);
             $exp = new Experiment($record->id, $record->name, $record->description,
                 $record->html, $record->is_active, $record->laboratory_id, $texts);
             return $exp;
         }
     }
 
-    function activation_link() {
+    function activation_link($show, $hide) {
         if ($this->is_active)
-            return '<a href="activate.php?experiment_id=' . $this->id . '">Desactivar</a>';
+            return "<a href='activate.php?experiment_id=" . $this->id . "'><img title='Desactivar' alt='Desactivar' src='" . $hide . "'/></a>";
         else
-            return '<a href="activate.php?experiment_id=' . $this->id . '">Activar</a>';
+            return "<a href='activate.php?experiment_id=" . $this->id . "'><img title='Activar' alt='Activar' src='" . $show . "'/></a>";
     }
 
     function contents() {
@@ -116,5 +116,4 @@ class Experiment {
         return Experiment::db_obj_to_experiment($record);
     }
 }
-
 ?>

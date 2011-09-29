@@ -18,20 +18,27 @@ require_logged_user();
     <em>Nombre del experimento:</em>
     <input type="text" name="name" value="" />
   </p>
+  
   <p>
-    <em>Descripción del experimento:</em>
+    <em>URL del experimento:</em>
+    <br/>
+    <input type="text" name="html"></input>
+  </p>
+  
+  <p>
+    <em>Descripci&oacute;n del experimento:</em>
     <br/>
     <textarea id="description" rows="8" cols="60" name="description"></textarea>
   </p>
 
   <p>
-    <em>Introducción:</em>
+    <em>Introducci&oacute;n:</em>
     <br/>
     <textarea id="introduction" rows="8" cols="60" name="introduction"></textarea>
   </p>
 
   <p>
-    <em>Teoría:</em>
+    <em>Teor&iacute;a:</em>
     <br/>
     <textarea id="theory" rows="8" cols="60" name="theory"></textarea>
   </p>
@@ -48,12 +55,6 @@ require_logged_user();
     <textarea id="procedure" rows="8" cols="60" name="procedure"></textarea>
   </p>
   <input type="hidden" name="laboratory_id" value="<?php echo $_GET['laboratory_id']; ?>" />
-
-  <p>
-    <em>URL del experimento:</em>
-    <br/>
-    <input type="text" name="html"></input>
-  </p>
 
   <p>
     <input type="submit" value="Crear Experimento" onclick="post();"/>

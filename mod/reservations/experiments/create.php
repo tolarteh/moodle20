@@ -28,38 +28,46 @@ $texts = array("introduction" => $introduction,
                "proc" => $procedure);
 
 if (!has_capability("mod/reservations:create_experiment", $context)) {
-  echo "No está autorizado para crear experimentos";
-} else {
-if ($name && $description && $html && $laboratory_id) {
-
-  if ($experiment = Experiment::create($name, $description, $html, $laboratory_id, $texts)){
-    echo "El experimento se creó exitosamente.<br/>";
-    echo "<a href='index.php?laboratory_id=" . $laboratory_id . "'>Haga click aquí</a> para regresar.";
-  } else {
-    echo "No se pudo crear el experimento";
+  echo "No est&aacute; autorizado para crear experimentos";
+}
+else {
+  if ($name && $description && $html && $laboratory_id) {
+    if ($experiment = Experiment::create($name, $description, $html, $laboratory_id, $texts)) {
+      echo "El experimento se cre&oacute; exitosamente.<br/>";
+      echo "<a href='index.php?laboratory_id=" . $laboratory_id . "'>Haga click aqu&iacute;</a> para regresar.";
+    }
+    else {
+      echo "No se pudo crear el experimento";
+    }
   }
-} else {
-  echo "<p class='notice'>Todos los campos son obligatorios</p>";
+  else {
+  echo "<p class='notice'>Los primeros 3 campos son obligatorios</p>";
 ?>
 <form enctype="multipart/form-data" action="create.php" method="POST">
   <p>
     <em>Nombre del experimento:</em>
     <input type="text" name="name" value="" />
   </p>
+ 
+  <p>
+    <em>URL del experimento:</em>
+    <br/>
+    <textarea rows="8" cols="60" name="html"></textarea>
+  </p>
 
   <p>
-    <em>Descripción del experimento:</em>
+    <em>Descripci&oacute;n del experimento:</em>
     <br/>
     <textarea rows="8" cols="60" name="description" id="description"></textarea>
   </p>
   <p>
-    <em>Introducción:</em>
+    <em>Introducci&oacute;n:</em>
     <br/>
     <textarea id="introduction" rows="8" cols="60" name="introduction"></textarea>
   </p>
 
   <p>
-    <em>Teoría:</em>
+    <em>Teor&iacute;a:</em>
     <br/>
     <textarea id="theory" rows="8" cols="60" name="theory"></textarea>
   </p>
@@ -78,20 +86,14 @@ if ($name && $description && $html && $laboratory_id) {
 
   <input type="hidden" name="laboratory_id" value="<?php echo $laboratory_id; ?>"/>
 <br/>
-  <p>
-    <em>Código HTML:</em>
-    <br/>
-    <textarea rows="8" cols="60" name="html"></textarea>
-  </p>
 
   <p>
     <input type="submit" value="Crear Experimento" onclick="post();"/>
   </p>
 </form>
 
-
 <?php
-}
+  }
 }
 ?>
 <script type="text/javascript" src="areas.js"></script>
