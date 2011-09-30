@@ -21,8 +21,7 @@ require_logged_user();
   
   <p>
     <em>URL del experimento:</em>
-    <br/>
-    <input type="text" name="html"></input>
+    <input type="text" name="html" size="30"></input>
   </p>
   
   <p>
@@ -55,7 +54,7 @@ require_logged_user();
     <textarea id="procedure" rows="8" cols="60" name="procedure"></textarea>
   </p>
   <input type="hidden" name="laboratory_id" value="<?php echo $_GET['laboratory_id']; ?>" />
-
+  <br/>
   <p>
     <input type="submit" value="Crear Experimento" onclick="post();"/>
   </p>

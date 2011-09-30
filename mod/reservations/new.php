@@ -40,7 +40,7 @@ select_for_hours();
 ?>
     </p>
     <p>
-      <em>Duración:</em>
+      <em>Duraci&oacute;n:</em>
 <?php
 select_for_duration();
 ?> horas

@@ -41,7 +41,7 @@ else {
     }
   }
   else {
-  echo "<p class='notice'>Los primeros 3 campos son obligatorios</p>";
+  echo "<p class='notice'>Deben proporcionar el nombre, la url y la descripci&oacute;n del experimento</p>";
 ?>
 <form enctype="multipart/form-data" action="create.php" method="POST">
   <p>
@@ -51,8 +51,7 @@ else {
  
   <p>
     <em>URL del experimento:</em>
-    <br/>
-    <textarea rows="8" cols="60" name="html"></textarea>
+    <input type="text" name="html" size="30"></input>
   </p>
 
   <p>

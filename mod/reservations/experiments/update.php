@@ -39,8 +39,16 @@ if (!has_capability("mod/reservations:update_experiment", $context)) {
     $experiment->setup = $setup;
     $experiment->proc = $procedure;
     $experiment->update();
-    echo "Se ha actualizado el experimento<br/>";
-    echo "<a href='index.php?laboratory_id=" . $experiment->laboratory_id . "'>Haga click aqu&iacute;</a> para regresar.";
+?>
+
+<head>
+  <meta http-equiv="Refresh" content="2; url=index.php?laboratory_id=<?php echo $experiment->laboratory_id ?>">
+</head>
+
+<?php
+    echo "<h2>Actualizaci&oacute;n realizada</h2>";
+    echo "<p>Se ha actualizado correctamente el experimento.<br/><br/>";
+    echo "Ser&aacute; redireccionado autom&aacute;ticamente, sino <a href='index.php?laboratory_id=" . $experiment->laboratory_id . "'>haga click aqu&iacute;</a> para regresar.</p>";
 }
 
 echo $OUTPUT->footer();

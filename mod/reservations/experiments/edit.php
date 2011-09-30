@@ -28,8 +28,7 @@ if (!$_GET["experiment_id"] || !$experiment){
 
   <p>
     <em>URL del experimento:</em>
-    <br/>
-    <input type="text" name="html" value="<?php echo $experiment->html ?>"></input>
+    <input type="text" name="html" size="30" value="<?php echo $experiment->html ?>"></input>
   </p>
 
   <p>
@@ -59,12 +58,12 @@ if (!$_GET["experiment_id"] || !$experiment){
   <p>
     <em>Procedimiento:</em>
     <br/>
-    <textarea id="procedure" rows="8" cols="60" name="procedure"><?php echo $experiment->procedure ?></textarea>
+    <textarea id="procedure" rows="8" cols="60" name="procedure"><?php echo $experiment->proc ?></textarea>
   </p>
   <input type="hidden" name="laboratory_id" value="<?php echo $_GET['laboratory_id']; ?>" />
   <input type="hidden" name="experiment_id" value="<?php echo $experiment->id; ?>" />
-
-   <p>
+  <br/>
+  <p>
     <input type="submit" value="Editar Experimento" onclick="post();"/>
   </p>
 </form>

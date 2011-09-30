@@ -71,22 +71,24 @@ else {
   $experiment = Experiment::find_by_id($reservation->experiment_id);
 }
 
+echo "<h2>" . $experiment->name . "</h2>";
+
 if ($experiment->description) {
-  echo "<a href='javascript:show(\"description\");'><span class='link-horizontal'>Descripci&oacute;n</span class='link-horizontal'></a>";
+  echo "<a href='javascript:show(\"description\");'><span class='link-horizontal'>Descripci&oacute;n</span></a>";
 }
 if ($experiment->introduction) {
-  echo "<a href='javascript:show(\"introduction\");'><span class='link-horizontal'>Introducci&oacute;n</span class='link-horizontal'></a>";
+  echo "<a href='javascript:show(\"introduction\");'><span class='link-horizontal'>Introducci&oacute;n</span></a>";
 }
 if ($experiment->theory) {
-  echo "<a href='javascript:show(\"theory\");'><span class='link-horizontal'>Teoría</span class='link-horizontal'></a>";
+  echo "<a href='javascript:show(\"theory\");'><span class='link-horizontal'>Teor&iacute;a</span></a>";
 }
 if ($experiment->setup) {
-  echo "<a href='javascript:show(\"setup\");'><span class='link-horizontal'>Montaje</span class='link-horizontal'></a>";
+  echo "<a href='javascript:show(\"setup\");'><span class='link-horizontal'>Montaje</span></a>";
 }
 if ($experiment->proc) {
-  echo "<a href='javascript:show(\"procedure\");'><span class='link-horizontal'>Procedimiento</span class='link-horizontal'></a>";
+  echo "<a href='javascript:show(\"procedure\");'><span class='link-horizontal'>Procedimiento</span></a>";
 }
-echo "<a href='javascript:show(\"html\");'><span class='link-horizontal'>Experimento</span class='link-horizontal'></a>";
+echo "<a href='javascript:show(\"html\");'><span class='link-horizontal'>Experimento</span></a>";
 ?>
 <br/ >
 <br/ >

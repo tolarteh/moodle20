@@ -51,7 +51,7 @@ if ($active_reservations) { ?>
 <div class="print">
 <table>
   <tr>
-    <th>Número</th>
+    <th>N&uacute;mero</th>
     <th>Laboratorio</th>
     <th>Tiempo Restante (aprox.)</th>
   </tr>
@@ -69,7 +69,7 @@ foreach ($active_reservations as $res) {
   </div>
     <?php } ?>
 <p>
-  También puede reservar un laboratorio:
+  Tambi&eacute;n puede reservar un laboratorio:
   <form action="new.php" method="GET">
     <?php print_lab_list() ?>
     <input type="submit" value="Reservar" />
@@ -78,5 +78,3 @@ foreach ($active_reservations as $res) {
 <?php
 echo $OUTPUT->footer();
 ?>
-
-
