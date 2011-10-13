@@ -34,9 +34,9 @@ echo $OUTPUT->doctype(); ?>
     <div class="nav">
       <ul>
         <li><?php link_to("Inicio", "");?></li>
-        <li><?php link_to("Información", "mod/reservations/info");?></li>
         <li><?php link_to("Laboratorios", "mod/reservations/laboratories");?></li>
         <li><?php link_to("Reservas", "mod/reservations");?></li>
+        <li><?php link_to("Acerca del Proyecto", "mod/reservations/info");?></li>
         <li><?php
             if (current_user_id() == 0) {
               link_to("Ingresar", "login/");
