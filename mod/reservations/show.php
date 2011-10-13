@@ -70,7 +70,7 @@ else {
   // Find the experiment using the data in the reservation
   $experiment = Experiment::find_by_id($reservation->experiment_id);
 }
-echo "<div id='timer' style='position:relative; top:0px; left:0px; color:red; font-weight:bold'>&nbsp;</div>";
+echo "<div id='timer' style='position:relative; color:red; font-weight:bold'>&nbsp;</div>";
 echo "<h2>" . $experiment->name . "</h2>";
 
 if ($experiment->description) {

@@ -62,7 +62,7 @@ function select_for_hours() {
 
 function select_for_duration() {
   echo "<select name='duration'>Duración</option>";
-  for ($i = 1; $i <= 8; $i++) {
+  for ($i = 1; $i <= 2; $i++) {
     echo "<option value='" . $i . "'>" . $i . "</option>";
   }
   echo "</select>";

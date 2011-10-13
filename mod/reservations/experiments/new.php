@@ -16,18 +16,18 @@ require_logged_user();
 <form enctype="multipart/form-data" action="create.php" method="POST">
   <p>
     <em>Nombre del experimento:</em>
-    <input type="text" name="name" value="" />
+    <input type="text" name="name" required="required" />
   </p>
   
   <p>
     <em>URL del experimento:</em>
-    <input type="text" name="html" size="30"></input>
+    <input type="text" name="html" size="30"/>
   </p>
   
   <p>
     <em>Descripci&oacute;n del experimento:</em>
     <br/>
-    <textarea id="description" rows="8" cols="60" name="description"></textarea>
+    <textarea id="description" rows="8" cols="60" name="description" required="required"></textarea>
   </p>
 
   <p>

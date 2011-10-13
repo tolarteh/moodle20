@@ -41,23 +41,23 @@ else {
     }
   }
   else {
-  echo "<p class='notice'>Deben proporcionar el nombre, la url y la descripci&oacute;n del experimento</p>";
+  echo "<p class='notice'>Deben proporcionar el nombre y la descripci&oacute;n del experimento como m&iacute;nimo</p>";
 ?>
 <form enctype="multipart/form-data" action="create.php" method="POST">
   <p>
     <em>Nombre del experimento:</em>
-    <input type="text" name="name" value="" />
+    <input type="text" name="name" value="" required="required"/>
   </p>
  
   <p>
     <em>URL del experimento:</em>
-    <input type="text" name="html" size="30"></input>
+    <input type="text" name="html" size="30"/>
   </p>
 
   <p>
     <em>Descripci&oacute;n del experimento:</em>
     <br/>
-    <textarea rows="8" cols="60" name="description" id="description"></textarea>
+    <textarea rows="8" cols="60" name="description" id="description" required="required"></textarea>
   </p>
   <p>
     <em>Introducci&oacute;n:</em>

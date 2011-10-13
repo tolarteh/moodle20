@@ -23,18 +23,18 @@ if (!$_GET["experiment_id"] || !$experiment){
 <form enctype="multipart/form-data" action="update.php" method="POST">
   <p>
     <em>Nombre del experimento:</em>
-    <input type="text" name="name" value="<?php echo $experiment->name ?>" />
+    <input type="text" name="name" value="<?php echo $experiment->name ?>"  required="required"/>
   </p>
 
   <p>
     <em>URL del experimento:</em>
-    <input type="text" name="html" size="30" value="<?php echo $experiment->html ?>"></input>
+    <input type="text" name="html" size="30" value="<?php echo $experiment->html ?>"/>
   </p>
 
   <p>
     <em>Descripci&oacute;n del experimento:</em>
     <br/>
-    <textarea id="description" rows="8" cols="60" name="description"><?php echo $experiment->description ?></textarea>
+    <textarea id="description" rows="8" cols="60" name="description" required="required"><?php echo $experiment->description ?></textarea>
   </p>
 
   <p>
