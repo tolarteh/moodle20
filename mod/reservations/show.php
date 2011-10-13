@@ -70,7 +70,7 @@ else {
   // Find the experiment using the data in the reservation
   $experiment = Experiment::find_by_id($reservation->experiment_id);
 }
-
+echo "<div id='timer' style='position:relative; top:0px; left:0px; color:red; font-weight:bold'>&nbsp;</div>";
 echo "<h2>" . $experiment->name . "</h2>";
 
 if ($experiment->description) {
@@ -109,9 +109,21 @@ if ($experiment->proc) {
   echo "<div id='procedure' class='exp-div'>" . $experiment->proc . "</div>";
 }
 if ($experiment->html) {
-  echo "<div id='html' class='exp-div'><iframe src='" . $experiment->html . "?username=" . $USER->username . "&password=" . $USER->password . "&reservation=" . $reservation->id . "'></iframe></div>";
+  echo "<div id='html' class='exp-div'><iframe src='" . $experiment->html . "?username=" . $USER->username . "&password=" . $USER->password . "&reservation=" . $reservation_id . "'></iframe></div>";
 }
-?>
-<script type="text/javascript" src="show.js"></script>
 
+// time_left is used for the JavaScript timer
+if ($reservation_id == 0) {
+  // You can preview the experiment for ONE hour
+  $time_left = 3600;
+}
+else {
+  $time_left = $reservation->end_date - time();
+} 
+?>
+
+<script type="text/javascript" src="show.js"></script>
+<script type="text/javascript">
+  window.onload = displayAlert(<?php echo $time_left ?>);
+</script>
 <?php echo $OUTPUT->footer(); ?>

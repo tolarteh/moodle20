@@ -37,7 +37,7 @@ select_for_years();
       <em>Hora:</em>
 <?php
 select_for_hours();
-?>
+?> -- Hora actual <?php echo humanize_date(time()) ?> 
     </p>
     <p>
       <em>Duraci&oacute;n:</em>
@@ -48,7 +48,7 @@ select_for_duration();
 
   </div>
 
-    <h3>¿Qué experimento desea usar?</h3>
+    <h3>¿Cu&aacute;l experimento desea reservar?</h3>
     <p>
       <?php print_experiments_list($laboratory, null); ?>
     </p>

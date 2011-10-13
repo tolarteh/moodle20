@@ -108,7 +108,7 @@ function find_active_reservations() {
   global $DB;
 
   $user = current_user_id();
-  $cur = mktime();
+  $cur = time();
   $sql = "SELECT * FROM  `mdl_reservations` WHERE `date` <=" . $cur . " AND  `end_date` >=" . $cur . " AND `owner_id`=" . $user;
 
   return $DB->get_records_sql($sql);
@@ -124,7 +124,7 @@ function find_reservation_by_date($date) {
 
 function find_reservations_for($user_id) {
   global $DB;
-  $cur = mktime();
+  $cur = time();
   $sql = "SELECT * FROM  `mdl_reservations` WHERE `owner_id`=" . $user_id . " AND `date` >=" . $cur . " ORDER BY `date`";
 
   return $DB->get_records_sql($sql);
@@ -149,7 +149,7 @@ function create_reservation($lab, $exp, $date, $end_date, $duration, $user, $cou
   $reservation->duration = $duration;
   $reservation->owner_id = current_user_id();
   $reservation->course = current_course_id();
-  $reservation->created_at = mktime();
+  $reservation->created_at = time();
   return $DB->insert_record('reservations', $reservation);
 }
 
@@ -180,13 +180,18 @@ function auth_user($username, $pass, $res_id) {
   if ($user->id != $res->owner_id)
     return false;
   // The password is correct for that user?
-  return $user->password == $pass;
-  // TODO: Check the date for the reservation
+  if ($user->password != $pass)
+    return false;
+  // The reservation is active right now?
+  $current_date = time();
+  if (($current_date < $res->date)||($current_date > $res->end_date))
+    return false;
+  // If all the conditions are true
+  return true;
 }
 
 function current_course_id() {
   global $COURSE;
-
   return $COURSE->id;
 }
 
@@ -202,9 +207,8 @@ function humanize_date($date) {
 }
 
 function reservation_remaining_time($reservation) {
-  $current_date = mktime();
+  $current_date = time();
   $end_date = $reservation->end_date;
-
-  $result = ceil(($end_date - $current_date) / 60); /* rounded minutes */
-  return $result;
+  // Rounded minutes
+  return ceil(($end_date - $current_date) / 60);
 }

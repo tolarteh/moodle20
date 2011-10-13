@@ -26,7 +26,7 @@ if (isguestuser() or !isloggedin()) {
     <tr>
       <th>Laboratorio</th>
       <th>Fecha y Hora (Colombia)</th>
-      <th>Duración</th>
+      <th>Duraci&oacute;n</th>
       <th>&nbsp;</th>
     </tr>
     <?php
@@ -42,7 +42,6 @@ if (isguestuser() or !isloggedin()) {
     ?>
   </table>
 </div>
-
 
 <?php
 $active_reservations = find_active_reservations();
