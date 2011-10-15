@@ -108,27 +108,38 @@ function find_active_reservations() {
   global $DB;
 
   $user = current_user_id();
-  $cur = time();
-  $sql = "SELECT * FROM  `mdl_reservations` WHERE `date` <=" . $cur . " AND  `end_date` >=" . $cur . " AND `owner_id`=" . $user;
+  $curr = time();
+  $select = "date <= ".$curr." AND  end_date >= ".$curr." AND owner_id = ".$user;
 
-  return $DB->get_records_sql($sql);
+  return $DB->get_records_select("reservations", $select);
 }
 
-function find_reservation_by_date($date) {
+/**
+ * Find if a reservation can be created by the user for a given laboratory
+ */
+function can_create_reservation($lab_id, $date, $end_date) {
   global $DB;
 
-  $record = $DB->get_record("reservations", array("date" => $date));
+  $user = current_user_id(); 
 
-  return ($record != false);
+  // Check if the user or the lab is already reserved in that date
+  $select = "(equipment_id = ".$lab_id." OR owner_id = ".$user.")";
+
+  // Check for date collision
+  $select .= " AND ((date <= ".$date." AND end_date > ".$date.")";
+  $select .= "   OR (date < ".$end_date." AND end_date >= ".$end_date."))";
+
+  $exists = $DB->record_exists_select("reservations", $select);
+
+  return (!$exists);
 }
 
-function find_reservations_for($user_id) {
+function find_reservations_for($user) {
   global $DB;
-  $cur = time();
-  $sql = "SELECT * FROM  `mdl_reservations` WHERE `owner_id`=" . $user_id . " AND `date` >=" . $cur . " ORDER BY `date`";
+  
+  $sql = "SELECT * FROM  mdl_reservations WHERE owner_id = ".$user." AND date >= ".time()." ORDER BY date";
 
   return $DB->get_records_sql($sql);
-
 }
 
 function find_reservation($id) {
@@ -167,25 +178,33 @@ function current_user_id() {
   return $USER->id;
 }
 
+/**
+ * Used for the labserver to check if a reservation is valid or not
+ */
 function auth_user($username, $pass, $res_id) {
   global $DB;
   // The user is in the database?
-  if (!$user = $DB->get_record("user", array("username" => $username)))
+  if (!$user = $DB->get_record("user", array("username" => $username))) {
     return false;
+  }
   // The reservation exists?
   $reservation = find_reservation($res_id);
-  if (!$reservation)
+  if (!$reservation) {
     return false;
+  }
   // The user is the owner of the reservation?
-  if ($user->id != $res->owner_id)
+  if ($user->id != $reservation->owner_id) {
     return false;
+  }
   // The password is correct for that user?
-  if ($user->password != $pass)
+  if ($user->password != $pass) {
     return false;
+  }
   // The reservation is active right now?
   $current_date = time();
-  if (($current_date < $res->date)||($current_date > $res->end_date))
+  if (($current_date < $reservation->date)||($current_date > $reservation->end_date)) {
     return false;
+  }
   // If all the conditions are true
   return true;
 }
@@ -206,6 +225,9 @@ function humanize_date($date) {
   return date("d-m-Y, g:i a", $date);
 }
 
+/**
+ * Returns the remaining minutes of a reservation
+ */
 function reservation_remaining_time($reservation) {
   $current_date = time();
   $end_date = $reservation->end_date;

@@ -14,24 +14,26 @@ $month = $_POST["month"];
 $year = $_POST["year"];
 $date = mktime($_POST["hour"], 0, 0, $_POST["month"], $_POST["day"], $_POST["year"]);
 $duration = $_POST["duration"];
-// TODO Revisar que la hora + duracion no supere el día
+// TODO: Check that the hour + duration don't go beyond the day
 $end_date = mktime($_POST["hour"] + (int)$duration, ($duration-(int)$duration)*60, 0, $_POST["month"], $_POST["day"], $_POST["year"]);
 
 
 $lab_id = $_POST["laboratory_id"];
 $experiment = $_POST["experiment_id"];
 
-if (find_reservation_by_date($date)) {
-  echo "Ya existe una reserva en esta hora";
-  echo "<br/><a href='index.php'>Volver</a>";
+if (can_create_reservation($lab_id, $date, $end_date)) {
+  if (create_reservation($lab_id, $experiment, $date, $end_date, $duration, 1, 1)) {
+    echo "Se cre&oacute; la reserva.";
+    echo "<br/><br/><a href='index.php'>Volver</a>";
+  }
+  else {
+    echo "Error: no se pudo crear la reserva.";
+  }
 }
 else {
-  if (create_reservation($lab_id, $experiment, $date, $end_date, $duration, 1, 1)) {
-    echo "Se creó la reserva.";
-    echo "<br/><br/><a href='index.php'>Volver</a>";
-  } else {
-    echo "Error creando la reserva";
-  }
+  echo "<h2>No se puede reservar a esta hora</h2>";
+  echo "<p>No puede reservar a esta hora, ya sea porque el laboratorio ya se encuentra reservado o porque ya tiene una reserva en otro laboratorio a la misma hora.</p>";
+  echo "<br/><a href='index.php'>Volver</a>";
 }
 
 echo $OUTPUT->footer();

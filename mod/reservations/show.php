@@ -58,11 +58,14 @@ else {
   $end_date = $reservation->end_date;
   $date = time();
   if ($begin_date > $date || $date > $end_date) {
-    echo "<h2>Reserva: Problemas con la fecha</h2>";
-    if ($begin_date > $date)
-      echo "<p>A&uacute;n no es tiempo para esta reserva. Ingrese </p>";
-    if ($date > $end_date)
-      echo "<p>La reserva ya expir&oacute;. Realice una nueva reserva de ser necesario.</p>";
+    if ($begin_date > $date) {
+      echo "<h2>A&uacute;n no es tiempo para esta reserva</h2>";
+      echo "<p>La reserva a la que est&aacute; intentando acceder est&aacute; programada para m&aacute;s tarde,<br/>por favor ingrese nuevamente en el horario escogido.</p>";
+    }
+    if ($date > $end_date) {
+      echo "<h2>El tiempo para esta reserva termin&oacute;</h2>";
+      echo "<p>La reserva a la que est&aacute; intentando acceder ha expirado,<br/>por favor realice una nueva reserva de ser necesario.</p>";
+    }
     echo $OUTPUT->footer();
     exit();
   }
