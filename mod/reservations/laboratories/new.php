@@ -21,11 +21,15 @@ require_logged_user();
 <form enctype="multipart/form-data" action="create.php" method="POST">
   <p>
     <em>Nombre del laboratorio:</em>
-    <input type="text" name="name" class="long" value="" />
+    <input type="text" name="name" class="long" value="" required="required"/>
   </p>
-
   <p>
-    <em>Descripción:</em> (Menos de 2.000 caracteres)
+    <em>Duraci&oacute;n m&aacute;xima de los experimentos:</em>
+    <input type="number" name="max_duration" min="1" max="720" value="4" size="3" maxlength="3" style="text-align:center" required="required"/>
+    &nbsp;horas
+  </p>
+  <p>
+    <em>Descripci&oacute;n:</em> (Menos de 2.000 caracteres)
     <br/>
     <textarea rows="8" cols="60" name="description"></textarea>
   </p>

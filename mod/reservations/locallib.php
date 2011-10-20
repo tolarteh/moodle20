@@ -60,9 +60,9 @@ function select_for_hours() {
   echo "</select>";
 }
 
-function select_for_duration() {
-  echo "<select name='duration'>Duración</option>";
-  for ($i = 1; $i <= 2; $i++) {
+function select_for_duration($max_duration) {
+  echo "<select name='duration'>Duraci&oacute;n</option>";
+  for ($i = 1; $i <= $max_duration; $i++) {
     echo "<option value='" . $i . "'>" . $i . "</option>";
   }
   echo "</select>";

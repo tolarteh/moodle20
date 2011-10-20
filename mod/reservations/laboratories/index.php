@@ -29,8 +29,9 @@ if (isset($_GET["laboratory_id"])) {
       <a class="lab-nav" href="../new.php?laboratory_id=<?php echo $lab->id; ?>">Reservar</a>
       <a class="lab-nav" href="../experiments/index.php?laboratory_id=<?php echo $lab->id; ?>">Ver Experimentos</a>
       <?php
-      if (has_capability("mod/reservations:delete_laboratory", $context)) { ?>
-           <a class='lab-nav' href='delete.php?laboratory_id=<?php echo $lab->id; ?>'><i>Eliminar</i></a>
+      if (has_capability("mod/reservations:delete_laboratory", $context)) { 
+      ?>
+      <a class='lab-nav' href='delete.php?laboratory_id=<?php echo $lab->id; ?>' onclick='return confirm("Una vez borrado el laboratorio no se puede recuperar. Seguro que desea elminar el laboratorio?")'><em>Eliminar</em></a>
       <?php
       }
     } ?>

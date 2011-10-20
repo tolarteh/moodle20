@@ -15,30 +15,34 @@ echo $OUTPUT->header();
 require_logged_user();
 
 $name = $_POST["name"];
+$max_duration = $_POST["max_duration"];
 $description = $_POST["description"];
-if ($name && $description) { 
+if ($name) { 
   if (!(has_capability("mod/reservations:create_laboratory", $context))) {
-    echo "No está autorizado para crear laboratorios";
+    echo "No est&aacute; autorizado para crear laboratorios";
   }
-
-  else if ($lab = Laboratory::create($name, $description)){
-    echo "El laboratorio se creó exitosamente.<br/>";
-    echo "<a href='index.php'>Haga click aquí</a> para regresar.";
+  else if ($lab = Laboratory::create($name, $max_duration, $description)){
+    echo "El laboratorio se cre&oacute; exitosamente.<br/>";
+    echo "<a href='index.php'>Haga click aqu&iacute;</a> para regresar.";
   } else {
     echo "No se pudo crear el laboratorio";
   }
 
 } else {
-  echo "<p class='notice'>Ambos campos son obligatorios</p>";
+  echo "<p class='notice'>El nombre y la duraci&oacute;n son obligatorios</p>";
 ?>
   <form enctype="multipart/form-data" action="create.php" method="POST">
   <p>
     <em>Nombre del laboratorio:</em><br/>
-    <input type="text" name="name" class="long" value="" />
+    <input type="text" name="name" class="long" value="" required="required" />
   </p>
-
   <p>
-    <em>Descripción:</em>
+    <em>Duracion maxima de los experimentos:</em>
+    <input type="number" name="max_duration" min="1" max="720" value="4" size="3" maxlength="3" style="text-align:center" required="required"/>
+    &nbsp;horas
+  </p>
+  <p>
+    <em>Descripci&oacute;n:</em>
     <br/>
     <textarea rows="8" cols="60" name="description"></textarea>
   </p>
@@ -49,6 +53,5 @@ if ($name && $description) {
 </form>
 <?php
 }
-
   echo $OUTPUT->footer();
 ?>

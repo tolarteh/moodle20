@@ -67,8 +67,9 @@
     <TABLE NAME="laboratories" COMMENT="Labs" PREVIOUS="experiments">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="true" NEXT="name"/>
-        <FIELD NAME="name" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" PREVIOUS="id" NEXT="description"/>
-        <FIELD NAME="description" TYPE="char" LENGTH="2000" NOTNULL="false" SEQUENCE="false" PREVIOUS="name"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" PREVIOUS="id" NEXT="max_duration"/>
+        <FIELD NAME="max_duration" TYPE="int" NOTNULL="true" UNSIGNED="false" SEQUENCE="false" PREVIOUS="name" NEXT="description"/>
+        <FIELD NAME="description" TYPE="char" LENGTH="2000" NOTNULL="false" SEQUENCE="false" PREVIOUS="max_duration"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

@@ -5,16 +5,18 @@ require_once(dirname(__FILE__).'/experiment.php');
 class Laboratory {
   var $id;
   var $name;
+  var $max_duration;
   var $description;
 
-  function Laboratory($id, $name, $description) {
+  function Laboratory($id, $name, $max_duration, $description) {
     $this->id = $id;
     $this->name = (string) $name;
+    $this->max_duration = $max_duration;
     $this->description = (string) $description;
   }
 
   static function db_obj_to_laboratory($record) {
-    return new Laboratory($record->id, $record->name, $record->description);
+    return new Laboratory($record->id, $record->name, $record->max_duration, $record->description);
   }
 
   static function find_all() {
@@ -48,7 +50,7 @@ class Laboratory {
     return Laboratory::db_obj_to_laboratory($record);
   }
 
-  static function create($name, $description) {
+  static function create($name, $max_duration, $description) {
     global $DB;
     /* Dirty hack: we can't insert a Laboratory object in the first place
        since it contains an ID field. We'll create a tmp object, feed that
@@ -56,9 +58,10 @@ class Laboratory {
        returned by the insert statement. */
     $tmp = new object();
     $tmp->name = $name;
+    $tmp->max_duration = $max_duration;
     $tmp->description = $description;
     $id = $DB->insert_record("laboratories", $tmp);
-    return new Laboratory($id, $name, $description);
+    return new Laboratory($id, $name, $max_duration, $description);
   }
 
   function update() {
@@ -74,5 +77,4 @@ class Laboratory {
     return false;
   }
 }
-
 ?>

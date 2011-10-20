@@ -21,7 +21,7 @@ if (isguestuser() or !isloggedin()) {
 $laboratory = Laboratory::find_by_id($_GET["laboratory_id"]);
 ?>
 
-<h2>Reservar Laboratorio: <?php echo $laboratory-> name ?></h2>
+<h2>Reservar Laboratorio: <?php echo $laboratory->name ?></h2>
 <h3>Seleccione un horario:</h3>
 <form action="reservation.php" method="POST" class="reservation">
   <div>
@@ -42,7 +42,7 @@ select_for_hours();
     <p>
       <em>Duraci&oacute;n:</em>
 <?php
-select_for_duration();
+select_for_duration($laboratory->max_duration);
 ?> horas
     </p>
 
