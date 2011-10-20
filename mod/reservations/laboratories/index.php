@@ -27,7 +27,7 @@ if (isset($_GET["laboratory_id"])) {
     <?php
     if (isloggedin() and !isguestuser()) { ?>
       <a class="lab-nav" href="../new.php?laboratory_id=<?php echo $lab->id; ?>">Reservar</a>
-      <a class="lab-nav" href="../experiments/index.php?laboratory_id=<?php echo $lab->id; ?>">Ver Experimentos</a>
+      <a class="lab-nav" href="../experiments/index.php?laboratory_id=<?php echo $lab->id; ?>">Ver Contenidos</a>
       <?php
       if (has_capability("mod/reservations:delete_laboratory", $context)) { 
       ?>
