@@ -18,7 +18,7 @@ echo $OUTPUT->doctype(); ?>
           <ul class="botones-subportales">
             <li><a href="http://www.eafit.edu.co/investigacion">Investigación</a></li>
       <li><a href="http://www.eafit.edu.co/cice">Cice</a></li>
-      <li><a href="http://www.eafit.edu.co/cec">Educación Continua</a></li>
+      <li><a href="http://www.eafit.edu.co/cec">Educaci&oacute;n Continua</a></li>
       <li><a href="http://www.eafit.edu.co/idiomas">Idiomas</a></li>
             <li><a href="http://www.eafit.edu.co/cultura">Cultura</a></li>
             <li><a href="http://www.eafit.edu.co/biblioteca">Biblioteca</a></li>
@@ -34,9 +34,9 @@ echo $OUTPUT->doctype(); ?>
     <div class="nav">
       <ul>
         <li><?php link_to("Inicio", "");?></li>
-        <li><?php link_to("Laboratorios", "mod/reservations/laboratories");?></li>
         <li><?php link_to("Reservas", "mod/reservations");?></li>
-        <li><?php link_to("Acerca del Proyecto", "mod/reservations/info");?></li>
+        <li><?php link_to("Laboratorios", "mod/reservations/laboratories");?></li>
+        <li><?php link_to("Acerca del proyecto", "mod/reservations/info");?></li>
         <li><?php
             if (current_user_id() == 0) {
               link_to("Ingresar", "login/");
